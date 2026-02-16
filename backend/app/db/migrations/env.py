@@ -6,7 +6,12 @@ Configures the migration environment for database schema management.
 
 import asyncio
 import os
+import sys
 from logging.config import fileConfig
+
+# Add the parent directory to Python path so 'app' can be imported
+# This is needed when running in Docker at /app
+sys.path.insert(0, '/app')
 
 from sqlalchemy import pool, text
 from sqlalchemy.engine import Connection
