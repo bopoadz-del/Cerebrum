@@ -17,7 +17,7 @@ import { queryClient } from './lib/queryClient'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { AuthProvider } from './contexts/AuthContext'
 import { router } from './router'
-import { initSentry } from './lib/sentry.tsx'
+import { initSentry } from './lib/sentry'
 
 import './index.css'
 
