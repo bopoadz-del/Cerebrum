@@ -7,7 +7,7 @@
 # Stage 1: Builder
 # Installs dependencies and builds application
 # -----------------------------------------------------------------------------
-FROM python:3.11-slim as builder
+FROM python:3.11-slim AS builder
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -34,7 +34,7 @@ RUN pip install --upgrade pip && \
 # Stage 2: Runtime
 # Minimal runtime image with only necessary dependencies
 # -----------------------------------------------------------------------------
-FROM python:3.11-slim as runtime
+FROM python:3.11-slim AS runtime
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
