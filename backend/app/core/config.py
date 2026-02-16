@@ -234,6 +234,26 @@ class Settings(BaseSettings):
     FEATURE_API_KEYS: bool = Field(default=True, description="Enable API keys")
     
     # =================================================================
+    # Compatibility & Stub Mode Settings
+    # =================================================================
+    USE_STUB_CONNECTORS: bool = Field(
+        default=True,
+        description="Use stub implementations for external connectors (safe for dev/testing)",
+    )
+    USE_STUB_ML: bool = Field(
+        default=True,
+        description="Use stub ML models when real models unavailable",
+    )
+    USE_STUB_NOTIFICATIONS: bool = Field(
+        default=True,
+        description="Use stub notification services (log only, don't send)",
+    )
+    STUB_FALLBACK_ENABLED: bool = Field(
+        default=True,
+        description="Enable graceful fallback to stubs when services fail",
+    )
+    
+    # =================================================================
     # Testing Settings
     # =================================================================
     TEST_DATABASE_URL: Optional[str] = Field(
