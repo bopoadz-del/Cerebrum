@@ -1,0 +1,72 @@
+name: Regenerate Frontend Lockfile
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Run weekly on Sundays at 02:00 UTC
+    - cron: '0 2 * * 0'
+
+permissions:
+  contents: write
+
+jobs:
+  regenerate-lockfile:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Remove old lockfile
+        run: |
+          if [ -f package-lock.json ]; then
+            rm package-lock.json
+            echo "Removed old package-lock.json"
+          else
+            echo "No package-lock.json found"
+          fi
+
+      - name: Regenerate lockfile
+        run: |
+          if [ -f package.json ]; then
+            npm install --package-lock-only
+            echo "Lockfile regenerated successfully"
+          else
+            echo "No package.json found - skipping"
+            exit 0
+          fi
+
+      - name: Check for changes
+        id: check-changes
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "changes=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and push changes
+        if: steps.check-changes.outputs.changes == 'true'
+        run: |
+          git add package-lock.json
+          git commit -m "chore(frontend): regenerate package-lock.json
+
+          Automated lockfile regeneration to update dependencies."
+          git push

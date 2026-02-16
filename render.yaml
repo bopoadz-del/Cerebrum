@@ -35,7 +35,8 @@ services:
       - key: PDP_ENABLED
         value: "false"
     healthCheckPath: /health/live
-    initialDelaySeconds: 30
+    initialDelaySeconds: 45
+    # Increased delay to allow migrations + Redis check + app startup
     dockerCommand: bash scripts/render_start.sh
     autoDeploy: true
 
@@ -176,11 +177,21 @@ services:
     autoDeploy: true
 
   # Frontend (Static Site)
+  # Note: Currently serves landing page. When switching to full Vite build:
+  # 1. Change staticPublishPath to ./frontend/dist
+  # 2. Change buildCommand to: cd frontend && npm ci && npm run build
+  # 3. The VITE_API_BASE_URL will be injected at build time
   - type: web
     name: cerebrum-frontend
     runtime: static
     buildCommand: true
     staticPublishPath: landing
+    envVars:
+      - key: VITE_API_BASE_URL
+        fromService:
+          type: web
+          name: cerebrum-api
+          property: url
     autoDeploy: true
 
   # KeyValue (Redis) Service
