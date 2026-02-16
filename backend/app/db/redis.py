@@ -181,7 +181,13 @@ class RedisCache:
         Args:
             redis_client: Redis client, uses cache Redis if not provided
         """
-        self._redis = redis_client or get_cache_redis()
+        self._redis = redis_client
+    
+    def _get_redis(self) -> Redis:
+        """Get Redis client, initializing from manager if not provided."""
+        if self._redis is None:
+            self._redis = get_cache_redis()
+        return self._redis
     
     async def get(self, key: str) -> Optional[Any]:
         """
@@ -194,7 +200,7 @@ class RedisCache:
             Cached value or None
         """
         try:
-            value = await self._redis.get(key)
+            value = await self._get_redis().get(key)
             if value:
                 return json.loads(value)
             return None
@@ -222,9 +228,9 @@ class RedisCache:
         try:
             serialized = json.dumps(value, default=str)
             if ttl:
-                await self._redis.setex(key, ttl, serialized)
+                await self._get_redis().setex(key, ttl, serialized)
             else:
-                await self._redis.set(key, serialized)
+                await self._get_redis().set(key, serialized)
             return True
         except RedisError as e:
             logger.warning("Cache set failed", key=key, error=str(e))
@@ -241,7 +247,7 @@ class RedisCache:
             True if successful
         """
         try:
-            await self._redis.delete(key)
+            await self._get_redis().delete(key)
             return True
         except RedisError as e:
             logger.warning("Cache delete failed", key=key, error=str(e))
@@ -258,7 +264,7 @@ class RedisCache:
             True if key exists
         """
         try:
-            return bool(await self._redis.exists(key))
+            return bool(await self._get_redis().exists(key))
         except RedisError:
             return False
     
@@ -273,9 +279,9 @@ class RedisCache:
             Number of keys deleted
         """
         try:
-            keys = await self._redis.keys(pattern)
+            keys = await self._get_redis().keys(pattern)
             if keys:
-                return await self._redis.delete(*keys)
+                return await self._get_redis().delete(*keys)
             return 0
         except RedisError as e:
             logger.warning("Cache clear failed", pattern=pattern, error=str(e))
@@ -298,7 +304,13 @@ class RedisQueue:
             redis_client: Redis client, uses queue Redis if not provided
         """
         self.name = name
-        self._redis = redis_client or get_queue_redis()
+        self._redis = redis_client
+    
+    def _get_redis(self) -> Redis:
+        """Get Redis client, initializing from manager if not provided."""
+        if self._redis is None:
+            self._redis = get_queue_redis()
+        return self._redis
     
     async def push(self, item: dict) -> bool:
         """
@@ -311,7 +323,7 @@ class RedisQueue:
             True if successful
         """
         try:
-            await self._redis.lpush(self.name, json.dumps(item, default=str))
+            await self._get_redis().lpush(self.name, json.dumps(item, default=str))
             return True
         except RedisError as e:
             logger.error("Queue push failed", queue=self.name, error=str(e))
@@ -329,12 +341,12 @@ class RedisQueue:
         """
         try:
             if timeout > 0:
-                result = await self._redis.brpop(self.name, timeout=timeout)
+                result = await self._get_redis().brpop(self.name, timeout=timeout)
                 if result:
                     return json.loads(result[1])
                 return None
             else:
-                result = await self._redis.rpop(self.name)
+                result = await self._get_redis().rpop(self.name)
                 if result:
                     return json.loads(result)
                 return None
@@ -350,7 +362,7 @@ class RedisQueue:
             Number of items in queue
         """
         try:
-            return await self._redis.llen(self.name)
+            return await self._get_redis().llen(self.name)
         except RedisError:
             return 0
 
