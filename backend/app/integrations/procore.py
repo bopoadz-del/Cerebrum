@@ -10,6 +10,7 @@ import uuid
 from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, Text, Integer
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Session
+from app.db.base_class import Base
 from pydantic import BaseModel, Field
 from fastapi import HTTPException
 import requests
