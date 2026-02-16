@@ -252,9 +252,9 @@ class CostCode(Base):
     rsmeans_code = Column(String(50))
     unit = Column(String(50))
     
-    # Metadata
+    # Custom metadata
     is_active = Column(Boolean, default=True)
-    metadata = Column(JSONB, default=dict)
+    custom_metadata = Column(JSONB, default=dict)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships

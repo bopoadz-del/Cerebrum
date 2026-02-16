@@ -136,8 +136,8 @@ class UserActivityEvent(Base):
     page_url = Column(String(500), nullable=True)
     feature_used = Column(String(100), nullable=True)
     
-    # Metadata
-    metadata = Column(JSONB, default=dict)
+    # Custom metadata
+    custom_metadata = Column(JSONB, default=dict)
     session_id = Column(String(255), nullable=True)
     
     created_at = Column(DateTime, default=datetime.utcnow)

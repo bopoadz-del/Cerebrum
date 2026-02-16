@@ -117,9 +117,9 @@ class Tenant(Base):
     usage_limits = Column(JSONB, default=dict)
     current_usage = Column(JSONB, default=dict)
     
-    # Metadata
+    # Custom metadata
     settings = Column(JSONB, default=dict)
-    metadata = Column(JSONB, default=dict)
+    custom_metadata = Column(JSONB, default=dict)
     
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)

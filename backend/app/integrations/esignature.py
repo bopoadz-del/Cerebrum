@@ -104,8 +104,8 @@ class SignatureEnvelope(Base):
     completed_at = Column(DateTime, nullable=True)
     expires_at = Column(DateTime, nullable=True)
     
-    # Metadata
-    metadata = Column(JSONB, default=dict)
+    # Custom metadata
+    custom_metadata = Column(JSONB, default=dict)
     
     created_by = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
