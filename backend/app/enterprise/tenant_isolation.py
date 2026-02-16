@@ -25,8 +25,8 @@ from app.db.base_class import Base
 from app.core.deps import get_db
 from app.core.config import settings
 
-# Get secret key from settings
-SECRET_KEY = getattr(settings, 'SECRET_KEY', 'changeme')
+# Get secret key from settings - must be configured
+SECRET_KEY = settings.SECRET_KEY
 
 # Context variable for current tenant
 tenant_context: ContextVar[Optional[str]] = ContextVar('tenant_context', default=None)

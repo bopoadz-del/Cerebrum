@@ -16,17 +16,7 @@ from fastapi import HTTPException
 from enum import Enum
 
 from app.enterprise.tenant_isolation import Tenant
-
-
-# Placeholder Document model for aggregation queries
-class Document(Base):
-    """Placeholder Document model for analytics"""
-    __tablename__ = 'documents'
-    __table_args__ = {'extend_existing': True}
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    tenant_id = Column(UUID(as_uuid=True), ForeignKey('tenants.id'), nullable=False)
-    name = Column(String(255), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+from app.enterprise.graphql import Document
 
 
 class MetricType(str, Enum):
