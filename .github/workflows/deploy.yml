@@ -152,7 +152,7 @@ jobs:
           curl -f https://cerebrum.ai/health/ready || exit 1
 
       - name: Notify on success
-        if: success() && secrets.SLACK_WEBHOOK_URL != ''
+        if: success()
         uses: slackapi/slack-github-action@v2
         with:
           webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
@@ -170,9 +170,10 @@ jobs:
                 }
               ]
             }
+        continue-on-error: true
 
       - name: Notify on failure
-        if: failure() && secrets.SLACK_WEBHOOK_URL != ''
+        if: failure()
         uses: slackapi/slack-github-action@v2
         with:
           webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
@@ -190,6 +191,7 @@ jobs:
                 }
               ]
             }
+        continue-on-error: true
 
   # ---------------------------------------------------------------------------
   # Smoke Tests
@@ -238,7 +240,6 @@ jobs:
           # This would typically involve deploying the previous image tag
 
       - name: Notify rollback
-        if: secrets.SLACK_WEBHOOK_URL != ''
         uses: slackapi/slack-github-action@v2
         with:
           webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
@@ -256,3 +257,4 @@ jobs:
                 }
               ]
             }
+        continue-on-error: true

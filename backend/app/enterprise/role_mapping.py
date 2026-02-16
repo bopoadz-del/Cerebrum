@@ -94,7 +94,8 @@ class EnterpriseRole(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
-# Alias for backward compatibility
+# Alias for backward compatibility with code that imports Role from this module
+# The Role class is the same as EnterpriseRole - code using Role will get EnterpriseRole
 Role = EnterpriseRole
 
 
