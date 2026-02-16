@@ -1,0 +1,145 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: cerebrum-postgres
+    environment:
+      POSTGRES_USER: cerebrum
+      POSTGRES_PASSWORD: cerebrum_password
+      POSTGRES_DB: cerebrum
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cerebrum"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache & Queue
+  redis:
+    image: redis:7-alpine
+    container_name: cerebrum-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cerebrum-backend
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://cerebrum:cerebrum_password@postgres:5432/cerebrum
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=your-secret-key-change-in-production
+      - DEBUG=true
+      - CORS_ORIGINS=http://localhost:5173,http://localhost:3000
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - /app/__pycache__
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Celery Worker - Fast Queue
+  worker-fast:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cerebrum-worker-fast
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://cerebrum:cerebrum_password@postgres:5432/cerebrum
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=your-secret-key-change-in-production
+    volumes:
+      - ./backend:/app
+      - /app/__pycache__
+    depends_on:
+      - postgres
+      - redis
+    command: celery -A app.workers.celery_config worker --loglevel=info -Q celery_fast -n fast_worker@%h
+
+  # Celery Worker - Slow Queue
+  worker-slow:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cerebrum-worker-slow
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://cerebrum:cerebrum_password@postgres:5432/cerebrum
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=your-secret-key-change-in-production
+    volumes:
+      - ./backend:/app
+      - /app/__pycache__
+    depends_on:
+      - postgres
+      - redis
+    command: celery -A app.workers.celery_config worker --loglevel=info -Q celery_slow -n slow_worker@%h
+
+  # Celery Beat Scheduler
+  scheduler:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cerebrum-scheduler
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://cerebrum:cerebrum_password@postgres:5432/cerebrum
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=your-secret-key-change-in-production
+    volumes:
+      - ./backend:/app
+      - /app/__pycache__
+    depends_on:
+      - postgres
+      - redis
+    command: celery -A app.workers.celery_config beat --loglevel=info
+
+  # Flower Monitoring
+  flower:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cerebrum-flower
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    ports:
+      - "5555:5555"
+    depends_on:
+      - redis
+    command: celery -A app.workers.celery_config flower --port=5555
+
+  # Frontend (Development Mode)
+  frontend:
+    image: node:18-alpine
+    container_name: cerebrum-frontend
+    working_dir: /app
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: sh -c "npm install && npm run dev -- --host"
+
+volumes:
+  postgres_data:
+  redis_data:

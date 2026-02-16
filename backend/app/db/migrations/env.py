@@ -1,0 +1,101 @@
+"""
+Alembic Migration Environment
+
+Configures the migration environment for database schema management.
+"""
+
+import asyncio
+import os
+from logging.config import fileConfig
+
+from sqlalchemy import pool, text
+from sqlalchemy.engine import Connection
+from sqlalchemy.ext.asyncio import async_engine_from_config
+
+from alembic import context
+
+from app.core.config import settings
+from app.db.base_class import Base
+
+# this is the Alembic Config object
+config = context.config
+
+# Interpret the config file for Python logging
+if config.config_file_name is not None:
+    fileConfig(config.config_file_name)
+
+# add your model's MetaData object here for 'autogenerate' support
+# Import all models here so they are registered with Base.metadata
+from app.models.user import User  # noqa
+from app.models.audit import AuditLog  # noqa
+
+target_metadata = Base.metadata
+
+# Get database URL from settings
+def get_url():
+    # Use the async driver URL so Alembic can run via asyncpg in production
+    return settings.async_database_url
+
+
+def run_migrations_offline() -> None:
+    """Run migrations in 'offline' mode."""
+    url = get_url()
+    context.configure(
+        url=url,
+        target_metadata=target_metadata,
+        literal_binds=True,
+        dialect_opts={"paramstyle": "named"},
+    )
+
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+def do_run_migrations(connection: Connection) -> None:
+    """Execute migrations with a session-scoped advisory lock."""
+    lock_id = int(os.getenv('MIGRATION_LOCK_ID', '987654321'))
+    try:
+        # Hold the lock for the lifetime of this Alembic connection (prevents race on multi-instance deploy)
+        connection.execute(text('SELECT pg_advisory_lock(:id)'), {'id': lock_id})
+
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            compare_type=True,
+            compare_server_default=True,
+        )
+
+        with context.begin_transaction():
+            context.run_migrations()
+    finally:
+        try:
+            connection.execute(text('SELECT pg_advisory_unlock(:id)'), {'id': lock_id})
+        except Exception:
+            pass
+
+async def run_async_migrations() -> None:
+    """Run migrations in async mode."""
+    configuration = config.get_section(config.config_ini_section)
+    configuration["sqlalchemy.url"] = get_url()
+    
+    connectable = async_engine_from_config(
+        configuration,
+        prefix="sqlalchemy.",
+        poolclass=pool.NullPool,
+    )
+
+    async with connectable.connect() as connection:
+        await connection.run_sync(do_run_migrations)
+
+    await connectable.dispose()
+
+
+def run_migrations_online() -> None:
+    """Run migrations in 'online' mode."""
+    asyncio.run(run_async_migrations())
+
+
+if context.is_offline_mode():
+    run_migrations_offline()
+else:
+    run_migrations_online()

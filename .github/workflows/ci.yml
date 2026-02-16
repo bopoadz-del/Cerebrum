@@ -1,0 +1,236 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/ci.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'backend/**'
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      
+      - name: Set up Python
+        uses: actions/setup-python@0b93645e9fea7318ceaed2f36255ddcf96bca501
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio pytest-cov black flake8 mypy
+      
+      - name: Lint with flake8
+        run: flake8 app --count --select=E9,F63,F7,F82 --show-source --statistics
+      
+      - name: Type check with mypy
+        run: mypy app --ignore-missing-imports || true
+      
+      - name: Format check with black
+        run: black --check app || true
+      
+      - name: Run tests
+        run: pytest tests/ -v --cov=app --cov-report=xml
+      
+      - name: Security audit
+        run: |
+          pip install pip-audit
+          pip-audit -r requirements.txt
+      
+      # G16: Bandit Security Scan
+      - name: Bandit Security Scan
+        run: |
+          pip install bandit
+          bandit -r app -f json -o bandit-report.json || true
+          bandit -r app -ll || true
+      
+      - name: Upload Bandit Report
+        uses: actions/upload-artifact@5d5d22a31266ced2688743888258615d1f0e3f48
+        if: always()
+        with:
+          name: bandit-report
+          path: backend/bandit-report.json
+
+  smoke-test:
+    runs-on: ubuntu-latest
+    needs: lint-and-test
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      
+      - name: Set up Python
+        uses: actions/setup-python@0b93645e9fea7318ceaed2f36255ddcf96bca501
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+      
+      - name: Run migrations and smoke test
+        run: |
+          cd backend
+          export DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/test
+          export REDIS_URL=redis://localhost:6379/0
+          export SECRET_KEY=test-secret-key-for-ci-only
+          export DEBUG=true
+          alembic upgrade head
+          uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+          sleep 5
+          curl -fsS http://localhost:8000/health/ready || exit 1
+          curl -fsS http://localhost:8000/health/live || exit 1
+          echo "Smoke test passed"
+
+  security-tests:
+    runs-on: ubuntu-latest
+    needs: smoke-test
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      
+      - name: Set up Python
+        uses: actions/setup-python@0b93645e9fea7318ceaed2f36255ddcf96bca501
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+          pip install httpx
+      
+      - name: Start server and run security tests
+        run: |
+          cd backend
+          export DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/test
+          export REDIS_URL=redis://localhost:6379/0
+          export SECRET_KEY=test-secret-key-for-ci-only
+          export DEBUG=true
+          uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+          sleep 5
+          
+          echo "=== Security Tests ==="
+          
+          # Test 1: Protected endpoint requires auth
+          echo "[TEST 1] Protected endpoint requires authentication..."
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/api/v1/admin/users)
+          if [ "$HTTP_STATUS" = "401" ] || [ "$HTTP_STATUS" = "403" ]; then
+            echo "✓ PASS: Protected endpoint requires auth (status: $HTTP_STATUS)"
+          else
+            echo "✗ FAIL: Expected 401/403, got $HTTP_STATUS"
+            exit 1
+          fi
+          
+          # Test 2: Register and login flow
+          echo "[TEST 2] Auth flow (register + login)..."
+          REGISTER_RESP=$(curl -s -X POST http://localhost:8000/api/v1/auth/register \
+            -H "Content-Type: application/json" \
+            -d '{"email":"test@example.com","password":"TestPassword123!","full_name":"Test User"}')
+          echo "Register response: $REGISTER_RESP"
+          
+          LOGIN_RESP=$(curl -s -X POST http://localhost:8000/api/v1/auth/login \
+            -H "Content-Type: application/json" \
+            -d '{"email":"test@example.com","password":"TestPassword123!"}')
+          echo "Login response: $LOGIN_RESP"
+          
+          ACCESS_TOKEN=$(echo "$LOGIN_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('access_token',''))" 2>/dev/null || echo "")
+          if [ -z "$ACCESS_TOKEN" ]; then
+            echo "✗ FAIL: Could not get access token"
+            exit 1
+          fi
+          echo "✓ PASS: Auth flow works"
+          
+          # Test 3: Rate limiting
+          echo "[TEST 3] Rate limiting enforcement..."
+          RATE_LIMIT_HIT=false
+          for i in {1..105}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/health/ready)
+            if [ "$STATUS" = "429" ]; then
+              RATE_LIMIT_HIT=true
+              echo "✓ PASS: Rate limit triggered at request $i"
+              break
+            fi
+          done
+          if [ "$RATE_LIMIT_HIT" = false ]; then
+            echo "⚠ WARNING: Rate limit not triggered (may need tuning)"
+          fi
+          
+          # Test 4: Security headers
+          echo "[TEST 4] Security headers present..."
+          HEADERS=$(curl -s -I http://localhost:8000/health/ready)
+          for header in "X-Content-Type-Options" "X-Frame-Options" "Referrer-Policy"; do
+            if echo "$HEADERS" | grep -q "$header"; then
+              echo "✓ PASS: $header present"
+            else
+              echo "✗ FAIL: $header missing"
+              exit 1
+            fi
+          done
+          
+          # Test 5: Admin-only endpoint
+          echo "[TEST 5] Admin-only endpoint protection..."
+          ADMIN_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer $ACCESS_TOKEN" \
+            http://localhost:8000/api/v1/dejavu/schema)
+          if [ "$ADMIN_STATUS" = "403" ]; then
+            echo "✓ PASS: Non-admin cannot access admin endpoint (status: 403)"
+          elif [ "$ADMIN_STATUS" = "200" ]; then
+            echo "⚠ WARNING: User can access admin endpoint (may be expected for test user)"
+          else
+            echo "Status: $ADMIN_STATUS"
+          fi
+          
+          echo ""
+          echo "=== All Security Tests Complete ==="

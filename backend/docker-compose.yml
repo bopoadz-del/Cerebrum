@@ -1,0 +1,189 @@
+# =============================================================================
+# Cerebrum AI Platform - Development Docker Compose
+# =============================================================================
+
+version: "3.8"
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL Database
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: cerebrum-postgres
+    environment:
+      POSTGRES_USER: ${DB_USER:-cerebrum}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-cerebrum_password}
+      POSTGRES_DB: ${DB_NAME:-cerebrum}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-cerebrum} -d ${DB_NAME:-cerebrum}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cerebrum-network
+
+  # ---------------------------------------------------------------------------
+  # Redis - Multi-instance setup
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: cerebrum-redis
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-}
+    volumes:
+      - redis_data:/data
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cerebrum-network
+
+  # ---------------------------------------------------------------------------
+  # PgBouncer - Connection Pooler
+  # ---------------------------------------------------------------------------
+  pgbouncer:
+    image: pgbouncer/pgbouncer:latest
+    container_name: cerebrum-pgbouncer
+    environment:
+      DATABASES_HOST: postgres
+      DATABASES_PORT: 5432
+      DATABASES_DATABASE: ${DB_NAME:-cerebrum}
+      DATABASES_USER: ${DB_USER:-cerebrum}
+      DATABASES_PASSWORD: ${DB_PASSWORD:-cerebrum_password}
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 1000
+      DEFAULT_POOL_SIZE: 20
+    ports:
+      - "6432:5432"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - cerebrum-network
+
+  # ---------------------------------------------------------------------------
+  # Application
+  # ---------------------------------------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: cerebrum-app
+    environment:
+      # Database
+      DATABASE_URL: postgresql+asyncpg://${DB_USER:-cerebrum}:${DB_PASSWORD:-cerebrum_password}@postgres:5432/${DB_NAME:-cerebrum}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-cerebrum}
+      DB_USER: ${DB_USER:-cerebrum}
+      DB_PASSWORD: ${DB_PASSWORD:-cerebrum_password}
+      
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      
+      # Security
+      SECRET_KEY: ${SECRET_KEY:-development-secret-key-change-in-production}
+      PASSWORD_PEPPER: ${PASSWORD_PEPPER:-}
+      
+      # Environment
+      ENVIRONMENT: development
+      DEBUG: "true"
+      LOG_LEVEL: DEBUG
+      
+      # Sentry (disabled in dev)
+      SENTRY_ENABLED: "false"
+      
+      # Features
+      FEATURE_MFA_ENABLED: "true"
+      FEATURE_AUDIT_LOGGING: "true"
+    ports:
+      - "${PORT:-8000}:8000"
+    volumes:
+      - ./app:/app/app:ro
+      - ./logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - cerebrum-network
+    command: >
+      uvicorn app.main:app
+      --host 0.0.0.0
+      --port 8000
+      --reload
+      --log-level debug
+
+  # ---------------------------------------------------------------------------
+  # Celery Worker (for background tasks)
+  # ---------------------------------------------------------------------------
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: cerebrum-worker
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${DB_USER:-cerebrum}:${DB_PASSWORD:-cerebrum_password}@postgres:5432/${DB_NAME:-cerebrum}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      SECRET_KEY: ${SECRET_KEY:-development-secret-key-change-in-production}
+      ENVIRONMENT: development
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - cerebrum-network
+    command: celery -A app.core.celery worker --loglevel=info
+
+  # ---------------------------------------------------------------------------
+  # Celery Beat (for scheduled tasks)
+  # ---------------------------------------------------------------------------
+  beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: cerebrum-beat
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${DB_USER:-cerebrum}:${DB_PASSWORD:-cerebrum_password}@postgres:5432/${DB_NAME:-cerebrum}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      SECRET_KEY: ${SECRET_KEY:-development-secret-key-change-in-production}
+      ENVIRONMENT: development
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - cerebrum-network
+    command: celery -A app.core.celery beat --loglevel=info
+
+# -----------------------------------------------------------------------------
+# Volumes
+# -----------------------------------------------------------------------------
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+# -----------------------------------------------------------------------------
+# Networks
+# -----------------------------------------------------------------------------
+networks:
+  cerebrum-network:
+    driver: bridge

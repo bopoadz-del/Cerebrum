@@ -1,0 +1,199 @@
+# Render Deployment Configuration
+# https://render.com/docs/blueprint-spec
+
+services:
+  # Backend API Service
+  - type: web
+    name: cerebrum-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: cerebrum-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: cerebrum-redis
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "false"
+      - key: ENVIRONMENT
+        value: "production"
+      - key: CORS_ORIGINS
+        value: "https://cerebrum-ai.vercel.app,https://cerebrum.ai"
+      - key: SENTRY_ENABLED
+        value: "true"
+      - key: SENTRY_ENVIRONMENT
+        value: "production"
+      - key: USE_STUB_CONNECTORS
+        value: "true"
+      - key: PDP_ENABLED
+        value: "false"
+    healthCheckPath: /health/live
+    initialDelaySeconds: 30
+    dockerCommand: bash scripts/render_start.sh
+    autoDeploy: true
+
+  # DB Backup Cron Job
+  - type: cron
+    name: db-backup
+    schedule: 0 2 * * *
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: cerebrum-db
+          property: connectionString
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: S3_BACKUP_BUCKET
+        value: cerebrum-db-backups
+      - key: BACKUP_RETENTION_DAYS
+        value: "30"
+    dockerCommand: |
+      sh -c '
+        set -euo pipefail
+        BACKUP_FILE="backup-$(date +%Y%m%d-%H%M%S).sql.gz"
+        echo "Starting backup: $BACKUP_FILE"
+        
+        # Create backup
+        pg_dump "$DATABASE_URL" | gzip > "/tmp/$BACKUP_FILE"
+        echo "Backup created: $(ls -lh /tmp/$BACKUP_FILE)"
+        
+        # F15: Upload to S3 with encryption if configured
+        if [ -n "${AWS_ACCESS_KEY_ID:-}" ] && [ -n "${AWS_SECRET_ACCESS_KEY:-}" ]; then
+          pip install awscli --quiet
+          
+          # Upload with server-side encryption (AES256) and IA storage class
+          aws s3 cp "/tmp/$BACKUP_FILE" "s3://$S3_BACKUP_BUCKET/backups/$BACKUP_FILE" \
+            --storage-class STANDARD_IA \
+            --sse AES256
+          
+          echo "Backup uploaded to S3 (encrypted): s3://$S3_BACKUP_BUCKET/backups/$BACKUP_FILE"
+          
+          # F14: Cleanup old backups (retention policy)
+          RETENTION_DAYS="${BACKUP_RETENTION_DAYS:-30}"
+          echo "Cleaning up backups older than $RETENTION_DAYS days..."
+          aws s3 ls "s3://$S3_BACKUP_BUCKET/backups/" | awk "{print \$4}" | while read -r OLD_BACKUP; do
+            BACKUP_DATE=$(echo "$OLD_BACKUP" | grep -oP "backup-\K[0-9]{8}" || true)
+            if [ -n "$BACKUP_DATE" ]; then
+              DAYS_OLD=$(( ( $(date +%s) - $(date -d "$BACKUP_DATE" +%s) ) / 86400 ))
+              if [ "$DAYS_OLD" -gt "$RETENTION_DAYS" ]; then
+                echo "Deleting old backup: $OLD_BACKUP ($DAYS_OLD days old)"
+                aws s3 rm "s3://$S3_BACKUP_BUCKET/backups/$OLD_BACKUP" || true
+              fi
+            fi
+          done
+        else
+          echo "WARNING: AWS credentials not configured. Backup saved locally only."
+          echo "To enable S3 backups, set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY"
+        fi
+        
+        # Cleanup local backup
+        rm -f "/tmp/$BACKUP_FILE"
+        echo "Backup process complete"
+      '
+
+  # Celery Worker - Fast Queue
+  - type: worker
+    name: cerebrum-worker-fast
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: cerebrum-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: cerebrum-redis
+          property: connectionString
+      - key: SECRET_KEY
+        fromService:
+          type: web
+          name: cerebrum-api
+          envVarKey: SECRET_KEY
+    dockerCommand: celery -A app.workers.celery_config worker --loglevel=info -Q celery_fast,trigger_events -n fast_worker@%h
+    autoDeploy: true
+
+  # Celery Worker - Slow Queue
+  - type: worker
+    name: cerebrum-worker-slow
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: cerebrum-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: cerebrum-redis
+          property: connectionString
+      - key: SECRET_KEY
+        fromService:
+          type: web
+          name: cerebrum-api
+          envVarKey: SECRET_KEY
+    dockerCommand: celery -A app.workers.celery_config worker --loglevel=info -Q celery_slow,trigger_events -n slow_worker@%h
+    autoDeploy: true
+
+  # Celery Beat Scheduler
+  - type: worker
+    name: cerebrum-scheduler
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: cerebrum-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: cerebrum-redis
+          property: connectionString
+      - key: SECRET_KEY
+        fromService:
+          type: web
+          name: cerebrum-api
+          envVarKey: SECRET_KEY
+    dockerCommand: celery -A app.workers.celery_config beat --loglevel=info
+    autoDeploy: true
+
+  # Frontend (Static Site)
+  - type: web
+    name: cerebrum-frontend
+    runtime: static
+    buildCommand: true
+    staticPublishPath: landing
+    autoDeploy: true
+
+  # KeyValue (Redis) Service
+  - type: keyvalue
+    name: cerebrum-redis
+    plan: starter
+    ipAllowList: []
+
+databases:
+  - name: cerebrum-db
+    databaseName: cerebrum
+    user: cerebrum
+    plan: basic-256mb
+    ipAllowList: []
+
+version: "1"

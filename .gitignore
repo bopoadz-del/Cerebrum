@@ -1,0 +1,11 @@
+.env
+.env.*
+__pycache__/
+*.pyc
+.venv/
+node_modules/
+frontend/dist/
+frontend/.vite/
+.DS_Store
+*.log
+zilqUxp5

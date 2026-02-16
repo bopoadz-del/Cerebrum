@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cerebrum AI - Construction Intelligence Platform</title>
+    <meta name="description" content="End-to-End Construction Intelligence Platform with 14-Layer Architecture. 420+ production-ready components.">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --primary: #3B82F6;
+            --primary-dark: #2563EB;
+            --secondary: #10B981;
+            --accent: #8B5CF6;
+            --dark: #0F172A;
+            --darker: #020617;
+            --light: #F8FAFC;
+            --gray: #64748B;
+            --gradient: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 50%, #EC4899 100%);
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--darker);
+            color: var(--light);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+        
+        /* Hero Section */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 2rem;
+            position: relative;
+            background: 
+                radial-gradient(ellipse at 20% 80%, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(139, 92, 246, 0.15) 0%, transparent 50%),
+                var(--darker);
+        }
+        
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%233B82F6' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+            opacity: 0.5;
+        }
+        
+        .hero-content {
+            position: relative;
+            z-index: 1;
+            max-width: 1200px;
+        }
+        
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            color: var(--primary);
+            margin-bottom: 2rem;
+        }
+        
+        .badge::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: var(--secondary);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        h1 {
+            font-size: clamp(2.5rem, 6vw, 4.5rem);
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 1.5rem;
+            background: var(--gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .subtitle {
+            font-size: clamp(1.125rem, 2vw, 1.5rem);
+            color: var(--gray);
+            max-width: 700px;
+            margin: 0 auto 2rem;
+        }
+        
+        .stats {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 2rem;
+            margin: 3rem 0;
+        }
+        
+        .stat {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+        
+        .stat-label {
+            font-size: 0.875rem;
+            color: var(--gray);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .cta-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+        
+        .btn {
+            padding: 1rem 2rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .btn-primary {
+            background: var(--gradient);
+            color: white;
+            border: none;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 40px rgba(59, 130, 246, 0.4);
+        }
+        
+        .btn-secondary {
+            background: transparent;
+            color: var(--light);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+        
+        /* Architecture Section */
+        .architecture {
+            padding: 6rem 2rem;
+            background: var(--dark);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .section-title {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+        
+        .section-title h2 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+        
+        .section-title p {
+            color: var(--gray);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .layers-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+        
+        .layer-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+        }
+        
+        .layer-card:hover {
+            background: rgba(255, 255, 255, 0.04);
+            border-color: rgba(59, 130, 246, 0.3);
+            transform: translateY(-4px);
+        }
+        
+        .layer-number {
+            display: inline-block;
+            width: 2.5rem;
+            height: 2.5rem;
+            background: var(--gradient);
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.875rem;
+            margin-bottom: 1rem;
+        }
+        
+        .layer-card h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        .layer-card p {
+            color: var(--gray);
+            font-size: 0.875rem;
+        }
+        
+        .layer-features {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+        
+        .feature-tag {
+            padding: 0.25rem 0.75rem;
+            background: rgba(59, 130, 246, 0.1);
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            color: var(--primary);
+        }
+        
+        /* Features Section */
+        .features {
+            padding: 6rem 2rem;
+            background: var(--darker);
+        }
+        
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+        }
+        
+        .feature-card {
+            padding: 2rem;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .feature-card:hover {
+            border-color: rgba(59, 130, 246, 0.3);
+        }
+        
+        .feature-icon {
+            width: 3rem;
+            height: 3rem;
+            background: var(--gradient);
+            border-radius: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .feature-card h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        .feature-card p {
+            color: var(--gray);
+            font-size: 0.875rem;
+        }
+        
+        /* Tech Stack Section */
+        .tech-stack {
+            padding: 6rem 2rem;
+            background: var(--dark);
+        }
+        
+        .tech-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+        }
+        
+        .tech-item {
+            padding: 1.5rem;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 0.75rem;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        
+        .tech-item:hover {
+            border-color: rgba(59, 130, 246, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        .tech-item h4 {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+        
+        .tech-item span {
+            font-size: 0.875rem;
+            color: var(--gray);
+        }
+        
+        /* Deploy Section */
+        .deploy {
+            padding: 6rem 2rem;
+            background: var(--darker);
+            text-align: center;
+        }
+        
+        .deploy-card {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 3rem;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 1rem;
+        }
+        
+        .deploy-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .deploy-card p {
+            color: var(--gray);
+            margin-bottom: 2rem;
+        }
+        
+        .deploy-steps {
+            text-align: left;
+            margin: 2rem 0;
+            padding: 1.5rem;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 0.5rem;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.875rem;
+        }
+        
+        .deploy-steps code {
+            color: var(--primary);
+        }
+        
+        /* Footer */
+        footer {
+            padding: 3rem 2rem;
+            background: var(--darker);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            text-align: center;
+        }
+        
+        footer p {
+            color: var(--gray);
+            font-size: 0.875rem;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .stats {
+                flex-direction: column;
+                gap: 1.5rem;
+            }
+            
+            .cta-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .btn {
+                width: 100%;
+                max-width: 300px;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <div class="badge">100% Deployable on Render</div>
+            <h1>Cerebrum AI</h1>
+            <p class="subtitle">Construction Intelligence Platform with 14-Layer Architecture. From empty directory to production platform — complete with AI-powered insights, BIM/VDC capabilities, and enterprise-grade security.</p>
+            
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-value">420+</div>
+                    <div class="stat-label">Components</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">14</div>
+                    <div class="stat-label">Architecture Layers</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">100+</div>
+                    <div class="stat-label">API Endpoints</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">60+</div>
+                    <div class="stat-label">Database Models</div>
+                </div>
+            </div>
+            
+            <div class="cta-buttons">
+                <a href="#deploy" class="btn btn-primary">Deploy Now</a>
+                <a href="#architecture" class="btn btn-secondary">Explore Architecture</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Architecture Section -->
+    <section class="architecture" id="architecture">
+        <div class="container">
+            <div class="section-title">
+                <h2>14-Layer Architecture</h2>
+                <p>Built with separation of concerns, each layer handles specific functionality for maximum scalability and maintainability.</p>
+            </div>
+            
+            <div class="layers-grid">
+                <div class="layer-card">
+                    <div class="layer-number">14</div>
+                    <h3>Data Warehouse</h3>
+                    <p>Airflow ETL, BigQuery integration, executive dashboards, natural language queries</p>
+                    <div class="layer-features">
+                        <span class="feature-tag">ETL Pipelines</span>
+                        <span class="feature-tag">Analytics</span>
+                    </div>
+                </div>
+                
+                <div class="layer-card">
+                    <div class="layer-number">13</div>
+                    <h3>Integration Hub</h3>
+                    <p>Webhooks, Procore/ACC connectors, Zapier-style workflows, ERP integrations</p>
+                    <div class="layer-features">
+                        <span class="feature-tag">Webhooks</span>
+                        <span class="feature-tag">Procore</span>
+                    </div>
+                </div>
+                
+                <div class="layer-card">
+                    <div class="layer-number">12</div>
+                    <h3>Advanced VDC</h3>
+                    <p>Federated BIM models, clash detection, 4D/5D BIM, COBie export</p>
+                    <div class="layer-features">
+                        <span class="feature-tag">Clash Detection</span>
+                        <span class="feature-tag">4D/5D BIM</span>
+                    </div>
+                </div>
+                
+                <div class="layer-card">
+                    <div class="layer-number">11</div>
+                    <h3>Field Data</h3>
+                    <p>Daily reports, photos with GPS, punch lists, offline-first mobile support</p>
+                    <div class="layer-features">
+                        <span class="feature-tag">Offline</span>
+                        <span class="feature-tag">Mobile</span>
+                    </div>
+                </div>
+                
+                <div class="layer-card">
+                    <div class="layer-number">10</div>
+                    <h3>Collaboration</h3>
+                    <p>Real-time comments, approval workflows, WebSocket server, document locking</p>
+                    <div class="layer-features">
+                        <span class="feature-tag">WebSocket</span>
+                        <span class="feature-tag">Workflows</span>
+                    </div>
+                </div>
+                
+                <div class="layer-card">
+                    <div class="layer-number">9</div>
+                    <h3>Tasks</h3>
+                    <p>Background job processing, Celery workers, task queues, scheduled tasks</p>
+                    <div class="layer-features">
+                        <span class="feature-tag">Celery</span>
+                        <span class="feature-tag">Queues</span>
+                    </div>
+                </div>
+                
+                <div class="layer-card">
+                    <div class="layer-number">8</div>
+                    <h3>API Management</h3>
+                    <p>Endpoint management, caching, rate limiting, request logging</p>
+                    <div class="layer-features">
+                        <span class="feature-tag">Caching</span>
+                        <span class="feature-tag">Rate Limit</span>
+                    </div>
+                </div>
+                
+                <div class="layer-card">
+                    <div class="layer-number">7</div>
+                    <h3>Pipelines</h3>
+                    <p>Workflow orchestration, DAG execution, pipeline monitoring</p>
+                    <div class="layer-features">
+                        <span class="feature-tag">DAG</span>
+                        <span class="feature-tag">Orchestration</span>
+                    </div>
+                </div>
+                
+                <div class="layer-card">
+                    <div class="layer-number">6</div>
+                    <h3>Audit</h3>
+                    <p>Immutable audit logs, compliance reports, tamper detection</p>
+                    <div class="layer-features">
+                        <span class="feature-tag">Immutable</span>
+                        <span class="feature-tag">Compliance</span>
+                    </div>
+                </div>
+                
+                <div class="layer-card">
+                    <div class="layer-number">5</div>
+                    <h3>Sandbox</h3>
+                    <p>Isolated execution environments for testing and validation</p>
+                    <div class="layer-features">
+                        <span class="feature-tag">Isolation</span>
+                        <span class="feature-tag">Testing</span>
+                    </div>
+                </div>
+                
+                <div class="layer-card">
+                    <div class="layer-number">4</div>
+                    <h3>ML</h3>
+                    <p>Model training, predictions, feature store, AutoML, explainability</p>
+                    <div class="layer-features">
+                        <span class="feature-tag">AutoML</span>
+                        <span class="feature-tag">SHAP</span>
+                    </div>
+                </div>
+                
+                <div class="layer-card">
+                    <div class="layer-number">3</div>
+                    <h3>BIM</h3>
+                    <p>IFC parsing, element management, 3D viewer, quantity takeoff</p>
+                    <div class="layer-features">
+                        <span class="feature-tag">IFC</span>
+                        <span class="feature-tag">3D Viewer</span>
+                    </div>
+                </div>
+                
+                <div class="layer-card">
+                    <div class="layer-number">2</div>
+                    <h3>Documents</h3>
+                    <p>Document AI, OCR, transcription, search, classification</p>
+                    <div class="layer-features">
+                        <span class="feature-tag">OCR</span>
+                        <span class="feature-tag">AI</span>
+                    </div>
+                </div>
+                
+                <div class="layer-card">
+                    <div class="layer-number">1</div>
+                    <h3>Core</h3>
+                    <p>Authentication, RBAC, multi-tenancy, security, audit logging</p>
+                    <div class="layer-features">
+                        <span class="feature-tag">JWT</span>
+                        <span class="feature-tag">MFA</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features">
+        <div class="container">
+            <div class="section-title">
+                <h2>Key Features</h2>
+                <p>Production-ready features built for enterprise construction management.</p>
+            </div>
+            
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🔐</div>
+                    <h3>Enterprise Security</h3>
+                    <p>JWT with MFA, RBAC with 5 role levels, row-level security, field-level encryption, SOC 2 compliance</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🏗️</div>
+                    <h3>BIM/VDC</h3>
+                    <p>IFC parsing with IfcOpenShell, 3D viewer with Three.js, clash detection, 4D/5D BIM integration</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🤖</div>
+                    <h3>AI-Powered</h3>
+                    <p>Document classification, OCR, transcription with Whisper, named entity extraction, AutoML</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <h3>Cost Intelligence</h3>
+                    <p>Budget tracking, change order management, earned value analysis, Monte Carlo forecasting</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🔌</div>
+                    <h3>Integrations</h3>
+                    <p>Procore, ACC, Google Drive, Microsoft 365, Slack, ERP systems, Zapier-style workflows</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">📱</div>
+                    <h3>Mobile & Edge</h3>
+                    <p>Offline-first PWA, Jetson edge computing, real-time safety AI, hybrid cloud-edge inference</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🏢</div>
+                    <h3>Multi-Tenancy</h3>
+                    <p>Complete data isolation, SSO (SAML/OIDC), white-labeling, data residency controls</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🔄</div>
+                    <h3>Self-Coding</h3>
+                    <p>AI-powered code generation, validation pipeline, hot deployment, self-healing capabilities</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Deploy Section -->
+    <section class="deploy" id="deploy">
+        <div class="container">
+            <div class="section-title">
+                <h2>Deploy in Minutes</h2>
+                <p>One-click deployment to Render with automatic database, Redis, and worker provisioning.</p>
+            </div>
+            
+            <div class="deploy-card">
+                <h3>🚀 Quick Deploy</h3>
+                <p>Deploy the entire stack with one click using Render Blueprints.</p>
+                
+                <div class="deploy-steps">
+                    <div><code>git clone https://github.com/your-org/cerebrum-ai.git</code></div>
+                    <div><code>cd cerebrum-ai</code></div>
+                    <div><code># Copy and edit environment file</code></div>
+                    <div><code>cp backend/.env.example backend/.env</code></div>
+                    <div><code># Deploy to Render</code></div>
+                    <div><code>render blueprint apply render.yaml</code></div>
+                </div>
+                
+                <div class="cta-buttons">
+                    <a href="https://render.com/deploy" class="btn btn-primary">Deploy to Render</a>
+                    <a href="DEPLOY.md" class="btn btn-secondary">Read Deployment Guide</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Tech Stack Section -->
+    <section class="tech-stack">
+        <div class="container">
+            <div class="section-title">
+                <h2>Technology Stack</h2>
+                <p>Built with modern, production-ready technologies.</p>
+            </div>
+            
+            <div class="tech-grid">
+                <div class="tech-item">
+                    <h4>FastAPI</h4>
+                    <span>Backend Framework</span>
+                </div>
+                <div class="tech-item">
+                    <h4>React 18</h4>
+                    <span>Frontend Framework</span>
+                </div>
+                <div class="tech-item">
+                    <h4>TypeScript</h4>
+                    <span>Type Safety</span>
+                </div>
+                <div class="tech-item">
+                    <h4>PostgreSQL</h4>
+                    <span>Primary Database</span>
+                </div>
+                <div class="tech-item">
+                    <h4>Redis</h4>
+                    <span>Cache & Queue</span>
+                </div>
+                <div class="tech-item">
+                    <h4>Celery</h4>
+                    <span>Task Queue</span>
+                </div>
+                <div class="tech-item">
+                    <h4>Three.js</h4>
+                    <span>3D Visualization</span>
+                </div>
+                <div class="tech-item">
+                    <h4>Tailwind CSS</h4>
+                    <span>Styling</span>
+                </div>
+                <div class="tech-item">
+                    <h4>Docker</h4>
+                    <span>Containerization</span>
+                </div>
+                <div class="tech-item">
+                    <h4>Kubernetes</h4>
+                    <span>Orchestration</span>
+                </div>
+                <div class="tech-item">
+                    <h4>MLflow</h4>
+                    <span>ML Tracking</span>
+                </div>
+                <div class="tech-item">
+                    <h4>Airflow</h4>
+                    <span>ETL Pipelines</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <p>&copy; 2024 Cerebrum AI. Built with ❤️ for the construction industry.</p>
+    </footer>
+
+    <script>
+        // Smooth scroll for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+    </script>
+</body>
+</html>

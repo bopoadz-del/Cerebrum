@@ -1,0 +1,87 @@
+name: Backup Restore Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_db:
+        description: 'Target database URL for restore test (must NOT be production)'
+        required: true
+        type: string
+  schedule:
+    # Run monthly at 3 AM on the 1st
+    - cron: '0 3 1 * *'
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  restore-test:
+    name: Backup Restore Drill
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@010d0da01d0b075a38e1515eec9f27e9c9f3f5d7 # v4.0.1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Run restore drill
+        env:
+          S3_BACKUP_BUCKET: ${{ secrets.S3_BACKUP_BUCKET }}
+          RESTORE_TEST_DB_URL: ${{ inputs.target_db || secrets.RESTORE_TEST_DB_URL }}
+        run: |
+          chmod +x backend/scripts/restore_drill.sh
+          bash backend/scripts/restore_drill.sh
+
+      - name: Notify on failure
+        if: failure()
+        uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.24.0
+        with:
+          payload: |
+            {
+              "text": "🚨 Backup Restore Test FAILED",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "🚨 Backup Restore Test Failed"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Repository:*\n${{ github.repository }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Workflow:*\n${{ github.workflow }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Run:*\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Report success
+        if: success()
+        run: |
+          echo "✅ Backup restore test completed successfully"
+          echo "Backup integrity verified at $(date -Iseconds)"

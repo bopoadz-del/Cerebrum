@@ -1,0 +1,39 @@
+# =============================================================================
+# Cerebrum AI Platform - Development Dependencies
+# =============================================================================
+
+# Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+pytest-mock==3.12.0
+httpx==0.25.2
+factory-boy==3.3.0
+faker==20.1.0
+
+# Linting & Formatting
+ruff==0.1.6
+black==23.11.0
+isort==5.12.0
+mypy==1.7.1
+
+# Security Scanning
+bandit[toml]==1.7.5
+safety==2.3.5
+
+# Type Stubs
+types-redis==4.6.0.11
+types-python-jose==3.3.4.8
+types-passlib==1.7.7.13
+
+# Documentation
+mkdocs==1.5.3
+mkdocs-material==9.4.14
+
+# Development Tools
+ipython==8.18.1
+ipdb==0.13.13
+watchdog==3.0.0
+
+# Pre-commit
+pre-commit==3.6.0
