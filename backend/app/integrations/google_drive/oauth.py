@@ -17,7 +17,7 @@ from googleapiclient.errors import HttpError
 
 from app.core.config import settings
 from app.core.logging import get_logger
-from app.db.session import get_db
+from app.api.deps import get_db_session
 from app.models.user import User
 from app.models.integration import IntegrationToken
 
