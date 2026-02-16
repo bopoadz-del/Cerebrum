@@ -6,6 +6,7 @@ Item 283: White-labeling support
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 import uuid
+from app.db.base_class import Base
 import re
 
 from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, Text, Integer

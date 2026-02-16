@@ -6,6 +6,7 @@ Item 300: GraphQL endpoint and bulk export API
 from typing import Optional, Dict, Any, List, AsyncGenerator
 from datetime import datetime
 import uuid
+from app.db.base_class import Base
 import json
 import io
 

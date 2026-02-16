@@ -6,6 +6,7 @@ Item 292: Custom integrations, webhooks, and API management
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
 import uuid
+from app.db.base_class import Base
 import hmac
 import hashlib
 import json

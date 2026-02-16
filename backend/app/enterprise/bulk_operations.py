@@ -6,6 +6,7 @@ Item 296: Bulk operations and rate limit increases
 from typing import Optional, Dict, Any, List, Callable
 from datetime import datetime
 import uuid
+from app.db.base_class import Base
 import io
 import csv
 import json

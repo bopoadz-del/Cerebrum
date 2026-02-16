@@ -6,6 +6,7 @@ Item 284: SAML 2.0 SSO with python3-saml
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 import uuid
+from app.db.base_class import Base
 import base64
 from urllib.parse import urlparse
 

@@ -6,6 +6,7 @@ Item 289: Data residency and regional data centers
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 import uuid
+from app.db.base_class import Base
 
 from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, Text, Integer, create_engine
 from sqlalchemy.dialects.postgresql import UUID, JSONB

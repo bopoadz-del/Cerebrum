@@ -6,6 +6,7 @@ Item 285: OIDC SSO with authlib
 from typing import Optional, Dict, Any, List, Callable
 from datetime import datetime, timedelta
 import uuid
+from app.db.base_class import Base
 import secrets
 import hashlib
 import base64

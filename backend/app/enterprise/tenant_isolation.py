@@ -14,13 +14,14 @@ from sqlalchemy import (
     Column, String, DateTime, Boolean, ForeignKey, Index, 
     event, text, inspect, create_engine
 )
-from sqlalchemy.orm import Session, declarative_base, declared_attr
+from sqlalchemy.orm import Session, declared_attr
 from sqlalchemy.ext.declarative import DeclarativeMeta
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from fastapi import HTTPException, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import jwt
 from pydantic import BaseModel
+from app.db.base_class import Base
 
 # Context variable for current tenant
 tenant_context: ContextVar[Optional[str]] = ContextVar('tenant_context', default=None)
@@ -57,7 +58,6 @@ class DataResidencyRegion(str, Enum):
 
 
 # Base model with tenant isolation
-Base = declarative_base()
 
 
 class TenantMixin:

@@ -6,6 +6,7 @@ Item 286: SCIM 2.0 directory synchronization
 from typing import Optional, Dict, Any, List, Union
 from datetime import datetime
 import uuid
+from app.db.base_class import Base
 import re
 
 from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, Text, Integer, JSON

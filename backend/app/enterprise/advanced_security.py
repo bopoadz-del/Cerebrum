@@ -6,6 +6,7 @@ Item 297: Advanced security features
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
 import uuid
+from app.db.base_class import Base
 import ipaddress
 import re
 

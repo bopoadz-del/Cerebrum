@@ -6,6 +6,7 @@ Item 294: Contract management, MSA, billing, PO support
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
 import uuid
+from app.db.base_class import Base
 
 from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, Text, Integer, Float, Numeric
 from sqlalchemy.dialects.postgresql import UUID, JSONB

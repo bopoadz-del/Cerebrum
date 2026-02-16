@@ -6,6 +6,7 @@ Item 290: SLA management and support channels
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
 import uuid
+from app.db.base_class import Base
 
 from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, Text, Integer, Enum as SQLEnum, func
 from sqlalchemy.dialects.postgresql import UUID, JSONB

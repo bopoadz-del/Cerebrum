@@ -6,6 +6,7 @@ Item 282: Self-service tenant onboarding
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
 import uuid
+from app.db.base_class import Base
 import re
 
 from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, Text, JSON

@@ -6,6 +6,7 @@ Item 287: External group to role mapping
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 import uuid
+from app.db.base_class import Base
 
 from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, Text, JSON
 from sqlalchemy.dialects.postgresql import UUID, JSONB

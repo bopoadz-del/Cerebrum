@@ -6,6 +6,7 @@ Item 298: Compliance certifications
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
 import uuid
+from app.db.base_class import Base
 
 from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, Text, Integer
 from sqlalchemy.dialects.postgresql import UUID, JSONB
