@@ -1,9 +1,4 @@
-"""
-FederatedModelViewer.tsx - Federated Model 3D Viewer
-Displays multi-discipline federated BIM models.
-"""
-
-FEDERATED_MODEL_VIEWER_TSX = '''import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Paper,
@@ -451,7 +446,3 @@ const FederatedModelViewer: React.FC = () => {
 };
 
 export default FederatedModelViewer;
-'''
-
-with open('/mnt/okcomputer/output/frontend/src/components/vdc/FederatedModelViewer.tsx', 'w') as f:
-    f.write(FEDERATED_MODEL_VIEWER_TSX)

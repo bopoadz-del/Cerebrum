@@ -72,7 +72,6 @@ export const TopBar: React.FC = () => {
   const { user, logout } = useAuthStore();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  [showUserMenu, setShowUserMenu] = useState(false);
   const [showTenantMenu, setShowTenantMenu] = useState(false);
   const [selectedTenant, setSelectedTenant] = useState<Tenant>(mockTenants[0]);
   const [notifications, setNotifications] = useState(mockNotifications);

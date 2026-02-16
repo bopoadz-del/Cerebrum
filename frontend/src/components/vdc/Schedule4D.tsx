@@ -1,9 +1,4 @@
-"""
-Schedule4D.tsx - 4D Timeline Visualization
-Visualizes construction schedule with BIM model integration.
-"""
-
-SCHEDULE_4D_TSX = '''import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Paper,
@@ -514,7 +509,3 @@ const Schedule4D: React.FC = () => {
 };
 
 export default Schedule4D;
-'''
-
-with open('/mnt/okcomputer/output/frontend/src/components/vdc/Schedule4D.tsx', 'w') as f:
-    f.write(SCHEDULE_4D_TSX)

@@ -1,6 +1,3 @@
-"""
-ElementSelector.tsx - Raycasting-based element selection for BIM viewer
-"""
 
 import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';

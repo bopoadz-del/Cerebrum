@@ -88,7 +88,7 @@ export default defineConfig(({ mode }) => {
               ? chunkInfo.facadeModuleId.split('/')
               : [];
             const name = facadeModuleId[facadeModuleId.length - 1] || chunkInfo.name;
-            return `js/${name}-[hash][extname]`;
+            return `js/${name.replace(/\.[^/.]+$/, '')}-[hash].js`;
           },
           
           // Entry file naming

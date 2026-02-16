@@ -1,6 +1,3 @@
-"""
-VersionCompare.tsx - Diff view between BIM model versions
-"""
 
 import React, { useState, useCallback } from 'react';
 import {

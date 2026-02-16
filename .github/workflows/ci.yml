@@ -60,7 +60,7 @@ jobs:
           bandit -r app -ll || true
       
       - name: Upload Bandit Report
-        uses: actions/upload-artifact@5d5d22a31266ced2688743888258615d1f0e3f48
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: bandit-report

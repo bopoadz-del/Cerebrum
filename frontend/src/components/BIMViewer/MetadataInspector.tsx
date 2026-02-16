@@ -1,6 +1,3 @@
-"""
-MetadataInspector.tsx - Property sidebar for BIM element inspection
-"""
 
 import React, { useState } from 'react';
 import {

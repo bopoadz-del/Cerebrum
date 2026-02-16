@@ -1,12 +1,7 @@
-"""
-DriveFilePicker.tsx - Google Drive File Browser UI with Recursive Folder Tree
-"""
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
-  TreeView,
-  TreeItem,
   Checkbox,
   IconButton,
   Typography,
@@ -21,6 +16,7 @@ import {
   Button,
   Tooltip,
 } from '@mui/material';
+import { TreeView, TreeItem } from '@mui/x-tree-view';
 import {
   Folder as FolderIcon,
   FolderOpen as FolderOpenIcon,

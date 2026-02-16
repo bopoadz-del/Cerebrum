@@ -1,9 +1,4 @@
-"""
-Cost5D.tsx - 5D Cost Overlay
-Visualizes cost data overlaid on BIM models.
-"""
-
-COST_5D_TSX = '''import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Paper,
@@ -573,7 +568,3 @@ const Cost5D: React.FC = () => {
 };
 
 export default Cost5D;
-'''
-
-with open('/mnt/okcomputer/output/frontend/src/components/vdc/Cost5D.tsx', 'w') as f:
-    f.write(COST_5D_TSX)

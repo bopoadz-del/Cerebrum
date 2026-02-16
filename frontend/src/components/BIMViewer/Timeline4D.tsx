@@ -1,6 +1,3 @@
-"""
-Timeline4D.tsx - 4D construction sequence visualization
-"""
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
