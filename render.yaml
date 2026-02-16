@@ -178,16 +178,12 @@ services:
     dockerCommand: celery -A app.workers.celery_config beat --loglevel=info
     autoDeploy: true
 
-  # Frontend (Static Site)
-  # Note: Currently serves landing page. When switching to full Vite build:
-  # 1. Change staticPublishPath to ./frontend/dist
-  # 2. Change buildCommand to: cd frontend && npm ci && npm run build
-  # 3. The VITE_API_URL will be injected at build time
+  # Frontend (Vite React App)
   - type: web
     name: cerebrum-frontend
     runtime: static
-    buildCommand: true
-    staticPublishPath: landing
+    buildCommand: cd frontend && npm ci && npm run build
+    staticPublishPath: ./frontend/dist
     envVars:
       - key: VITE_API_URL
         fromService:

@@ -123,6 +123,43 @@ async def get_current_active_user(
     return current_user
 
 
+async def get_current_admin_user(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """
+    Get current authenticated user with admin privileges.
+    
+    Args:
+        current_user: Current authenticated user
+        
+    Returns:
+        User if they are an admin
+        
+    Raises:
+        HTTPException: If user is not an admin
+    """
+    # Check if user has admin role
+    is_admin = False
+    if current_user.roles:
+        for role in current_user.roles:
+            if role.name.lower() in ("admin", "superadmin", "administrator"):
+                is_admin = True
+                break
+    
+    # Also check permissions
+    if not is_admin and current_user.permissions:
+        if "admin:read" in current_user.permissions or "admin:write" in current_user.permissions:
+            is_admin = True
+    
+    if not is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin privileges required",
+        )
+    
+    return current_user
+
+
 async def get_current_user_id(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(token_scheme),
 ) -> str:
