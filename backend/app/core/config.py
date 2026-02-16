@@ -272,12 +272,22 @@ class Settings(BaseSettings):
     # =================================================================
     # Validators
     # =================================================================
-    @field_validator("CORS_ORIGINS", mode="before")
+    @field_validator("CORS_ORIGINS", "CORS_ALLOW_METHODS", "CORS_ALLOW_HEADERS", mode="before")
     @classmethod
-    def parse_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
-        """Parse CORS origins from string or list."""
+    def parse_comma_separated_list(cls, v: Union[str, List[str]]) -> List[str]:
+        """Parse comma-separated string to list."""
+        if v is None:
+            return []
         if isinstance(v, str):
-            return [origin.strip() for origin in v.split(",")]
+            # Handle JSON-encoded lists (from pydantic-settings)
+            if v.startswith("[") and v.endswith("]"):
+                try:
+                    import json
+                    return json.loads(v)
+                except json.JSONDecodeError:
+                    pass
+            # Handle comma-separated values
+            return [item.strip() for item in v.split(",") if item.strip()]
         return v
     
     @field_validator("SECRET_KEY")
