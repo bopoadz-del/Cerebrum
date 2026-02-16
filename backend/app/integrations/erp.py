@@ -4,7 +4,7 @@ Item 307: ERP integrations
 """
 
 from typing import Optional, Dict, Any, List
-from datetime import datetime
+from datetime import datetime, timedelta
 import uuid
 
 from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, Text, Integer, Numeric
@@ -14,6 +14,8 @@ from pydantic import BaseModel, Field
 from fastapi import HTTPException
 from enum import Enum
 import requests
+
+from app.db.base_class import Base
 
 
 class ERPType(str, Enum):

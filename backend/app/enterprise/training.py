@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 import uuid
 from app.db.base_class import Base
 
-from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, Text, Integer, Float
+from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, Text, Integer, Float, Index
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field

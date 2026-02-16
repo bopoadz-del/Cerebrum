@@ -15,6 +15,8 @@ from fastapi import HTTPException
 import requests
 from enum import Enum
 
+from app.db.base_class import Base
+
 
 class ProcoreSyncStatus(str, Enum):
     """Procore sync status"""

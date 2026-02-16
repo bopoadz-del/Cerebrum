@@ -20,6 +20,8 @@ from enum import Enum
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
+from app.enterprise.tenant_isolation import Tenant
+
 
 class BulkOperationType(str, Enum):
     """Types of bulk operations"""

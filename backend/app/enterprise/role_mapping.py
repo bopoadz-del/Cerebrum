@@ -8,7 +8,7 @@ from datetime import datetime
 import uuid
 from app.db.base_class import Base
 
-from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, Text, JSON
+from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, Text, JSON, Integer, Index
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
@@ -92,6 +92,10 @@ class EnterpriseRole(Base):
     # Metadata
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+# Alias for backward compatibility
+Role = EnterpriseRole
 
 
 class ExternalRoleMapping(Base):

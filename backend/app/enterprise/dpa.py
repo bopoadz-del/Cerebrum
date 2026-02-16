@@ -4,7 +4,7 @@ Item 299: Data Processing Agreements
 """
 
 from typing import Optional, Dict, Any, List
-from datetime import datetime
+from datetime import datetime, timedelta
 import uuid
 from app.db.base_class import Base
 

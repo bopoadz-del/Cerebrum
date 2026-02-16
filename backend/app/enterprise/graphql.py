@@ -4,7 +4,7 @@ Item 300: GraphQL endpoint and bulk export API
 """
 
 from typing import Optional, Dict, Any, List, AsyncGenerator
-from datetime import datetime
+from datetime import datetime, timedelta
 import uuid
 from app.db.base_class import Base
 import json
@@ -20,6 +20,41 @@ from graphene import ObjectType, String, Int, Float, Boolean, List as GraphQLLis
 from graphene_sqlalchemy import SQLAlchemyObjectType
 from graphql.execution.executors.asyncio import AsyncioExecutor
 import asyncio
+
+from app.models.user import User
+from app.enterprise.tenant_isolation import Tenant, TenantUser
+
+
+# Placeholder models for GraphQL types
+# These should be replaced with actual model imports when available
+
+class Project(Base):
+    """Placeholder Project model for GraphQL"""
+    __tablename__ = 'projects'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey('tenants.id'), nullable=False)
+    name = Column(String(255), nullable=False)
+    description = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class Task(Base):
+    """Placeholder Task model for GraphQL"""
+    __tablename__ = 'tasks'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    project_id = Column(UUID(as_uuid=True), ForeignKey('projects.id'), nullable=False)
+    title = Column(String(255), nullable=False)
+    description = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class Document(Base):
+    """Placeholder Document model for GraphQL"""
+    __tablename__ = 'documents'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey('tenants.id'), nullable=False)
+    name = Column(String(255), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 # GraphQL Schema Definitions

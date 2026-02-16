@@ -9,7 +9,7 @@ from enum import Enum
 
 from app.api.deps import get_current_user
 from app.ml.experiment_tracking import MLflowTracker, Experiment, Run
-from app.ml.model_registry import ModelRegistry, ModelVersion, ModelStage
+from app.ml.model_registry import ModelRegistry, ModelVersion, ModelStage, ModelFramework
 from app.ml.automl import AutoMLRunner, AutoMLConfig, AutoMLBackend, SearchAlgorithm
 from app.ml.feature_store import FeatureStore
 from app.ml.data_versioning import DataVersionControl

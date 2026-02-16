@@ -153,7 +153,7 @@ async def refine_code(
     generator = CodeGenerator()
     result = await generator.generate_custom(
         prompt=prompt,
-        language=result.language if 'result' in dir() else "python"
+        language=capability.language if hasattr(capability, 'language') and capability.language else "python"
     )
     
     if not result.success:

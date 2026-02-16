@@ -10,7 +10,7 @@ from app.db.base_class import Base
 import ipaddress
 import re
 
-from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, Text, Integer
+from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, Text, Integer, Index, func
 from sqlalchemy.dialects.postgresql import UUID, JSONB, INET, CIDR
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field, validator

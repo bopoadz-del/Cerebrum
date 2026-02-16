@@ -8,12 +8,25 @@ from datetime import datetime, timedelta
 import uuid
 from app.db.base_class import Base
 
-from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, Text, Integer, Float, func
+from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, Text, Integer, Float, func, Index
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 from fastapi import HTTPException
 from enum import Enum
+
+from app.enterprise.tenant_isolation import Tenant
+
+
+# Placeholder Document model for aggregation queries
+class Document(Base):
+    """Placeholder Document model for analytics"""
+    __tablename__ = 'documents'
+    __table_args__ = {'extend_existing': True}
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey('tenants.id'), nullable=False)
+    name = Column(String(255), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 class MetricType(str, Enum):

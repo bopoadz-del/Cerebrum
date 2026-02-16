@@ -18,6 +18,8 @@ import hmac
 import hashlib
 import json
 
+from app.db.base_class import Base
+
 
 class SlackEventType(str, Enum):
     """Slack event types"""

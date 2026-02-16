@@ -5,8 +5,9 @@ Machine learning anomaly detection for metrics and logs
 
 import json
 import statistics
+import asyncio
 import numpy as np
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional, Tuple, Callable
 from datetime import datetime, timedelta
 from dataclasses import dataclass, field, asdict
 from enum import Enum

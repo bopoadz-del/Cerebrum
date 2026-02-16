@@ -4,6 +4,7 @@ Firebase Crashlytics integration for mobile app monitoring
 """
 
 import json
+import asyncio
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 from dataclasses import dataclass, field, asdict

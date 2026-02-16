@@ -9,7 +9,7 @@ import uuid
 from app.db.base_class import Base
 import re
 
-from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, Text, Integer, JSON
+from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, Text, Integer, JSON, Index
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field, validator
