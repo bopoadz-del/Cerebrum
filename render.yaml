@@ -182,18 +182,18 @@ services:
   # Note: Currently serves landing page. When switching to full Vite build:
   # 1. Change staticPublishPath to ./frontend/dist
   # 2. Change buildCommand to: cd frontend && npm ci && npm run build
-  # 3. The VITE_API_BASE_URL will be injected at build time
+  # 3. The VITE_API_URL will be injected at build time
   - type: web
     name: cerebrum-frontend
     runtime: static
     buildCommand: true
     staticPublishPath: landing
     envVars:
-      - key: VITE_API_BASE_URL
+      - key: VITE_API_URL
         fromService:
           type: web
           name: cerebrum-api
-          property: url
+          envVarKey: RENDER_EXTERNAL_URL
     autoDeploy: true
 
   # KeyValue (Redis) Service

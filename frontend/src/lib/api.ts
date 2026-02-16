@@ -9,7 +9,9 @@ import { useAuthStore } from '@/stores/authStore';
 import { toast } from '@/components/ui/Toast';
 
 // API configuration
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+// Host-only URL (VITE_API_URL) - appends /api/v1 once
+const API_HOST = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/$/, '');
+const API_BASE_URL = API_HOST + '/api/v1';
 const API_TIMEOUT = 30000; // 30 seconds
 
 // Create axios instance
