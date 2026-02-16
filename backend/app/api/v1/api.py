@@ -6,7 +6,7 @@ Defines the v1 API routes and versioning configuration.
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import auth, admin, dejavu, formulas, sessions, connectors
+from app.api.v1.endpoints import auth, admin, dejavu, formulas, sessions, connectors, google_drive
 
 # Create v1 router
 api_v1_router = APIRouter()
@@ -40,6 +40,12 @@ api_v1_router.include_router(
 api_v1_router.include_router(
     connectors.router,
     tags=["Connectors"],
+)
+
+api_v1_router.include_router(
+    google_drive.router,
+    prefix="/drive",
+    tags=["Google Drive"],
 )
 
 

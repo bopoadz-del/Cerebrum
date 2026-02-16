@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { useResponsive } from '@/hooks/useResponsive';
 import { cn } from '@/lib/utils';
+import { GoogleDriveConnectButton } from '@/components/GoogleDriveConnectButton';
 
 interface NavItem {
   path: string;
@@ -182,6 +183,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
               </NavLink>
             );
           })}
+          
+          {/* Divider */}
+          <div className="my-4 border-t border-gray-200 dark:border-gray-800" />
+          
+          {/* Google Drive Connect */}
+          {!collapsed && (
+            <div className="px-3 py-2">
+              <p className="text-xs text-gray-500 dark:text-gray-500 mb-2">Integrations</p>
+              <GoogleDriveConnectButton variant="menu-item" />
+            </div>
+          )}
+          {collapsed && (
+            <div className="flex justify-center py-2">
+              <GoogleDriveConnectButton variant="menu-item" />
+            </div>
+          )}
         </nav>
       </aside>
 
