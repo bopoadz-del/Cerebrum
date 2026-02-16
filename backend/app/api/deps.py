@@ -123,6 +123,50 @@ async def get_current_active_user(
     return current_user
 
 
+async def get_current_user_id(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(token_scheme),
+) -> str:
+    """
+    Get current user ID from JWT token.
+    
+    Lightweight alternative to get_current_user that doesn't hit the database.
+    
+    Args:
+        credentials: HTTP Authorization credentials
+        
+    Returns:
+        User ID string
+        
+    Raises:
+        HTTPException: If authentication fails
+    """
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    token = credentials.credentials
+    
+    try:
+        payload = decode_token(token, token_type="access")
+        return payload.sub
+        
+    except TokenExpiredError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has expired",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except InvalidTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+
 # =============================================================================
 # B5: Role-Based Access Control (RBAC)
 # =============================================================================

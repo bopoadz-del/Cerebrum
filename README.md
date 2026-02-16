@@ -254,6 +254,76 @@ Available in formula expressions: `abs`, `round`, `min`, `max`, `sum`, `pow`, `s
 - Formulas run in restricted environment
 - Invalid expressions return error messages, don't crash
 
+## 💬 Conversation Sessions (Long-Session Mode)
+
+DB-backed sessions with capacity tracking for Smart Context.
+
+### API Endpoints
+
+**Create a session:**
+```bash
+curl -X POST http://localhost:8000/api/v1/sessions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{
+    "title": "My Smart Context Session",
+    "ttl_hours": 24
+  }'
+# Response: {"session_token":"abc123...","session":{"id":"...","capacity_percent":0}}
+```
+
+**Get session:**
+```bash
+curl http://localhost:8000/api/v1/sessions/{session_token} \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**Update capacity:**
+```bash
+curl -X PATCH http://localhost:8000/api/v1/sessions/{session_token}/capacity \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"capacity_percent": 75}'
+```
+
+**List user sessions:**
+```bash
+curl "http://localhost:8000/api/v1/sessions?active_only=true" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**Deactivate session:**
+```bash
+curl -X POST http://localhost:8000/api/v1/sessions/{session_token}/deactivate \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+### Frontend Integration
+
+The `SmartContextToggle` component supports session management:
+
+```tsx
+import { SmartContextToggle } from '@/components/SmartContextToggle';
+
+// With session tracking
+<SmartContextToggle 
+  onToggle={(enabled) => console.log('Smart Context:', enabled)}
+  onSessionChange={(token) => console.log('Session token:', token)}
+/>
+
+// With external session token
+<SmartContextToggle 
+  sessionToken={existingToken}
+  onToggle={(enabled) => {} }
+/>
+```
+
+The component:
+- Creates a session automatically when enabled (if no session exists)
+- Polls capacity every 30 seconds
+- Persists state in localStorage
+- Displays capacity percentage in the UI
+
 ## 🔧 Configuration
 
 ### Environment Variables
