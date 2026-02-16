@@ -194,7 +194,6 @@ export const SmartContextToggle: React.FC<SmartContextToggleProps> = ({
       
       onToggle?.(true);
       toast.success('Smart Context activated successfully');
-      return data;
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
         console.log('Context activation aborted');
