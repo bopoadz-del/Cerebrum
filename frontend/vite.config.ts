@@ -79,7 +79,7 @@ export default defineConfig(({ mode }) => {
             'viz-vendor': ['three', '@react-three/fiber'],
             
             // Form handling
-            'form-vendor': ['react-hook-form', 'zod'],
+            'form-vendor': ['zod'],
           },
           
           // Chunk naming
