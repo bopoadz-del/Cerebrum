@@ -1,6 +1,3 @@
-"""
-MeasurementTools.tsx - Distance, area, and angle measurement tools for BIM
-"""
 
 import React, { useState, useCallback, useRef } from 'react';
 import {

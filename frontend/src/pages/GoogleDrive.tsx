@@ -1,8 +1,3 @@
-"""
-GoogleDrive.tsx - Google Drive Integration Page
-Main page for Google Drive integration with sync status, file management, and settings.
-"""
-
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,

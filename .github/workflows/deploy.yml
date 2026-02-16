@@ -153,7 +153,7 @@ jobs:
 
       - name: Notify on success
         if: success()
-        uses: slackapi/slack-github-action@6c661ce7514f470ed4aa4b39f8dda4b8c88add18
+        uses: slackapi/slack-github-action@v2
         with:
           payload: |
             {
@@ -173,7 +173,7 @@ jobs:
 
       - name: Notify on failure
         if: failure()
-        uses: slackapi/slack-github-action@6c661ce7514f470ed4aa4b39f8dda4b8c88add18
+        uses: slackapi/slack-github-action@v2
         with:
           payload: |
             {
@@ -238,7 +238,7 @@ jobs:
           # This would typically involve deploying the previous image tag
 
       - name: Notify rollback
-        uses: slackapi/slack-github-action@6c661ce7514f470ed4aa4b39f8dda4b8c88add18
+        uses: slackapi/slack-github-action@v2
         with:
           payload: |
             {

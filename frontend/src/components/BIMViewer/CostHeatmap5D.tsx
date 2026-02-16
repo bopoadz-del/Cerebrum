@@ -1,6 +1,3 @@
-"""
-CostHeatmap5D.tsx - 5D cost visualization for BIM models
-"""
 
 import React, { useState, useCallback, useMemo } from 'react';
 import {

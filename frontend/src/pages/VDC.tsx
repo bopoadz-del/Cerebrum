@@ -1,9 +1,4 @@
-"""
-VDC.tsx - Main VDC Tools Page
-Central hub for Virtual Design and Construction tools.
-"""
-
-VDC_PAGE_TSX = '''import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Tabs,
@@ -309,7 +304,3 @@ const VDC: React.FC = () => {
 };
 
 export default VDC;
-'''
-
-with open('/mnt/okcomputer/output/frontend/src/pages/VDC.tsx', 'w') as f:
-    f.write(VDC_PAGE_TSX)

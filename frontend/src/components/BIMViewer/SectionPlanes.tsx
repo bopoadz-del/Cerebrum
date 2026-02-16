@@ -1,6 +1,3 @@
-"""
-SectionPlanes.tsx - Clipping planes for BIM section views
-"""
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import * as THREE from 'three';

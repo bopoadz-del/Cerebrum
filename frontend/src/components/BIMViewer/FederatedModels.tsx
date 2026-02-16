@@ -1,6 +1,3 @@
-"""
-FederatedModels.tsx - Multi-discipline model merging for BIM
-"""
 
 import React, { useState, useCallback } from 'react';
 import {

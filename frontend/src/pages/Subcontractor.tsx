@@ -41,7 +41,7 @@ import {
   Assignment as BidIcon,
   Payment as PaymentIcon,
   Assessment as ReportIcon,
-  Drawings as DrawingIcon,
+  Architecture as DrawingIcon,
   SafetyCheck as SafetyIcon,
   Message as MessageIcon,
   Visibility as ViewIcon,

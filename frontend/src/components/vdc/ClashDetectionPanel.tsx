@@ -1,9 +1,4 @@
-"""
-ClashDetectionPanel.tsx - Clash Detection UI
-Interface for running clash detection and managing results.
-"""
-
-CLASH_DETECTION_PANEL_TSX = '''import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Paper,
@@ -609,7 +604,3 @@ const ClashDetectionPanel: React.FC = () => {
 };
 
 export default ClashDetectionPanel;
-'''
-
-with open('/mnt/okcomputer/output/frontend/src/components/vdc/ClashDetectionPanel.tsx', 'w') as f:
-    f.write(CLASH_DETECTION_PANEL_TSX)

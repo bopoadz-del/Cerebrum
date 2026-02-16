@@ -1,6 +1,3 @@
-"""
-ClashDetector.tsx - Clash detection UI for BIM models
-"""
 
 import React, { useState, useCallback } from 'react';
 import {

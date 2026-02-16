@@ -1,7 +1,3 @@
-"""
-ThreeViewer.tsx - React Three Fiber BIM Viewer Component
-Main 3D viewer for IFC models using React Three Fiber and Three.js.
-"""
 
 import React, { useRef, useMemo, useEffect, useState, useCallback } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
