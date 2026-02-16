@@ -116,3 +116,19 @@ async def health_metrics() -> Dict[str, Any]:
         "service": "cerebrum-api",
         "uptime_seconds": _uptime_seconds(),
     }
+
+
+# =============================================================================
+# Standard Kubernetes/Render Health Check Aliases
+# =============================================================================
+
+@router.get("/healthz", status_code=status.HTTP_200_OK)
+async def healthz() -> Dict[str, Any]:
+    """Kubernetes-style liveness probe alias."""
+    return await liveness()
+
+
+@router.get("/readyz", status_code=status.HTTP_200_OK)
+async def readyz() -> Dict[str, Any]:
+    """Kubernetes-style readiness probe alias."""
+    return await readiness()

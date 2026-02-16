@@ -197,6 +197,19 @@ def create_application() -> FastAPI:
     app.include_router(health_router, tags=["health"])
     app.include_router(api_v1_router, prefix="/api")
     
+    # Root-level health aliases for compatibility
+    @app.get("/healthz", tags=["health"])
+    async def root_healthz():
+        """Root-level Kubernetes liveness probe."""
+        from app.api.health import liveness
+        return await liveness()
+    
+    @app.get("/readyz", tags=["health"])
+    async def root_readyz():
+        """Root-level Kubernetes readiness probe."""
+        from app.api.health import readiness
+        return await readiness()
+    
     return app
 
 

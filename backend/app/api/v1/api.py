@@ -6,7 +6,7 @@ Defines the v1 API routes and versioning configuration.
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import auth, admin, dejavu, formulas, sessions
+from app.api.v1.endpoints import auth, admin, dejavu, formulas, sessions, connectors
 
 # Create v1 router
 api_v1_router = APIRouter()
@@ -35,6 +35,11 @@ api_v1_router.include_router(
 api_v1_router.include_router(
     sessions.router,
     tags=["Sessions"],
+)
+
+api_v1_router.include_router(
+    connectors.router,
+    tags=["Connectors"],
 )
 
 
