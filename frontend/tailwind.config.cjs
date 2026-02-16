@@ -209,20 +209,6 @@ module.exports = {
 
   // Plugins
   plugins: [
-    // Form elements plugin
-    require('@tailwindcss/forms')({
-      strategy: 'class',
-    }),
-    
-    // Typography plugin
-    require('@tailwindcss/typography'),
-    
-    // Aspect ratio plugin
-    require('@tailwindcss/aspect-ratio'),
-    
-    // Container queries plugin
-    require('@tailwindcss/container-queries'),
-    
     // Custom plugin for additional utilities
     function({ addUtilities, addComponents, theme }) {
       // Custom utilities
