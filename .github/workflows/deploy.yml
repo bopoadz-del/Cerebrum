@@ -125,6 +125,7 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
         run: |
+          cd backend
           pip install -r requirements.txt
           alembic upgrade head
 
@@ -215,7 +216,8 @@ jobs:
         env:
           BASE_URL: ${{ needs.deploy-staging.result == 'success' && 'https://staging.cerebrum.ai' || 'https://cerebrum.ai' }}
         run: |
-          pytest tests/smoke/ -v --tb=short
+          cd backend
+          pytest tests/test_smoke.py -v --tb=short
 
   # ---------------------------------------------------------------------------
   # Rollback (on failure)
