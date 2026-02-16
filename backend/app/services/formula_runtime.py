@@ -258,10 +258,10 @@ def eval_formula(
 
 def _get_default_formulas_path() -> Path:
     """Get the default path to the formulas JSON file."""
-    # Start from backend directory and go up to repo root
-    backend_dir = Path(__file__).parent.parent
-    repo_root = backend_dir.parent
-    return repo_root / "data" / "formulas" / "initial_library.json"
+    # Path relative to the backend/app directory
+    # In Docker: /app/app/services/ -> /app/data/formulas/
+    backend_dir = Path(__file__).parent.parent.parent  # app -> backend
+    return backend_dir / "data" / "formulas" / "initial_library.json"
 
 
 def _load_formulas_from_file(file_path: Union[str, Path]) -> List[FormulaDefinition]:

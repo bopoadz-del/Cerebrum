@@ -209,7 +209,8 @@ The Formula Engine provides safe, sandboxed evaluation of mathematical formulas 
 
 ### Environment Variable
 ```bash
-INITIAL_FORMULAS_PATH=data/formulas/initial_library.json  # Path to formulas JSON
+INITIAL_FORMULAS_PATH=/app/data/formulas/initial_library.json  # Path to formulas JSON (in container)
+# For local development: backend/data/formulas/initial_library.json
 ```
 
 ### API Endpoints

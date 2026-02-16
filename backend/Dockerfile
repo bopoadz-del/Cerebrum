@@ -65,6 +65,7 @@ WORKDIR $APP_HOME
 # Copy application code
 COPY --chown=appuser:appgroup app/ ./app/
 COPY --chown=appuser:appgroup scripts/ ./scripts/
+COPY --chown=appuser:appgroup data/ ./data/
 
 # Create necessary directories
 RUN mkdir -p /app/logs /app/tmp && \
