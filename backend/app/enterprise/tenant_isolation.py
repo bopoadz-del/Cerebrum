@@ -11,7 +11,7 @@ from datetime import datetime
 from enum import Enum
 
 from sqlalchemy import (
-    Column, String, DateTime, Boolean, ForeignKey, Index, 
+    Column, String, DateTime, Boolean, ForeignKey, Index, Integer,
     event, text, inspect, create_engine
 )
 from sqlalchemy.orm import Session, declared_attr
@@ -22,6 +22,11 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import jwt
 from pydantic import BaseModel
 from app.db.base_class import Base
+from app.core.deps import get_db
+from app.core.config import settings
+
+# Get secret key from settings - must be configured
+SECRET_KEY = settings.SECRET_KEY
 
 # Context variable for current tenant
 tenant_context: ContextVar[Optional[str]] = ContextVar('tenant_context', default=None)

@@ -14,6 +14,8 @@ from pydantic import BaseModel, Field
 from fastapi import HTTPException
 from enum import Enum
 
+from app.db.base_class import Base
+
 
 class BidStatus(str, Enum):
     """Bid status"""

@@ -4,7 +4,7 @@ Implements spatial indexing for efficient geometry queries and clash detection.
 """
 
 import numpy as np
-from typing import Optional, Dict, List, Any, Tuple, Iterator, Callable
+from typing import Optional, Dict, List, Any, Tuple, Iterator, Callable, Union
 from dataclasses import dataclass, field
 from enum import Enum
 import json

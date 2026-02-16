@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_db, get_current_user, require_permissions
-from app.portal.scoped_access import ScopedAccessService, CreateSubcontractorCompanyRequest
+from app.portal.scoped_access import ScopedAccessService, CreateSubcontractorCompanyRequest, SubcontractorUser
 from app.portal.bid_management import BidManagementService, CreateITBRequest, SubmitBidRequest
 from app.portal.payment_apps import PaymentApplicationService, CreateSOVRequest, CreatePaymentAppRequest
 from app.portal.daily_reports import DailyReportService, CreateDailyReportRequest

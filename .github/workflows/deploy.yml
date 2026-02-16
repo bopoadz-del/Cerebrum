@@ -155,6 +155,8 @@ jobs:
         if: success()
         uses: slackapi/slack-github-action@v2
         with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
           payload: |
             {
               "text": "✅ Production deployment successful",
@@ -168,13 +170,14 @@ jobs:
                 }
               ]
             }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        continue-on-error: true
 
       - name: Notify on failure
         if: failure()
         uses: slackapi/slack-github-action@v2
         with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
           payload: |
             {
               "text": "❌ Production deployment failed",
@@ -188,8 +191,7 @@ jobs:
                 }
               ]
             }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        continue-on-error: true
 
   # ---------------------------------------------------------------------------
   # Smoke Tests
@@ -240,6 +242,8 @@ jobs:
       - name: Notify rollback
         uses: slackapi/slack-github-action@v2
         with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
           payload: |
             {
               "text": "🔄 Production deployment rolled back",
@@ -253,5 +257,4 @@ jobs:
                 }
               ]
             }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        continue-on-error: true

@@ -4,7 +4,7 @@ Item 312: E-signature integrations
 """
 
 from typing import Optional, Dict, Any, List
-from datetime import datetime
+from datetime import datetime, timedelta
 import uuid
 
 from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, Text, Integer
@@ -15,6 +15,8 @@ from fastapi import HTTPException
 from enum import Enum
 import requests
 import base64
+
+from app.db.base_class import Base
 
 
 class ESignatureProvider(str, Enum):

@@ -16,6 +16,8 @@ import hmac
 import hashlib
 import json
 
+from app.db.base_class import Base
+
 
 # Database Models
 

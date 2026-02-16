@@ -16,6 +16,9 @@ from sqlalchemy.dialects.postgresql import UUID, JSONB, INET
 from sqlalchemy.orm import relationship
 
 from app.db.base_class import Base
+from app.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class DeviceStatus(str, Enum):

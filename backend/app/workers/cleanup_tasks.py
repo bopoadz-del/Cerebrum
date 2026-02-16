@@ -4,6 +4,7 @@ Periodic cleanup tasks for maintaining system health and performance.
 """
 
 import asyncio
+import os
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Any
 import logging

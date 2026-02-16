@@ -9,6 +9,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks, Request
 from fastapi.responses import JSONResponse, StreamingResponse
+from starlette.responses import Response
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_db, get_current_user, require_permissions
@@ -18,7 +19,7 @@ from app.enterprise.tenant_isolation import (
 from app.enterprise.tenant_onboarding import (
     TenantOnboardingService, OnboardingStartRequest, OnboardingResponse
 )
-from app.enterprise.sso_saml import SAMLService, SAMLProviderCreateRequest
+from app.enterprise.sso_saml import SAMLService, SAMLProviderCreateRequest, SAMLProvider
 from app.enterprise.sso_oidc import OIDCService, OIDCProviderCreateRequest
 from app.enterprise.scim import SCIMService
 from app.enterprise.audit_enterprise import AuditService, AuditLogQuery

@@ -8,12 +8,15 @@ from datetime import datetime, timedelta
 import uuid
 from app.db.base_class import Base
 
-from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, Text, Integer, Float, func
+from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, Text, Integer, Float, func, Index
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 from fastapi import HTTPException
 from enum import Enum
+
+from app.enterprise.tenant_isolation import Tenant
+from app.enterprise.graphql import Document
 
 
 class MetricType(str, Enum):
