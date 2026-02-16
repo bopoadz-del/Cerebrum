@@ -1,0 +1,87 @@
+{
+  "version": "1.0.0",
+  "description": "Initial formula library for Cerebrum AI Platform",
+  "formulas": [
+    {
+      "id": "concrete_volume",
+      "name": "Concrete Volume",
+      "domain": "construction",
+      "description": "Calculate concrete volume for rectangular elements",
+      "formula_expression": "length * width * height",
+      "inputs": [
+        {"name": "length", "type": "float", "unit": "m", "required": true},
+        {"name": "width", "type": "float", "unit": "m", "required": true},
+        {"name": "height", "type": "float", "unit": "m", "required": true}
+      ],
+      "outputs": [
+        {"name": "result", "type": "float", "unit": "m³"}
+      ],
+      "references": ["ACI 318", "ASTM C94"],
+      "tags": ["concrete", "volume", "materials"]
+    },
+    {
+      "id": "rebar_weight",
+      "name": "Rebar Weight",
+      "domain": "construction",
+      "description": "Calculate weight of reinforcing steel bars",
+      "formula_expression": "(diameter ** 2) * 0.006165 * length",
+      "inputs": [
+        {"name": "diameter", "type": "float", "unit": "mm", "required": true},
+        {"name": "length", "type": "float", "unit": "m", "required": true}
+      ],
+      "outputs": [
+        {"name": "result", "type": "float", "unit": "kg"}
+      ],
+      "references": ["ASTM A615", "BS 4449"],
+      "tags": ["steel", "rebar", "weight", "materials"]
+    },
+    {
+      "id": "beam_moment",
+      "name": "Simple Beam Moment",
+      "domain": "structural",
+      "description": "Calculate maximum bending moment for a simply supported beam with uniform load",
+      "formula_expression": "(load * span ** 2) / 8",
+      "inputs": [
+        {"name": "load", "type": "float", "unit": "kN/m", "required": true, "description": "Uniform distributed load"},
+        {"name": "span", "type": "float", "unit": "m", "required": true, "description": "Beam span length"}
+      ],
+      "outputs": [
+        {"name": "result", "type": "float", "unit": "kN·m"}
+      ],
+      "references": ["AISC Steel Construction Manual", "Timoshenko Strength of Materials"],
+      "tags": ["beam", "moment", "structural", "load"]
+    },
+    {
+      "id": "roi_calculator",
+      "name": "ROI Calculator",
+      "domain": "financial",
+      "description": "Calculate return on investment percentage",
+      "formula_expression": "((gain - cost) / cost) * 100",
+      "inputs": [
+        {"name": "gain", "type": "float", "unit": "currency", "required": true},
+        {"name": "cost", "type": "float", "unit": "currency", "required": true}
+      ],
+      "outputs": [
+        {"name": "result", "type": "float", "unit": "%"}
+      ],
+      "references": ["GAAP", "IFRS"],
+      "tags": ["finance", "roi", "investment"]
+    },
+    {
+      "id": "unit_cost_total",
+      "name": "Unit Cost Total",
+      "domain": "cost_estimation",
+      "description": "Calculate total cost from unit price and quantity",
+      "formula_expression": "unit_price * quantity",
+      "inputs": [
+        {"name": "unit_price", "type": "float", "unit": "currency", "required": true},
+        {"name": "quantity", "type": "float", "unit": "ea", "required": true}
+      ],
+      "outputs": [
+        {"name": "result", "type": "float", "unit": "currency"}
+      ],
+      "references": ["RS Means", "CostWorks"],
+      "tags": ["cost", "estimation", "pricing"]
+    }
+  ]
+}

@@ -196,6 +196,64 @@ cerebrum/
 - ✅ Hot deployment without restart
 - ✅ Self-healing with automatic patches
 
+### Formula Engine
+- ✅ JSON-based formula library
+- ✅ Safe evaluation with restricted builtins
+- ✅ Domain-tagged formulas (construction, structural, financial)
+- ✅ REST API for formula evaluation
+- ✅ Input validation and error handling
+
+## 📐 Formula API
+
+The Formula Engine provides safe, sandboxed evaluation of mathematical formulas for construction calculations.
+
+### Environment Variable
+```bash
+INITIAL_FORMULAS_PATH=data/formulas/initial_library.json  # Path to formulas JSON
+```
+
+### API Endpoints
+
+**List all formulas:**
+```bash
+curl http://localhost:8000/api/v1/formulas
+```
+
+**Get specific formula:**
+```bash
+curl http://localhost:8000/api/v1/formulas/concrete_volume
+```
+
+**Evaluate a formula:**
+```bash
+curl -X POST http://localhost:8000/api/v1/formulas/eval \
+  -H "Content-Type: application/json" \
+  -d '{
+    "formula_id": "concrete_volume",
+    "inputs": {
+      "length": 10.0,
+      "width": 5.0,
+      "height": 0.3
+    }
+  }'
+# Response: {"formula_id":"concrete_volume","success":true,"output_values":{"result":15.0}}
+```
+
+**Evaluate by path:**
+```bash
+curl -X POST http://localhost:8000/api/v1/formulas/rebar_weight/eval \
+  -H "Content-Type: application/json" \
+  -d '{"diameter": 16, "length": 12}'
+```
+
+### Built-in Functions
+Available in formula expressions: `abs`, `round`, `min`, `max`, `sum`, `pow`, `sqrt`, `pi`, `sin`, `cos`, `tan`, `log`, `exp`, and all `math` module functions.
+
+### Security
+- Dangerous builtins (`__import__`, `open`, `exec`, `eval`) are blocked
+- Formulas run in restricted environment
+- Invalid expressions return error messages, don't crash
+
 ## 🔧 Configuration
 
 ### Environment Variables

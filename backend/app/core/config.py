@@ -242,6 +242,14 @@ class Settings(BaseSettings):
     )
     
     # =================================================================
+    # Formula Library Settings
+    # =================================================================
+    INITIAL_FORMULAS_PATH: Optional[str] = Field(
+        default=None,
+        description="Path to initial formulas JSON library (relative to repo root or absolute)",
+    )
+    
+    # =================================================================
     # Validators
     # =================================================================
     @field_validator("CORS_ORIGINS", mode="before")
