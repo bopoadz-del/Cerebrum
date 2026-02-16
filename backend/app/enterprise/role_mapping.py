@@ -65,9 +65,9 @@ class Permission(str, Enum):
 
 # Database Models
 
-class Role(Base):
+class EnterpriseRole(Base):
     """Internal role definition"""
-    __tablename__ = 'roles'
+    __tablename__ = 'enterprise_roles'
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey('tenants.id', ondelete='CASCADE'), nullable=True)
@@ -79,7 +79,7 @@ class Role(Base):
     
     # Hierarchy
     level = Column(String(50), default=RoleLevel.TENANT.value)
-    parent_role_id = Column(UUID(as_uuid=True), ForeignKey('roles.id'), nullable=True)
+    parent_role_id = Column(UUID(as_uuid=True), ForeignKey('enterprise_roles.id'), nullable=True)
     
     # Permissions
     permissions = Column(JSONB, default=list)

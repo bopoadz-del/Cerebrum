@@ -166,9 +166,9 @@ class CustomAPIEndpoint(Base):
     created_by = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=True)
 
 
-class APIKey(Base):
+class IntegrationAPIKey(Base):
     """API key management"""
-    __tablename__ = 'api_keys'
+    __tablename__ = 'integration_api_keys'
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey('tenants.id', ondelete='CASCADE'), nullable=False)
@@ -557,7 +557,7 @@ class APIKeyService:
         if request.expires_days:
             expires_at = datetime.utcnow() + timedelta(days=request.expires_days)
         
-        key_record = APIKey(
+        key_record = IntegrationAPIKey(
             tenant_id=tenant_id,
             name=request.name,
             key_prefix=key_prefix,
@@ -574,14 +574,14 @@ class APIKeyService:
         
         return key_record, api_key
     
-    def validate_api_key(self, api_key: str) -> Optional[APIKey]:
+    def validate_api_key(self, api_key: str) -> Optional[IntegrationAPIKey]:
         """Validate API key"""
         
         key_hash = hashlib.sha256(api_key.encode()).hexdigest()
         
-        key_record = self.db.query(APIKey).filter(
-            APIKey.key_hash == key_hash,
-            APIKey.is_active == True
+        key_record = self.db.query(IntegrationAPIKey).filter(
+            IntegrationAPIKey.key_hash == key_hash,
+            IntegrationAPIKey.is_active == True
         ).first()
         
         if not key_record:
@@ -607,7 +607,7 @@ class APIKeyService:
     ):
         """Revoke API key"""
         
-        key = self.db.query(APIKey).filter(APIKey.id == key_id).first()
+        key = self.db.query(IntegrationAPIKey).filter(IntegrationAPIKey.id == key_id).first()
         
         if not key:
             raise HTTPException(404, "API key not found")
@@ -671,7 +671,7 @@ __all__ = [
     'WebhookSubscription',
     'WebhookDelivery',
     'CustomAPIEndpoint',
-    'APIKey',
+    'IntegrationAPIKey',
     'CreateWebhookRequest',
     'UpdateWebhookRequest',
     'WebhookResponse',

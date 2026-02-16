@@ -74,9 +74,9 @@ class ComplianceStandard(str, Enum):
 
 # Database Models
 
-class AuditLog(Base):
+class EnterpriseAuditLog(Base):
     """Comprehensive audit log"""
-    __tablename__ = 'audit_logs'
+    __tablename__ = 'enterprise_audit_log'
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey('tenants.id', ondelete='CASCADE'), nullable=True)
@@ -185,7 +185,7 @@ class DataRetentionPolicy(Base):
 
 # Pydantic Schemas
 
-class AuditLogCreateRequest(BaseModel):
+class EnterpriseAuditLogCreateRequest(BaseModel):
     """Create audit log entry"""
     event_type: str
     event_category: str = 'general'
@@ -203,7 +203,7 @@ class AuditLogCreateRequest(BaseModel):
     compliance_tags: List[str] = Field(default_factory=list)
 
 
-class AuditLogQuery(BaseModel):
+class EnterpriseAuditLogQuery(BaseModel):
     """Query audit logs"""
     tenant_id: Optional[str] = None
     event_types: List[str] = Field(default_factory=list)
@@ -267,7 +267,7 @@ class AuditService:
         request_id: Optional[str] = None,
         session_id: Optional[str] = None,
         compliance_tags: Optional[List[str]] = None
-    ) -> AuditLog:
+    ) -> EnterpriseAuditLog:
         """Create audit log entry"""
         
         # Calculate changes summary
@@ -279,7 +279,7 @@ class AuditService:
         country_code, city = self._get_location(ip_address)
         
         # Create log entry
-        log = AuditLog(
+        log = EnterpriseAuditLog(
             tenant_id=tenant_id,
             event_type=event_type,
             event_category=event_category,
@@ -357,7 +357,7 @@ class AuditService:
         # For now, return placeholder
         return None, None
     
-    def _calculate_hash(self, log: AuditLog) -> str:
+    def _calculate_hash(self, log: EnterpriseAuditLog) -> str:
         """Calculate integrity hash for log entry"""
         
         data = {
@@ -375,47 +375,47 @@ class AuditService:
     
     def query_logs(
         self,
-        query: AuditLogQuery
+        query: EnterpriseAuditLogQuery
     ) -> tuple:
         """Query audit logs with filters"""
         
-        q = self.db.query(AuditLog)
+        q = self.db.query(EnterpriseAuditLog)
         
         if query.tenant_id:
-            q = q.filter(AuditLog.tenant_id == query.tenant_id)
+            q = q.filter(EnterpriseAuditLog.tenant_id == query.tenant_id)
         
         if query.event_types:
-            q = q.filter(AuditLog.event_type.in_(query.event_types))
+            q = q.filter(EnterpriseAuditLog.event_type.in_(query.event_types))
         
         if query.event_categories:
-            q = q.filter(AuditLog.event_category.in_(query.event_categories))
+            q = q.filter(EnterpriseAuditLog.event_category.in_(query.event_categories))
         
         if query.actor_id:
-            q = q.filter(AuditLog.actor_id == query.actor_id)
+            q = q.filter(EnterpriseAuditLog.actor_id == query.actor_id)
         
         if query.target_type:
-            q = q.filter(AuditLog.target_type == query.target_type)
+            q = q.filter(EnterpriseAuditLog.target_type == query.target_type)
         
         if query.target_id:
-            q = q.filter(AuditLog.target_id == query.target_id)
+            q = q.filter(EnterpriseAuditLog.target_id == query.target_id)
         
         if query.severity:
-            q = q.filter(AuditLog.severity == query.severity)
+            q = q.filter(EnterpriseAuditLog.severity == query.severity)
         
         if query.date_from:
-            q = q.filter(AuditLog.created_at >= query.date_from)
+            q = q.filter(EnterpriseAuditLog.created_at >= query.date_from)
         
         if query.date_to:
-            q = q.filter(AuditLog.created_at <= query.date_to)
+            q = q.filter(EnterpriseAuditLog.created_at <= query.date_to)
         
         if query.compliance_standard:
             q = q.filter(
-                AuditLog.compliance_tags.contains([query.compliance_standard])
+                EnterpriseAuditLog.compliance_tags.contains([query.compliance_standard])
             )
         
         total = q.count()
         
-        logs = q.order_by(AuditLog.created_at.desc()).offset(
+        logs = q.order_by(EnterpriseAuditLog.created_at.desc()).offset(
             query.offset
         ).limit(query.limit).all()
         
@@ -426,33 +426,33 @@ class AuditService:
         tenant_id: str,
         user_id: str,
         days: int = 30
-    ) -> List[AuditLog]:
+    ) -> List[EnterpriseAuditLog]:
         """Get activity for a specific user"""
         
         since = datetime.utcnow() - timedelta(days=days)
         
-        return self.db.query(AuditLog).filter(
-            AuditLog.tenant_id == tenant_id,
-            AuditLog.actor_id == user_id,
-            AuditLog.created_at >= since
-        ).order_by(AuditLog.created_at.desc()).all()
+        return self.db.query(EnterpriseAuditLog).filter(
+            EnterpriseAuditLog.tenant_id == tenant_id,
+            EnterpriseAuditLog.actor_id == user_id,
+            EnterpriseAuditLog.created_at >= since
+        ).order_by(EnterpriseAuditLog.created_at.desc()).all()
     
     def get_security_events(
         self,
         tenant_id: str,
         days: int = 7
-    ) -> List[AuditLog]:
+    ) -> List[EnterpriseAuditLog]:
         """Get security-related events"""
         
         since = datetime.utcnow() - timedelta(days=days)
         
         security_categories = ['auth', 'security']
         
-        return self.db.query(AuditLog).filter(
-            AuditLog.tenant_id == tenant_id,
-            AuditLog.event_category.in_(security_categories),
-            AuditLog.created_at >= since
-        ).order_by(AuditLog.created_at.desc()).limit(100).all()
+        return self.db.query(EnterpriseAuditLog).filter(
+            EnterpriseAuditLog.tenant_id == tenant_id,
+            EnterpriseAuditLog.event_category.in_(security_categories),
+            EnterpriseAuditLog.created_at >= since
+        ).order_by(EnterpriseAuditLog.created_at.desc()).limit(100).all()
 
 
 class ComplianceService:
@@ -540,11 +540,11 @@ class ComplianceService:
         
         for control_id, control_name in controls.items():
             # Query relevant audit logs
-            logs = self.db.query(AuditLog).filter(
-                AuditLog.tenant_id == tenant_id,
-                AuditLog.created_at >= period_start,
-                AuditLog.created_at <= period_end,
-                AuditLog.compliance_tags.contains([standard])
+            logs = self.db.query(EnterpriseAuditLog).filter(
+                EnterpriseAuditLog.tenant_id == tenant_id,
+                EnterpriseAuditLog.created_at >= period_start,
+                EnterpriseAuditLog.created_at <= period_end,
+                EnterpriseAuditLog.compliance_tags.contains([standard])
             ).all()
             
             # Analyze compliance
@@ -557,7 +557,7 @@ class ComplianceService:
         self,
         control_id: str,
         control_name: str,
-        logs: List[AuditLog]
+        logs: List[EnterpriseAuditLog]
     ) -> Dict[str, Any]:
         """Analyze compliance for a specific control"""
         
@@ -621,30 +621,30 @@ class ComplianceService:
         since = datetime.utcnow() - timedelta(days=days)
         
         # Total events
-        total_events = self.db.query(func.count(AuditLog.id)).filter(
-            AuditLog.tenant_id == tenant_id,
-            AuditLog.created_at >= since
+        total_events = self.db.query(func.count(EnterpriseAuditLog.id)).filter(
+            EnterpriseAuditLog.tenant_id == tenant_id,
+            EnterpriseAuditLog.created_at >= since
         ).scalar()
         
         # Events by category
         category_counts = self.db.query(
-            AuditLog.event_category,
-            func.count(AuditLog.id)
+            EnterpriseAuditLog.event_category,
+            func.count(EnterpriseAuditLog.id)
         ).filter(
-            AuditLog.tenant_id == tenant_id,
-            AuditLog.created_at >= since
-        ).group_by(AuditLog.event_category).all()
+            EnterpriseAuditLog.tenant_id == tenant_id,
+            EnterpriseAuditLog.created_at >= since
+        ).group_by(EnterpriseAuditLog.event_category).all()
         
         events_by_category = {cat: count for cat, count in category_counts}
         
         # Events by severity
         severity_counts = self.db.query(
-            AuditLog.severity,
-            func.count(AuditLog.id)
+            EnterpriseAuditLog.severity,
+            func.count(EnterpriseAuditLog.id)
         ).filter(
-            AuditLog.tenant_id == tenant_id,
-            AuditLog.created_at >= since
-        ).group_by(AuditLog.severity).all()
+            EnterpriseAuditLog.tenant_id == tenant_id,
+            EnterpriseAuditLog.created_at >= since
+        ).group_by(EnterpriseAuditLog.severity).all()
         
         events_by_severity = {sev: count for sev, count in severity_counts}
         
@@ -725,9 +725,9 @@ class DataRetentionService:
         
         if policy.data_type == 'audit_logs':
             # Archive or delete old audit logs
-            old_logs = self.db.query(AuditLog).filter(
-                AuditLog.tenant_id == policy.tenant_id,
-                AuditLog.created_at < cutoff_date
+            old_logs = self.db.query(EnterpriseAuditLog).filter(
+                EnterpriseAuditLog.tenant_id == policy.tenant_id,
+                EnterpriseAuditLog.created_at < cutoff_date
             ).all()
             
             if policy.archive_after_days:
@@ -740,7 +740,7 @@ class DataRetentionService:
         
         self.db.commit()
     
-    def _archive_logs(self, logs: List[AuditLog]):
+    def _archive_logs(self, logs: List[EnterpriseAuditLog]):
         """Archive audit logs"""
         
         # In production, move to cold storage
@@ -753,11 +753,11 @@ class DataRetentionService:
 __all__ = [
     'AuditEventType',
     'ComplianceStandard',
-    'AuditLog',
+    'EnterpriseAuditLog',
     'ComplianceReport',
     'DataRetentionPolicy',
-    'AuditLogCreateRequest',
-    'AuditLogQuery',
+    'EnterpriseAuditLogCreateRequest',
+    'EnterpriseAuditLogQuery',
     'ComplianceReportRequest',
     'ComplianceDashboardStats',
     'AuditService',
