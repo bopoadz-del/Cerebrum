@@ -161,18 +161,20 @@ class Settings(BaseSettings):
     # =================================================================
     # CORS Settings
     # =================================================================
-    CORS_ORIGINS: List[str] = Field(
-        default=["http://localhost:3000"],
-        description="Allowed CORS origins",
+    # Note: CORS_ORIGINS is a comma-separated string in env vars
+    # It gets parsed into a list by the cors_origins_list property
+    CORS_ORIGINS: str = Field(
+        default="http://localhost:3000",
+        description="Allowed CORS origins (comma-separated)",
     )
     CORS_ALLOW_CREDENTIALS: bool = Field(default=True, description="Allow CORS credentials")
-    CORS_ALLOW_METHODS: List[str] = Field(
-        default=["*"],
-        description="Allowed CORS methods",
+    CORS_ALLOW_METHODS: str = Field(
+        default="*",
+        description="Allowed CORS methods (comma-separated)",
     )
-    CORS_ALLOW_HEADERS: List[str] = Field(
-        default=["*"],
-        description="Allowed CORS headers",
+    CORS_ALLOW_HEADERS: str = Field(
+        default="*",
+        description="Allowed CORS headers (comma-separated)",
     )
     
     # =================================================================
@@ -272,24 +274,6 @@ class Settings(BaseSettings):
     # =================================================================
     # Validators
     # =================================================================
-    @field_validator("CORS_ORIGINS", "CORS_ALLOW_METHODS", "CORS_ALLOW_HEADERS", mode="before")
-    @classmethod
-    def parse_comma_separated_list(cls, v: Union[str, List[str]]) -> List[str]:
-        """Parse comma-separated string to list."""
-        if v is None:
-            return []
-        if isinstance(v, str):
-            # Handle JSON-encoded lists (from pydantic-settings)
-            if v.startswith("[") and v.endswith("]"):
-                try:
-                    import json
-                    return json.loads(v)
-                except json.JSONDecodeError:
-                    pass
-            # Handle comma-separated values
-            return [item.strip() for item in v.split(",") if item.strip()]
-        return v
-    
     @field_validator("SECRET_KEY")
     @classmethod
     def validate_secret_key(cls, v: str) -> str:
@@ -315,6 +299,27 @@ class Settings(BaseSettings):
     def is_testing(self) -> bool:
         """Check if running in testing environment."""
         return self.ENVIRONMENT == Environment.TESTING
+    
+    @property
+    def cors_origins_list(self) -> List[str]:
+        """Parse CORS_ORIGINS string into list."""
+        if not self.CORS_ORIGINS:
+            return ["http://localhost:3000"]
+        return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
+    
+    @property
+    def cors_methods_list(self) -> List[str]:
+        """Parse CORS_ALLOW_METHODS string into list."""
+        if not self.CORS_ALLOW_METHODS:
+            return ["*"]
+        return [method.strip() for method in self.CORS_ALLOW_METHODS.split(",") if method.strip()]
+    
+    @property
+    def cors_headers_list(self) -> List[str]:
+        """Parse CORS_ALLOW_HEADERS string into list."""
+        if not self.CORS_ALLOW_HEADERS:
+            return ["*"]
+        return [header.strip() for header in self.CORS_ALLOW_HEADERS.split(",") if header.strip()]
     
     @property
     def async_database_url(self) -> str:

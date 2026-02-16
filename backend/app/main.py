@@ -73,8 +73,7 @@ async def lifespan(app: FastAPI):
     
     # Validate CORS_ORIGINS in production
     if not settings.DEBUG:
-        cors_origins_env = os.getenv('CORS_ORIGINS')
-        if not cors_origins_env:
+        if not settings.CORS_ORIGINS:
             logger.critical("FATAL: CORS_ORIGINS must be set in production")
             sys.exit(1)
     
@@ -180,13 +179,12 @@ def create_application() -> FastAPI:
     )
     
     # CORS - dynamic Render domains
-    cors_origins = os.getenv('CORS_ORIGINS', 'http://localhost:3000,http://localhost:5173').split(',')
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[o.strip() for o in cors_origins if o.strip()],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_origins=settings.cors_origins_list,
+        allow_credentials=settings.CORS_ALLOW_CREDENTIALS,
+        allow_methods=settings.cors_methods_list,
+        allow_headers=settings.cors_headers_list,
         expose_headers=["X-Request-ID"],
     )
     

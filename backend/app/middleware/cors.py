@@ -23,16 +23,16 @@ def setup_cors_middleware(app) -> None:
     # Log CORS configuration
     logger.info(
         "Configuring CORS middleware",
-        origins=settings.CORS_ORIGINS,
+        origins=settings.cors_origins_list,
         allow_credentials=settings.CORS_ALLOW_CREDENTIALS,
     )
     
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.CORS_ORIGINS,
+        allow_origins=settings.cors_origins_list,
         allow_credentials=settings.CORS_ALLOW_CREDENTIALS,
-        allow_methods=settings.CORS_ALLOW_METHODS,
-        allow_headers=settings.CORS_ALLOW_HEADERS,
+        allow_methods=settings.cors_methods_list,
+        allow_headers=settings.cors_headers_list,
         expose_headers=[
             "X-Request-ID",
             "X-RateLimit-Limit",
