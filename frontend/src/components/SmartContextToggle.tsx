@@ -183,34 +183,13 @@ export const SmartContextToggle: React.FC<SmartContextToggleProps> = ({
         setState(prev => ({ ...prev, sessionToken: token }));
       }
       
-      // Call activate endpoint
-      const response = await fetch('/api/v1/context/activate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
-        },
-        body: JSON.stringify({
-          documentIds: [],
-          projectId: 'current-project',
-          userPreferences: {},
-          session_token: token,
-        } as ContextPayload & { session_token: string }),
-        signal,
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to activate context: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      
+      // Session is already created and active
       setState({
         enabled: true,
         loading: false,
         error: null,
         sessionToken: token,
-        capacity: data.capacity_percent || 0,
+        capacity: 0,
       });
       
       onToggle?.(true);
@@ -247,17 +226,18 @@ export const SmartContextToggle: React.FC<SmartContextToggleProps> = ({
     setState((prev) => ({ ...prev, loading: true, error: null }));
     
     try {
-      const response = await fetch('/api/v1/context/deactivate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
-        },
-        signal,
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to deactivate context: ${response.statusText}`);
+      if (state.sessionToken) {
+        const response = await fetch(`/api/v1/sessions/${state.sessionToken}/deactivate`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
+          },
+          signal,
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to deactivate context: ${response.statusText}`);
+        }
       }
       
       setState((prev) => ({
