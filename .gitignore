@@ -9,3 +9,6 @@ frontend/.vite/
 .DS_Store
 *.log
 zilqUxp5
+
+# ZVec vector store data
+data/
