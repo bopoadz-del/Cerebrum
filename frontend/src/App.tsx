@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, MessageSquare } from 'lucide-react';
+import { X, MessageSquare, Loader2 } from 'lucide-react';
 import { ProjectSidebar } from '@/components/ProjectSidebar';
 import { ChatInterfaceV2 } from '@/components/ChatInterfaceV2';
 import { OutcomesPanel } from '@/components/OutcomesPanel';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
+import { useDrive } from '@/hooks/useDrive';
 import Login from '@/pages/Login';
 
 // Mobile components
@@ -36,17 +37,24 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function DesktopLayout() {
-  // const navigate = useNavigate();
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>('1');
   const [selectedChatId, setSelectedChatId] = useState<string | null>('c1');
-  const [isGoogleDriveConnected, setIsGoogleDriveConnected] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showNewChatModal, setShowNewChatModal] = useState(false);
+  
+  // Use Drive integration hook
+  const { 
+    projects, 
+    scanning, 
+    isConnected, 
+    loading,
+    connectDrive, 
+    scanDrive,
+    refreshProjects 
+  } = useDrive();
 
-  const selectedProject = {
-    id: '1',
-    name: 'Q4 Financial Analysis',
-  };
+  // Update selected project to use real data from Drive
+  const selectedProject = projects.find(p => p.id === selectedProjectId) || projects[0];
 
   const selectedChat = {
     id: 'c1',
@@ -62,17 +70,32 @@ function DesktopLayout() {
     setShowNewChatModal(false);
   };
 
+  // Show loading state while checking Drive connection
+  if (loading) {
+    return (
+      <div className="flex h-screen bg-white items-center justify-center">
+        <div className="flex items-center gap-3 text-gray-500">
+          <Loader2 className="w-6 h-6 animate-spin" />
+          <span>Checking Google Drive connection...</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen bg-white overflow-hidden">
       {/* Left Panel - Project Sidebar */}
       <ProjectSidebar
+        projects={projects}
         selectedProjectId={selectedProjectId}
         selectedChatId={selectedChatId}
         onSelectProject={setSelectedProjectId}
         onSelectChat={setSelectedChatId}
         onNewChat={handleNewChat}
-        isGoogleDriveConnected={isGoogleDriveConnected}
-        onConnectGoogleDrive={() => setIsGoogleDriveConnected(!isGoogleDriveConnected)}
+        isDriveConnected={isConnected}
+        isScanning={scanning}
+        onConnectDrive={connectDrive}
+        onScanDrive={scanDrive}
         onOpenSettings={() => setShowSettings(true)}
       />
 
