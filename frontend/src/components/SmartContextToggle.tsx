@@ -1,409 +1,195 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Brain, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { Brain, AlertCircle, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { toast } from '@/components/ui/Toast';
-
-interface SmartContextState {
-  enabled: boolean;
-  loading: boolean;
-  error: string | null;
-  sessionToken: string | null;
-  capacity: number;
-}
-
-interface ContextPayload {
-  documentIds: string[];
-  projectId: string;
-  userPreferences: Record<string, unknown>;
-}
 
 interface SmartContextToggleProps {
   sessionToken?: string;
   onToggle?: (enabled: boolean) => void;
-  onSessionChange?: (token: string | null) => void;
 }
 
-// Storage key for local persistence
-const STORAGE_KEY = 'cerebrum_smart_context';
+export function SmartContextToggle({ onToggle }: SmartContextToggleProps) {
+  const [enabled, setEnabled] = useState(false);
+  const [capacity, setCapacity] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
 
-export const SmartContextToggle: React.FC<SmartContextToggleProps> = ({
-  sessionToken: externalSessionToken,
-  onToggle,
-  onSessionChange,
-}) => {
-  const [state, setState] = useState<SmartContextState>({
-    enabled: false,
-    loading: false,
-    error: null,
-    sessionToken: externalSessionToken || null,
-    capacity: 0,
-  });
-  
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Load persisted state on mount
+  // Simulate capacity monitoring
   useEffect(() => {
-    if (!externalSessionToken) {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored);
-          if (parsed.enabled && parsed.sessionToken) {
-            setState(prev => ({
-              ...prev,
-              enabled: parsed.enabled,
-              sessionToken: parsed.sessionToken,
-            }));
-          }
-        } catch (e) {
-          console.warn('Failed to parse stored smart context state:', e);
-        }
-      }
-    }
-  }, [externalSessionToken]);
-
-  // Persist state changes
-  useEffect(() => {
-    if (!externalSessionToken) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        enabled: state.enabled,
-        sessionToken: state.sessionToken,
-      }));
-    }
-  }, [state.enabled, state.sessionToken, externalSessionToken]);
-
-  // Update external session token if provided
-  useEffect(() => {
-    if (externalSessionToken !== undefined) {
-      setState(prev => ({ ...prev, sessionToken: externalSessionToken }));
-    }
-  }, [externalSessionToken]);
-
-  // Notify parent of session changes
-  useEffect(() => {
-    onSessionChange?.(state.sessionToken);
-  }, [state.sessionToken, onSessionChange]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-      if (loadingTimeoutRef.current) {
-        clearTimeout(loadingTimeoutRef.current);
-      }
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-      }
-    };
-  }, []);
-
-  // Start polling capacity when session is active
-  useEffect(() => {
-    if (state.enabled && state.sessionToken) {
-      pollIntervalRef.current = setInterval(() => {
-        fetchCapacity();
-      }, 30000); // Poll every 30 seconds
-      
-      // Initial capacity fetch
-      fetchCapacity();
-    } else {
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-        pollIntervalRef.current = null;
-      }
-    }
+    if (!enabled) return;
     
-    return () => {
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-      }
-    };
-  }, [state.enabled, state.sessionToken]);
-
-  const fetchCapacity = useCallback(async () => {
-    if (!state.sessionToken) return;
-    
-    try {
-      const response = await fetch(`/api/v1/sessions/${state.sessionToken}/capacity`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
-        },
+    const interval = setInterval(() => {
+      // Simulate capacity increasing with messages
+      setCapacity((prev) => {
+        const newCapacity = Math.min(prev + Math.random() * 5, 100);
+        return newCapacity;
       });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setState(prev => ({ ...prev, capacity: data.capacity_percent }));
-      }
-    } catch (error) {
-      // Silently fail - don't spam user with capacity errors
-      console.warn('Failed to fetch capacity:', error);
-    }
-  }, [state.sessionToken]);
+    }, 3000);
 
-  const createSession = useCallback(async () => {
-    const response = await fetch('/api/v1/sessions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
-      },
-      body: JSON.stringify({
-        title: 'Smart Context Session',
-        ttl_hours: 24,
-      }),
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Failed to create session: ${response.statusText}`);
-    }
-    
-    const data = await response.json();
-    return data.session_token;
-  }, []);
+    return () => clearInterval(interval);
+  }, [enabled]);
 
-  const activateContext = useCallback(async () => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
+  // Reset capacity when disabled
+  useEffect(() => {
+    if (!enabled) {
+      setCapacity(0);
     }
+  }, [enabled]);
+
+  const handleToggle = async () => {
+    const nextState = !enabled;
+    setIsLoading(true);
     
-    abortControllerRef.current = new AbortController();
-    const { signal } = abortControllerRef.current;
+    // Simulate API call
+    await new Promise((resolve) => setTimeout(resolve, 300));
     
-    setState((prev) => ({ ...prev, loading: true, error: null }));
-    
-    try {
-      // Create session if we don't have one
-      let token = state.sessionToken;
-      if (!token) {
-        token = await createSession();
-        setState(prev => ({ ...prev, sessionToken: token }));
-      }
-      
-      // Session is already created and active
-      setState({
-        enabled: true,
-        loading: false,
-        error: null,
-        sessionToken: token,
-        capacity: 0,
-      });
-      
-      onToggle?.(true);
-      toast.success('Smart Context activated successfully');
-    } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') {
-        console.log('Context activation aborted');
-        return;
-      }
-      
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      
-      setState((prev) => ({
-        ...prev,
-        enabled: false,
-        loading: false,
-        error: errorMessage,
-      }));
-      
-      toast.error(`Failed to activate Smart Context: ${errorMessage}`);
-      throw error;
-    }
-  }, [createSession, onToggle, state.sessionToken]);
-  
-  const deactivateContext = useCallback(async () => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    
-    abortControllerRef.current = new AbortController();
-    const { signal } = abortControllerRef.current;
-    
-    setState((prev) => ({ ...prev, loading: true, error: null }));
-    
-    try {
-      if (state.sessionToken) {
-        const response = await fetch(`/api/v1/sessions/${state.sessionToken}/deactivate`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
-          },
-          signal,
-        });
-        
-        if (!response.ok) {
-          throw new Error(`Failed to deactivate context: ${response.statusText}`);
-        }
-      }
-      
-      setState((prev) => ({
-        ...prev,
-        enabled: false,
-        loading: false,
-        error: null,
-        capacity: 0,
-      }));
-      
-      onToggle?.(false);
-      toast.info('Smart Context deactivated');
-    } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') {
-        console.log('Context deactivation aborted');
-        return;
-      }
-      
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      
-      setState((prev) => ({
-        ...prev,
-        loading: false,
-        error: errorMessage,
-      }));
-      
-      toast.error(`Failed to deactivate Smart Context: ${errorMessage}`);
-    }
-  }, [onToggle]);
-  
-  const handleToggle = useCallback(async () => {
-    if (state.loading) {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-        abortControllerRef.current = null;
-      }
-      setState((prev) => ({ ...prev, loading: false }));
-      return;
-    }
-    
-    if (state.enabled) {
-      await deactivateContext();
-    } else {
-      await activateContext();
-    }
-  }, [state.enabled, state.loading, activateContext, deactivateContext]);
-  
-  const getButtonStyles = () => {
-    if (state.loading) {
-      return 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 border-yellow-300 dark:border-yellow-700';
-    }
-    if (state.error) {
-      return 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 border-red-300 dark:border-red-700';
-    }
-    if (state.enabled) {
-      return 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-300 dark:border-green-700';
-    }
-    return 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-300 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700';
+    setEnabled(nextState);
+    onToggle?.(nextState);
+    setIsLoading(false);
   };
-  
-  const getIcon = () => {
-    if (state.loading) {
-      return <Loader2 size={18} className="animate-spin" />;
-    }
-    if (state.error) {
-      return <AlertCircle size={18} />;
-    }
-    if (state.enabled) {
-      return <CheckCircle2 size={18} />;
-    }
-    return <Brain size={18} />;
+
+  const getCapacityColor = () => {
+    if (capacity < 50) return 'bg-emerald-500';
+    if (capacity < 75) return 'bg-amber-500';
+    if (capacity < 90) return 'bg-orange-500';
+    return 'bg-red-500';
   };
-  
-  const getLabel = () => {
-    if (state.loading) {
-      return state.enabled ? 'Deactivating...' : 'Activating...';
-    }
-    if (state.error) {
-      return 'Error';
-    }
-    if (state.enabled) {
-      return state.capacity > 0 ? `Smart Context (${state.capacity}%)` : 'Smart Context On';
-    }
-    return 'Smart Context';
+
+  const getCapacityStatus = () => {
+    if (capacity < 50) return 'Healthy';
+    if (capacity < 75) return 'Moderate';
+    if (capacity < 90) return 'High';
+    return 'Critical - Handoff Soon';
   };
-  
+
   return (
-    <button
-      onClick={handleToggle}
-      disabled={false}
-      className={cn(
-        'flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all duration-200',
-        getButtonStyles(),
-        state.loading && 'cursor-pointer'
+    <div className="bg-gray-50 rounded-xl border border-gray-200 p-4 mb-4">
+      {/* Toggle Row */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div
+            className={cn(
+              'w-10 h-10 rounded-lg flex items-center justify-center transition-colors',
+              enabled ? 'bg-indigo-100' : 'bg-gray-100'
+            )}
+          >
+            <Brain
+              className={cn(
+                'w-5 h-5 transition-colors',
+                enabled ? 'text-indigo-600' : 'text-gray-400'
+              )}
+            />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span
+                className={cn(
+                  'font-medium transition-colors',
+                  enabled ? 'text-gray-900' : 'text-gray-600'
+                )}
+              >
+                Smart Context
+              </span>
+              <span
+                className={cn(
+                  'text-xs px-2 py-0.5 rounded-full font-medium transition-colors',
+                  enabled
+                    ? 'bg-red-100 text-red-700'
+                    : 'bg-gray-100 text-gray-500'
+                )}
+              >
+                {enabled ? 'AUTO-HANDOFF ON' : 'Manual'}
+              </span>
+            </div>
+            <p className="text-xs text-gray-500">
+              Auto-brief + handoff at 90% capacity
+            </p>
+          </div>
+        </div>
+
+        {/* Toggle Switch */}
+        <button
+          onClick={handleToggle}
+          disabled={isLoading}
+          className={cn(
+            'relative w-14 h-7 rounded-full transition-colors duration-300',
+            enabled ? 'bg-indigo-600' : 'bg-gray-300'
+          )}
+        >
+          <motion.div
+            initial={false}
+            animate={{ x: enabled ? 28 : 2 }}
+            transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+            className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-sm"
+          />
+        </button>
+      </div>
+
+      {/* Capacity Monitor (only when enabled) */}
+      {enabled && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          exit={{ opacity: 0, height: 0 }}
+          className="mt-4 pt-4 border-t border-gray-200"
+        >
+          {/* Capacity Bar */}
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm text-gray-600">Context Capacity</span>
+            <span
+              className={cn(
+                'text-sm font-medium',
+                capacity >= 90 ? 'text-red-600' : 'text-gray-700'
+              )}
+            >
+              {Math.round(capacity)}%
+            </span>
+          </div>
+
+          {/* Progress Bar */}
+          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${capacity}%` }}
+              transition={{ duration: 0.5 }}
+              className={cn('h-full rounded-full transition-colors', getCapacityColor())}
+            />
+          </div>
+
+          {/* Status */}
+          <div className="flex items-center justify-between mt-2">
+            <span className={cn('text-xs', capacity >= 90 ? 'text-red-600' : 'text-gray-500')}>
+              {getCapacityStatus()}
+            </span>
+            {capacity >= 90 && (
+              <div className="flex items-center gap-1 text-xs text-red-600">
+                <AlertCircle className="w-3 h-3" />
+                Handoff imminent
+              </div>
+            )}
+          </div>
+
+          {/* Handoff Warning */}
+          {capacity >= 95 && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg"
+            >
+              <div className="flex items-start gap-2">
+                <Zap className="w-4 h-4 text-red-500 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-red-700">
+                    Context Limit Reached
+                  </p>
+                  <p className="text-xs text-red-600 mt-0.5">
+                    A new session will be created automatically to maintain performance.
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </motion.div>
       )}
-      title={state.error || (state.enabled ? 'Click to deactivate' : 'Click to activate')}
-      aria-pressed={state.enabled}
-      aria-busy={state.loading}
-    >
-      {getIcon()}
-      <span className="hidden sm:inline">{getLabel()}</span>
-      <span className="sm:hidden">
-        {state.loading ? '...' : state.enabled ? 'On' : 'Off'}
-      </span>
-    </button>
+    </div>
   );
-};
-
-// Hook for using smart context in other components
-export const useSmartContext = () => {
-  const [context, setContext] = useState<{
-    enabled: boolean;
-    documents: string[];
-    projectId: string | null;
-    sessionToken: string | null;
-    capacity: number;
-  }>({
-    enabled: false,
-    documents: [],
-    projectId: null,
-    sessionToken: null,
-    capacity: 0,
-  });
-
-  const addDocument = useCallback((documentId: string) => {
-    setContext((prev) => ({
-      ...prev,
-      documents: [...prev.documents, documentId],
-    }));
-  }, []);
-
-  const removeDocument = useCallback((documentId: string) => {
-    setContext((prev) => ({
-      ...prev,
-      documents: prev.documents.filter((id) => id !== documentId),
-    }));
-  }, []);
-
-  const clearDocuments = useCallback(() => {
-    setContext((prev) => ({
-      ...prev,
-      documents: [],
-    }));
-  }, []);
-
-  const setProject = useCallback((projectId: string) => {
-    setContext((prev) => ({
-      ...prev,
-      projectId,
-    }));
-  }, []);
-
-  const setSessionToken = useCallback((token: string | null) => {
-    setContext((prev) => ({
-      ...prev,
-      sessionToken: token,
-    }));
-  }, []);
-
-  return {
-    context,
-    addDocument,
-    removeDocument,
-    clearDocuments,
-    setProject,
-    setSessionToken,
-  };
-};
-
-export default SmartContextToggle;
+}

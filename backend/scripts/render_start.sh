@@ -30,7 +30,7 @@ echo
 
 echo "[2/4] Running database migrations..."
 cd /app
-alembic -c app/db/migrations/alembic.ini upgrade head
+alembic -c alembic.ini upgrade head
 echo "OK: Migrations completed"
 echo
 

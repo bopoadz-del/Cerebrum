@@ -5,15 +5,16 @@ This module provides SQLAlchemy database session management with connection pool
 async support, and proper lifecycle handling for the Cerebrum AI platform.
 """
 
-from contextlib import asynccontextmanager
-from typing import AsyncGenerator, Optional
+from contextlib import asynccontextmanager, contextmanager
+from typing import AsyncGenerator, Generator, Optional
 
+from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
@@ -64,6 +65,7 @@ class DatabaseManager:
         
         # Convert to async URL if needed
         async_url = self._make_async_url(db_url)
+        sync_url = self._make_sync_url(db_url)
         
         logger.info(
             "Initializing database connection pool",
@@ -87,6 +89,21 @@ class DatabaseManager:
             autocommit=False,
         )
         
+        # Create sync engine for synchronous operations
+        self._sync_engine = create_engine(
+            sync_url,
+            **POOL_CONFIG,
+            future=True,
+        )
+        
+        # Create sync session factory
+        self._sync_session_factory = sessionmaker(
+            self._sync_engine,
+            expire_on_commit=False,
+            autoflush=False,
+            autocommit=False,
+        )
+        
         logger.info("Database connection pool initialized successfully")
     
     def _make_async_url(self, url: str) -> str:
@@ -105,6 +122,23 @@ class DatabaseManager:
             return url.replace("postgresql://", "postgresql+asyncpg://", 1)
         return url
     
+    def _make_sync_url(self, url: str) -> str:
+        """
+        Convert PostgreSQL URL to sync version.
+        
+        Args:
+            url: Database URL
+            
+        Returns:
+            Sync-compatible database URL
+        """
+        if url.startswith("postgres://"):
+            url = url.replace("postgres://", "postgresql://", 1)
+        # Remove asyncpg if present
+        if url.startswith("postgresql+asyncpg://"):
+            url = url.replace("postgresql+asyncpg://", "postgresql://", 1)
+        return url
+    
     @property
     def async_engine(self) -> object:
         """Get async engine instance."""
@@ -119,14 +153,33 @@ class DatabaseManager:
             raise RuntimeError("Database not initialized. Call initialize() first.")
         return self._async_session_factory
     
+    @property
+    def sync_engine(self) -> object:
+        """Get sync engine instance."""
+        if self._sync_engine is None:
+            raise RuntimeError("Database not initialized. Call initialize() first.")
+        return self._sync_engine
+    
+    @property
+    def sync_session_factory(self) -> sessionmaker:
+        """Get sync session factory."""
+        if self._sync_session_factory is None:
+            raise RuntimeError("Database not initialized. Call initialize() first.")
+        return self._sync_session_factory
+    
     async def close(self) -> None:
         """Close all database connections."""
         if self._async_engine:
-            logger.info("Closing database connection pool")
+            logger.info("Closing async database connection pool")
             await self._async_engine.dispose()
             self._async_engine = None
             self._async_session_factory = None
-            logger.info("Database connection pool closed")
+        if self._sync_engine:
+            logger.info("Closing sync database connection pool")
+            self._sync_engine.dispose()
+            self._sync_engine = None
+            self._sync_session_factory = None
+        logger.info("Database connection pool closed")
 
 
 # Global database manager instance
@@ -184,6 +237,34 @@ async def get_db_context() -> AsyncGenerator[AsyncSession, None]:
             raise
         finally:
             await session.close()
+
+
+@contextmanager
+def get_sync_db_context() -> Generator[Session, None, None]:
+    """
+    Synchronous context manager for database sessions.
+    
+    Use this for synchronous operations outside of FastAPI.
+    
+    Yields:
+        Session: Database session
+        
+    Example:
+        with get_sync_db_context() as db:
+            result = db.execute(select(Item))
+    """
+    if db_manager.sync_session_factory is None:
+        raise RuntimeError("Database not initialized")
+    
+    session = db_manager.sync_session_factory()
+    try:
+        yield session
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
 
 
 async def init_db() -> None:

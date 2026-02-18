@@ -25,7 +25,7 @@ services:
       - key: ENVIRONMENT
         value: "production"
       - key: CORS_ORIGINS
-        value: "https://cerebrum-ai.vercel.app,https://cerebrum.ai"
+        value: "https://cerebrum-frontend.onrender.com,https://cerebrum.ai"
       - key: SENTRY_ENABLED
         value: "true"
       - key: SENTRY_ENVIRONMENT

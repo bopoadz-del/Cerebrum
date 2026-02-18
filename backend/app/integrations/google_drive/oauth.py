@@ -234,18 +234,107 @@ class GoogleDriveOAuthManager:
     
     def _save_token_to_db(self, user_id: str, token_info: TokenInfo) -> None:
         """Save token to database."""
-        # Implementation with actual database
-        pass
+        from app.db.session import get_sync_db_context
+        from app.models.integration import IntegrationToken
+        from sqlalchemy import select
+        import uuid
+        
+        try:
+            with get_sync_db_context() as session:
+                # Check for existing token
+                stmt = select(IntegrationToken).where(
+                    IntegrationToken.user_id == uuid.UUID(user_id),
+                    IntegrationToken.service == "google_drive"
+                )
+                existing = session.execute(stmt).scalar_one_or_none()
+                
+                if existing:
+                    # Update existing token
+                    existing.access_token = token_info.access_token
+                    existing.refresh_token = token_info.refresh_token
+                    existing.token_uri = token_info.token_uri
+                    existing.client_id = token_info.client_id
+                    existing.client_secret = token_info.client_secret
+                    existing.scopes = " ".join(token_info.scopes)
+                    existing.expiry = token_info.expiry
+                    existing.rotation_count = token_info.rotation_count
+                    existing.updated_at = datetime.utcnow()
+                else:
+                    # Create new token
+                    token = IntegrationToken(
+                        token_id=token_info.token_id,
+                        user_id=uuid.UUID(user_id),
+                        service="google_drive",
+                        access_token=token_info.access_token,
+                        refresh_token=token_info.refresh_token,
+                        token_uri=token_info.token_uri,
+                        client_id=token_info.client_id,
+                        client_secret=token_info.client_secret,
+                        scopes=" ".join(token_info.scopes),
+                        expiry=token_info.expiry,
+                        rotation_count=token_info.rotation_count,
+                    )
+                    session.add(token)
+                
+                logger.info(f"Token saved to database for user {user_id}")
+                
+        except Exception as e:
+            logger.error(f"Failed to save token to database: {e}")
+            # Don't raise - token is still in cache
     
     def _get_token_from_db(self, user_id: str) -> Optional[TokenInfo]:
         """Retrieve token from database."""
-        # Implementation with actual database
+        from app.db.session import get_sync_db_context
+        from app.models.integration import IntegrationToken
+        from sqlalchemy import select
+        import uuid
+        
+        try:
+            with get_sync_db_context() as session:
+                stmt = select(IntegrationToken).where(
+                    IntegrationToken.user_id == uuid.UUID(user_id),
+                    IntegrationToken.service == "google_drive",
+                    IntegrationToken.is_active == True
+                )
+                token = session.execute(stmt).scalar_one_or_none()
+                
+                if token:
+                    return TokenInfo(
+                        access_token=token.access_token,
+                        refresh_token=token.refresh_token or "",
+                        token_uri=token.token_uri,
+                        client_id=token.client_id or "",
+                        client_secret=token.client_secret or "",
+                        scopes=token.scopes.split() if token.scopes else [],
+                        expiry=token.expiry,
+                        token_id=token.token_id,
+                        rotation_count=token.rotation_count,
+                    )
+        except Exception as e:
+            logger.error(f"Failed to retrieve token from database: {e}")
+        
         return None
     
     def _delete_token_from_db(self, user_id: str) -> None:
         """Delete token from database."""
-        # Implementation with actual database
-        pass
+        from app.db.session import get_sync_db_context
+        from app.models.integration import IntegrationToken
+        from sqlalchemy import select
+        import uuid
+        
+        try:
+            with get_sync_db_context() as session:
+                stmt = select(IntegrationToken).where(
+                    IntegrationToken.user_id == uuid.UUID(user_id),
+                    IntegrationToken.service == "google_drive"
+                )
+                token = session.execute(stmt).scalar_one_or_none()
+                if token:
+                    token.is_active = False
+                    token.revoked_at = datetime.utcnow()
+                    logger.info(f"Token revoked in database for user {user_id}")
+        except Exception as e:
+            logger.error(f"Failed to delete token from database: {e}")
 
 
 class TokenRefreshError(Exception):

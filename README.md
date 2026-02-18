@@ -1,438 +1,157 @@
-# Cerebrum AI - Construction Intelligence Platform
+# Reasoner AI Platform - Full UI
 
-[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/cerebrum-ai/cerebrum)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688.svg)](https://fastapi.tiangolo.com/)
-[![React](https://img.shields.io/badge/React-18-61DAFB.svg)](https://reactjs.org/)
+A minimalistic AI-powered analysis platform with desktop and mobile support.
 
-> **End-to-End Construction Intelligence: From Empty Directory to Production Platform**
+## Features
 
-Cerebrum AI is a comprehensive construction management platform featuring a 14-layer backend architecture built with FastAPI and a modern React frontend. The platform provides AI-powered insights, BIM/VDC capabilities, real-time collaboration, and enterprise-grade security.
+### Core Features
+- **Login/Register** - Secure authentication with protected routes
+- **Project Management** - Google Drive cascaded folder structure
+- **Chat Interface** - AI assistant with file analysis capabilities
+- **Smart Context Toggle** - Auto-brief + handoff at 90% capacity
+- **Outcomes Panel** - Reports, previews, and execution steps
+- **Share & Copy** - For chat messages and outcomes
+- **Timestamps** - Full date/time display for all items
 
-## 🏗️ Architecture Overview
+### Smart Context Feature
+The Smart Context toggle provides:
+- **Auto-brief**: Automatically summarizes conversation context
+- **Capacity Monitoring**: Real-time context usage tracking
+- **Auto-handoff**: Creates new session at 90% capacity
+- **Visual Indicator**: Progress bar with color-coded status
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         CEREBRUM AI PLATFORM                                 │
-│                    14-Layer Backend Architecture                             │
-├─────────────────────────────────────────────────────────────────────────────┤
-│  Layer 14 │ Data Warehouse    │ Airflow ETL, BigQuery, Executive Dashboards │
-│  Layer 13 │ Integration Hub   │ Webhooks, Procore/ACC, Zapier Connectors    │
-│  Layer 12 │ Advanced VDC      │ Federated Models, Clash Detection, 4D/5D    │
-│  Layer 11 │ Field Data        │ Daily Reports, Photos, Punch Lists, Offline │
-│  Layer 10 │ Collaboration     │ Real-time Comments, Approvals, WebSocket    │
-│  Layer 9  │ Tasks             │ Background Jobs, Celery Workers, Queues     │
-│  Layer 8  │ API Management    │ Endpoint Management, Caching, Rate Limiting │
-│  Layer 7  │ Pipelines         │ Workflow Orchestration, DAG Execution       │
-│  Layer 6  │ Audit             │ Immutable Audit Logs, Compliance Reports    │
-│  Layer 5  │ Sandbox           │ Isolated Execution Environments             │
-│  Layer 4  │ ML                │ Model Training, Predictions, Feature Store  │
-│  Layer 3  │ BIM               │ IFC Parsing, Element Management, 3D Viewer  │
-│  Layer 2  │ Documents         │ Document AI, OCR, Transcription, Search     │
-│  Layer 1  │ Core              │ Auth, RBAC, Multi-tenancy, Security         │
-└─────────────────────────────────────────────────────────────────────────────┘
+## Termux Build Command
+
+### Quick Build
+```bash
+# Copy and paste this entire command in Termux
+cd ~/blank-app/frontend && npm install && npm run build
 ```
 
-## 🚀 Quick Start
-
-### Prerequisites
-
-- Python 3.11+
-- Node.js 18+
-- Docker & Docker Compose
-- PostgreSQL 15+
-- Redis 7+
-
-### Local Development
+### Full Build Script
+Save this as `build.sh` and run `bash build.sh`:
 
 ```bash
-# Clone the repository
-git clone https://github.com/cerebrum-ai/cerebrum.git
-cd cerebrum
+#!/bin/bash
+set -e
 
-# Start all services with Docker Compose
-docker-compose up -d
+echo "=========================================="
+echo "  Reasoner AI Platform - Full UI Build"
+echo "=========================================="
 
-# Or start services individually:
+cd ~/blank-app/frontend
 
-# 1. Start PostgreSQL and Redis
-docker-compose up -d postgres redis
+echo "[1/3] Installing dependencies..."
+npm install 2>&1 | grep -v "deprecated" || true
 
-# 2. Run database migrations
-cd backend
-alembic upgrade head
+echo "[2/3] Building production bundle..."
+npm run build
 
-# 3. Seed the database
-python scripts/seed.py
-
-# 4. Start the backend
-uvicorn app.main:app --reload
-
-# 5. In a new terminal, start the frontend
-cd ../frontend
-npm install
-npm run dev
+echo "[3/3] Build complete!"
+echo ""
+echo "Output: $(pwd)/dist"
+echo ""
+echo "Deploy with:"
+echo "  npx surge dist/"
+echo "  npx netlify deploy --prod --dir=dist"
 ```
 
-The application will be available at:
-- Frontend: http://localhost:5173
-- Backend API: http://localhost:8000
-- API Documentation: http://localhost:8000/api/docs
-- Flower (Celery Monitoring): http://localhost:5555
-
-## 📁 Project Structure
-
-```
-cerebrum/
-├── backend/                    # FastAPI Backend
-│   ├── app/
-│   │   ├── api/               # API endpoints
-│   │   │   └── v1/
-│   │   │       └── endpoints/ # REST endpoints (auth, users, projects, etc.)
-│   │   ├── core/              # Core utilities
-│   │   │   ├── security/      # JWT, RBAC, MFA, encryption
-│   │   │   ├── config.py      # Configuration
-│   │   │   └── logging.py     # Structured logging
-│   │   ├── db/                # Database
-│   │   │   ├── session.py     # Connection pooling
-│   │   │   └── base_class.py  # Soft delete mixin
-│   │   ├── models/            # SQLAlchemy models (14 layers)
-│   │   ├── schemas/           # Pydantic schemas
-│   │   ├── services/          # Business logic
-│   │   ├── integrations/      # External integrations
-│   │   ├── pipelines/         # Data processing pipelines
-│   │   ├── ml/                # Machine learning
-│   │   ├── vdc/               # Virtual Design Construction
-│   │   ├── edge/              # Edge computing
-│   │   ├── enterprise/        # Enterprise features
-│   │   ├── portal/            # Subcontractor portal
-│   │   ├── monitoring/        # Observability
-│   │   ├── warehouse/         # Data warehouse
-│   │   ├── quality/           # Quality & safety
-│   │   ├── iot/               # IoT & Digital Twin
-│   │   ├── registry/          # Self-coding registry
-│   │   ├── coding/            # Code generation
-│   │   ├── validation/        # Validation pipeline
-│   │   ├── hotswap/           # Hot deployment
-│   │   ├── healing/           # Self-healing
-│   │   └── prompts/           # Prompt registry
-│   ├── tests/                 # Test suite
-│   ├── scripts/               # Utility scripts
-│   ├── alembic/               # Database migrations
-│   ├── Dockerfile
-│   └── requirements.txt
-├── frontend/                   # React Frontend
-│   ├── src/
-│   │   ├── components/        # React components
-│   │   │   ├── layout/        # Sidebar, TopBar, MainLayout
-│   │   │   ├── ui/            # UI components
-│   │   │   ├── BIMViewer/     # 3D BIM viewer components
-│   │   │   ├── vdc/           # VDC components
-│   │   │   ├── quality/       # Quality components
-│   │   │   └── iot/           # IoT components
-│   │   ├── pages/             # Page components (20+ pages)
-│   │   ├── contexts/          # React contexts
-│   │   ├── hooks/             # Custom hooks
-│   │   ├── lib/               # Utilities
-│   │   ├── stores/            # Zustand stores
-│   │   ├── router.tsx         # React Router
-│   │   └── main.tsx           # Entry point
-│   ├── public/
-│   ├── Dockerfile
-│   └── package.json
-├── docker-compose.yml
-└── README.md
-```
-
-## 🔑 Key Features
-
-### Core Platform (Layer 1)
-- ✅ JWT Authentication with MFA (TOTP)
-- ✅ Role-Based Access Control (5 role levels)
-- ✅ Multi-tenancy with subdomain support
-- ✅ Soft delete pattern for data integrity
-- ✅ Audit logging with hash chain integrity
-
-### Document Intelligence (Layer 2)
-- ✅ OCR with Tesseract
-- ✅ Document classification with GPT-4 Vision
-- ✅ Named entity extraction
-- ✅ Action item extraction from meeting minutes
-- ✅ Audio transcription with Whisper
-
-### BIM & VDC (Layers 3, 12)
-- ✅ IFC parsing with IfcOpenShell
-- ✅ 3D viewer with Three.js / React Three Fiber
-- ✅ Federated model management
-- ✅ Clash detection (AABB collision)
-- ✅ 4D/5D BIM (schedule + cost integration)
-- ✅ COBie-compliant digital handover
-
-### Machine Learning (Layer 4)
-- ✅ MLflow experiment tracking
-- ✅ Model registry with staging
-- ✅ AutoML with Optuna/Ray Tune
-- ✅ Feature store integration
-- ✅ Model explainability (SHAP/LIME)
-
-### Edge Computing
-- ✅ Jetson device registry
-- ✅ OTA model deployment
-- ✅ Hybrid cloud-edge inference
-- ✅ Real-time safety AI (YOLOv8)
-
-### Enterprise Features
-- ✅ SAML 2.0 / OIDC SSO
-- ✅ SCIM directory sync
-- ✅ White-labeling
-- ✅ Data residency controls
-- ✅ SOC 2 / GDPR compliance
-
-### Self-Coding Registry (Meta-Cognition)
-- ✅ Capability registry with lifecycle management
-- ✅ AI-powered code generation
-- ✅ Automated validation pipeline
-- ✅ Hot deployment without restart
-- ✅ Self-healing with automatic patches
-
-### Formula Engine
-- ✅ JSON-based formula library
-- ✅ Safe evaluation with restricted builtins
-- ✅ Domain-tagged formulas (construction, structural, financial)
-- ✅ REST API for formula evaluation
-- ✅ Input validation and error handling
-
-## 📐 Formula API
-
-The Formula Engine provides safe, sandboxed evaluation of mathematical formulas for construction calculations.
-
-### Environment Variable
+### One-Liner Command
 ```bash
-INITIAL_FORMULAS_PATH=/app/data/formulas/initial_library.json  # Path to formulas JSON (in container)
-# For local development: backend/data/formulas/initial_library.json
+cd ~/blank-app/frontend && npm i && npm run build && echo "Build complete! Output: $(pwd)/dist"
 ```
 
-### API Endpoints
+## Project Structure
 
-**List all formulas:**
-```bash
-curl http://localhost:8000/api/v1/formulas
+```
+frontend/src/
+├── components/
+│   ├── ChatInputV2.tsx        # Chat input with + menu
+│   ├── ChatInterfaceV2.tsx    # Main chat interface
+│   ├── ChatMessage.tsx        # Message bubble with copy/share
+│   ├── OutcomesPanel.tsx      # Reports/previews/steps panel
+│   ├── ProjectSidebar.tsx     # Projects sidebar with Google Drive
+│   ├── SmartContextToggle.tsx # Smart context toggle UI
+│   └── mobile/                # Mobile components
+│       ├── MobileChat.tsx
+│       ├── MobileNav.tsx
+│       ├── MobileOutcomes.tsx
+│       ├── MobileProjects.tsx
+│       └── MobileSettings.tsx
+├── context/
+│   └── AuthContext.tsx        # Authentication state
+├── pages/
+│   ├── Login.tsx              # Login/Register page
+│   └── ...
+└── App.tsx                    # Main app with routing
 ```
 
-**Get specific formula:**
-```bash
-curl http://localhost:8000/api/v1/formulas/concrete_volume
+## UI Layout
+
+### Desktop (3-Panel)
+```
+┌─────────────┬──────────────────┬─────────────┐
+│  Projects   │   Chat Header    │  Outcomes   │
+│  Sidebar    │   - Date         │   Panel     │
+│             │                  │             │
+│ [+] New Chat│ Smart Context    │ [Reports]   │
+│ ▼ Project 1 │   Toggle         │ [Previews]  │
+│   Chat 1    │                  │ [Steps]     │
+│   Chat 2    │ Chat Messages    │             │
+│ ▶ Project 2 │ - Copy/Share     │ Outcome 1   │
+│             │ - Timestamp      │   [Copy]    │
+│ Google Drive│                  │   [Share]   │
+│ Connected   │ Input [+] [Send] │   [Download]│
+│             │                  │             │
+│ Settings    │                  │             │
+│ Sign Out    │                  │             │
+└─────────────┴──────────────────┴─────────────┘
 ```
 
-**Evaluate a formula:**
-```bash
-curl -X POST http://localhost:8000/api/v1/formulas/eval \
-  -H "Content-Type: application/json" \
-  -d '{
-    "formula_id": "concrete_volume",
-    "inputs": {
-      "length": 10.0,
-      "width": 5.0,
-      "height": 0.3
-    }
-  }'
-# Response: {"formula_id":"concrete_volume","success":true,"output_values":{"result":15.0}}
+### Mobile (Bottom Navigation)
+```
+┌─────────────────────┐
+│ [+] Projects        │
+│ ▼ Project 1         │
+│   Chat 1 - 5m ago   │
+│ Google Drive        │
+├─────────────────────┤
+│ Smart Context       │
+│   Toggle            │
+├─────────────────────┤
+│ [Chat] [Outcomes]   │
+│ [Projects][Settings]│
+└─────────────────────┘
 ```
 
-**Evaluate by path:**
-```bash
-curl -X POST http://localhost:8000/api/v1/formulas/rebar_weight/eval \
-  -H "Content-Type: application/json" \
-  -d '{"diameter": 16, "length": 12}'
-```
+## API Integration
 
-### Built-in Functions
-Available in formula expressions: `abs`, `round`, `min`, `max`, `sum`, `pow`, `sqrt`, `pi`, `sin`, `cos`, `tan`, `log`, `exp`, and all `math` module functions.
+The Smart Context toggle connects to:
+- `GET /sessions/{token}/capacity` - Get current capacity
+- `PATCH /sessions/{token}/settings` - Update toggle state
+- `POST /sessions/{token}/messages` - Send message (with handoff detection)
 
-### Security
-- Dangerous builtins (`__import__`, `open`, `exec`, `eval`) are blocked
-- Formulas run in restricted environment
-- Invalid expressions return error messages, don't crash
-
-## 💬 Conversation Sessions (Long-Session Mode)
-
-DB-backed sessions with capacity tracking for Smart Context.
-
-### API Endpoints
-
-**Create a session:**
-```bash
-curl -X POST http://localhost:8000/api/v1/sessions \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{
-    "title": "My Smart Context Session",
-    "ttl_hours": 24
-  }'
-# Response: {"session_token":"abc123...","session":{"id":"...","capacity_percent":0}}
-```
-
-**Get session:**
-```bash
-curl http://localhost:8000/api/v1/sessions/{session_token} \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-**Update capacity:**
-```bash
-curl -X PATCH http://localhost:8000/api/v1/sessions/{session_token}/capacity \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{"capacity_percent": 75}'
-```
-
-**List user sessions:**
-```bash
-curl "http://localhost:8000/api/v1/sessions?active_only=true" \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-**Deactivate session:**
-```bash
-curl -X POST http://localhost:8000/api/v1/sessions/{session_token}/deactivate \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-### Frontend Integration
-
-The `SmartContextToggle` component supports session management:
-
-```tsx
-import { SmartContextToggle } from '@/components/SmartContextToggle';
-
-// With session tracking
-<SmartContextToggle 
-  onToggle={(enabled) => console.log('Smart Context:', enabled)}
-  onSessionChange={(token) => console.log('Session token:', token)}
-/>
-
-// With external session token
-<SmartContextToggle 
-  sessionToken={existingToken}
-  onToggle={(enabled) => {} }
-/>
-```
-
-The component:
-- Creates a session automatically when enabled (if no session exists)
-- Polls capacity every 30 seconds
-- Persists state in localStorage
-- Displays capacity percentage in the UI
-
-## 🔧 Configuration
-
-### Environment Variables
-
-Create a `.env` file in the backend directory:
-
-```env
-# Database
-DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/cerebrum
-
-# Redis
-REDIS_URL=redis://localhost:6379/0
-
-# Security
-SECRET_KEY=your-super-secret-key
-ACCESS_TOKEN_EXPIRE_MINUTES=15
-REFRESH_TOKEN_EXPIRE_DAYS=7
-
-# External APIs
-OPENAI_API_KEY=sk-...
-GOOGLE_CLIENT_ID=...
-GOOGLE_CLIENT_SECRET=...
-SENDGRID_API_KEY=...
-
-# S3 / File Storage
-AWS_ACCESS_KEY_ID=...
-AWS_SECRET_ACCESS_KEY=...
-S3_BUCKET=cerebrum-uploads
-
-# Monitoring
-SENTRY_DSN=https://...
-```
-
-## 🧪 Testing
+## Environment Variables
 
 ```bash
-# Backend tests
-cd backend
-pytest -v
-
-# With coverage
-pytest --cov=app --cov-report=html
-
-# Frontend tests
-cd frontend
-npm test
-
-# E2E tests
-npm run test:e2e
+VITE_API_URL=https://blank-app-qc0o.onrender.com
+VITE_FRONTEND_URL=https://your-frontend-url.com
 ```
 
-## 📊 API Documentation
+## Deployment
 
-When running locally, access the interactive API documentation:
-
-- Swagger UI: http://localhost:8000/api/docs
-- ReDoc: http://localhost:8000/api/redoc
-
-## 🚢 Deployment
-
-### Render (One-Click Deploy)
-
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy)
-
-The project includes a `render.yaml` file for one-click deployment.
-
-### Docker Production
-
+### Surge.sh
 ```bash
-# Build production images
-docker-compose -f docker-compose.prod.yml build
-
-# Deploy
-docker-compose -f docker-compose.prod.yml up -d
+cd dist && npx surge
 ```
 
-### Kubernetes
-
+### Netlify
 ```bash
-# Apply manifests
-kubectl apply -f k8s/
+npx netlify deploy --prod --dir=dist
 ```
 
-## 📈 Monitoring
+### Render
+Connect GitHub repo and set build command: `npm run build`
 
-- **APM**: Datadog / New Relic integration
-- **Error Tracking**: Sentry
-- **Logs**: ELK Stack / Splunk
-- **Metrics**: Prometheus + Grafana
-- **Uptime**: Pingdom / UptimeRobot
-- **Status Page**: status.cerebrum.ai
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- FastAPI team for the amazing framework
-- React team for the frontend library
-- The construction technology community for inspiration
-
----
-
-<p align="center">
-  Built with ❤️ by the Cerebrum AI Team
-</p>
+## License
+MIT
