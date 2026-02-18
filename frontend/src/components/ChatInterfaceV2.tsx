@@ -31,12 +31,49 @@ export function ChatInterfaceV2({ projectName, chatTitle, onNewChat, sessionToke
     attachments,
     messagesEndRef,
     sendMessage,
+    addAttachment,
     removeAttachment,
+    clearMessages,
   } = useChat();
 
   const [, setSmartContextEnabled] = useState(false);
   const hasMessages = messages.length > 0;
   const isProjectSelected = projectName && projectName !== 'Select a project';
+
+  // Handler for file attachment
+  const handleAttachFile = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.onchange = (e) => {
+      const files = (e.target as HTMLInputElement).files;
+      if (files) {
+        Array.from(files).forEach(file => addAttachment(file));
+      }
+    };
+    input.click();
+  };
+
+  // Handler for camera (placeholder - would open camera modal)
+  const handleOpenCamera = () => {
+    alert('Camera feature: Would open camera capture modal');
+  };
+
+  // Handler for voice input (placeholder - would start voice recording)
+  const handleOpenMic = () => {
+    alert('Voice input: Would start voice recording');
+  };
+
+  // Handler for internet search (placeholder)
+  const handleInternetSearch = () => {
+    setInputValue('/search ' + inputValue);
+  };
+
+  // Handler for new chat button
+  const handleNewChatClick = () => {
+    clearMessages();
+    onNewChat?.();
+  };
 
   // Get current date for header
   const today = new Date().toLocaleDateString('en-US', {
@@ -91,7 +128,7 @@ export function ChatInterfaceV2({ projectName, chatTitle, onNewChat, sessionToke
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={onNewChat}
+                onClick={handleNewChatClick}
                 className="h-8 text-indigo-600 hover:bg-indigo-50"
               >
                 <Plus className="w-4 h-4 mr-1" />
@@ -196,10 +233,14 @@ export function ChatInterfaceV2({ projectName, chatTitle, onNewChat, sessionToke
             value={inputValue}
             onChange={setInputValue}
             onSend={sendMessage}
+            onAttachFile={handleAttachFile}
+            onOpenCamera={handleOpenCamera}
+            onOpenMic={handleOpenMic}
+            onInternetSearch={handleInternetSearch}
             attachments={attachments}
             onRemoveAttachment={removeAttachment}
             isLoading={isLoading}
-            placeholder={isProjectSelected ? 'Type a message...' : 'Select a project first'}
+            placeholder={isProjectSelected ? 'Type /help for commands or ask anything...' : 'Select a project first'}
           />
         </div>
       </div>

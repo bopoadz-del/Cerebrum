@@ -81,6 +81,7 @@ function DesktopLayout() {
         <ChatInterfaceV2
           projectName={selectedProject?.name}
           chatTitle={selectedChat?.title}
+          onNewChat={handleNewChat}
         />
       </div>
 
