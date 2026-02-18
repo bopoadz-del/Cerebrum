@@ -47,6 +47,7 @@ interface ProjectSidebarProps {
   isDriveConnected: boolean;
   isScanning: boolean;
   isDemoMode?: boolean;
+  connectionError?: string | null;
   onConnectDrive: () => void;
   onDisconnectDrive?: () => void;
   onScanDrive: () => void;
@@ -71,6 +72,7 @@ export function ProjectSidebar({
   isDriveConnected,
   isScanning,
   isDemoMode,
+  connectionError,
   onConnectDrive,
   onDisconnectDrive,
   onScanDrive,
@@ -266,6 +268,22 @@ export function ProjectSidebar({
           <div className="px-3 pt-3">
             <div className="px-3 py-1.5 bg-amber-50 text-amber-700 text-xs rounded-md text-center">
               Demo Mode - Backend Unavailable
+            </div>
+          </div>
+        )}
+        
+        {/* Connection Error */}
+        {connectionError && !isDriveConnected && (
+          <div className="px-3 pt-2">
+            <div className="px-3 py-2 bg-red-50 text-red-700 text-xs rounded-md">
+              <p className="font-medium">Connection Issue</p>
+              <p>{connectionError}</p>
+              <button 
+                onClick={onConnectDrive}
+                className="text-red-600 underline mt-1 hover:text-red-800"
+              >
+                Try connecting anyway →
+              </button>
             </div>
           </div>
         )}
