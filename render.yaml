@@ -49,6 +49,13 @@ services:
     # Migrations run in dockerCommand before app starts
     dockerCommand: bash scripts/render_start.sh
     autoDeploy: true
+    # Force redeploy on every push
+    buildFilter:
+      paths:
+        - backend/**/*.py
+        - backend/**/*.txt
+        - backend/**/*.sh
+        - backend/**/*.ini
 
   # DB Backup Cron Job
   - type: cron
