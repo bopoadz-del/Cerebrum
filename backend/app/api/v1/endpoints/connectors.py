@@ -448,20 +448,18 @@ async def scan_google_drive(
     return GoogleDriveProjectsResponse(projects=MOCK_PROJECTS)
 
 
-@router.post(
-    "/google-drive/index",
-    response_model=ZVecScanResponse,
-    summary="Index Google Drive files into ZVec for semantic search",
+@router.get(
+    "/google-drive/files",
+    summary="List Google Drive files",
 )
-async def index_google_drive_files(
+async def list_google_drive_files(
+    query: Optional[str] = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> ZVecScanResponse:
+) -> Dict[str, Any]:
     """
-    Scan Drive files, extract text, and index into ZVec for offline semantic search.
-    Works entirely offline using local vector embeddings.
+    List files from user's Google Drive via API (no download).
     """
-    # Check if connected
     token = await get_google_drive_token(db, str(current_user.id))
     if not token:
         raise HTTPException(
@@ -469,11 +467,64 @@ async def index_google_drive_files(
             detail="Google Drive not connected",
         )
     
-    # Import services
-    from app.services.zvec_service import get_zvec_service
+    from app.services.document_parser import list_drive_files
     
     try:
-        # Get ZVec service
+        # Build query for supported file types
+        mime_query = " or ".join([
+            "mimeType='application/pdf'",
+            "mimeType='text/plain'",
+            "mimeType='application/vnd.google-apps.document'",
+            "mimeType='application/vnd.google-apps.spreadsheet'"
+        ])
+        drive_query = f"({mime_query}) and trashed=false"
+        if query:
+            drive_query += f" and name contains '{query}'"
+        
+        files = await list_drive_files(token.access_token, query=drive_query)
+        
+        return {
+            "files": files,
+            "count": len(files)
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to list files: {str(e)}"
+        )
+
+
+@router.post(
+    "/google-drive/index",
+    response_model=ZVecScanResponse,
+    summary="Index Google Drive files into ZVec for semantic search",
+)
+async def index_google_drive_files(
+    file_ids: Optional[List[str]] = None,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> ZVecScanResponse:
+    """
+    Scan Drive files via API, extract text in memory, and index into ZVec.
+    No files are downloaded to disk - processed entirely via Drive API.
+    """
+    token = await get_google_drive_token(db, str(current_user.id))
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Google Drive not connected",
+        )
+    
+    from app.services.zvec_service import get_zvec_service
+    from app.services.document_parser import (
+        extract_text_from_drive_file,
+        detect_project_from_filename,
+        list_drive_files
+    )
+    from app.models.document import Document
+    
+    try:
         zvec = get_zvec_service()
         
         if not zvec.is_ready():
@@ -483,18 +534,106 @@ async def index_google_drive_files(
                 message="ZVec service not ready - embedding model not available"
             )
         
-        # TODO: Implement actual Drive file fetching and indexing
-        # For now, return mock indexing result
-        # This would:
-        # 1. List files from Google Drive API
-        # 2. Download/extract text from each file
-        # 3. Generate embeddings
-        # 4. Store in ZVec vector database
+        # If no file_ids provided, list files from Drive
+        if not file_ids:
+            mime_query = " or ".join([
+                "mimeType='application/pdf'",
+                "mimeType='text/plain'",
+                "mimeType='application/vnd.google-apps.document'"
+            ])
+            files = await list_drive_files(
+                token.access_token, 
+                query=f"({mime_query}) and trashed=false",
+                page_size=10
+            )
+            file_ids = [f['id'] for f in files]
+        
+        indexed_count = 0
+        scanned_count = 0
+        
+        for file_id in file_ids[:10]:  # Process max 10 files per request
+            try:
+                # Check if already indexed
+                from sqlalchemy import select
+                result = await db.execute(
+                    select(Document).where(
+                        Document.drive_id == file_id,
+                        Document.user_id == current_user.id
+                    )
+                )
+                existing = result.scalar_one_or_none()
+                
+                if existing and existing.status == "indexed":
+                    continue
+                
+                # Get file info (we need mime_type)
+                files = await list_drive_files(
+                    token.access_token,
+                    query=f"id='{file_id}'"
+                )
+                if not files:
+                    continue
+                    
+                file_info = files[0]
+                scanned_count += 1
+                
+                # Extract text via Drive API (in memory, no download)
+                text = await extract_text_from_drive_file(
+                    file_id,
+                    token.access_token,
+                    file_info.get('mimeType', 'application/pdf')
+                )
+                
+                if not text or len(text) < 100:
+                    continue
+                
+                # Index in ZVec
+                project = detect_project_from_filename(file_info['name'])
+                doc_id = f"drive_{file_id}"
+                metadata = {
+                    'name': file_info['name'],
+                    'project': project,
+                    'type': file_info.get('mimeType'),
+                    'drive_id': file_id,
+                    'user_id': str(current_user.id),
+                    'content_preview': text[:500]
+                }
+                
+                success = zvec.add_document(doc_id, text, metadata)
+                
+                if success:
+                    # Save to SQL
+                    if existing:
+                        existing.content = text[:2000]
+                        existing.project_name = project
+                        existing.status = "indexed"
+                        existing.updated_at = datetime.now(timezone.utc)
+                    else:
+                        from uuid import uuid4
+                        doc = Document(
+                            id=uuid4(),
+                            drive_id=file_id,
+                            filename=file_info['name'],
+                            content=text[:2000],
+                            project_name=project,
+                            mime_type=file_info.get('mimeType'),
+                            status="indexed",
+                            user_id=current_user.id
+                        )
+                        db.add(doc)
+                    
+                    indexed_count += 1
+                    
+            except Exception as e:
+                print(f"Failed to index file {file_id}: {e}")
+                continue
+        
+        await db.commit()
         
         return ZVecScanResponse(
-            files_scanned=3,
-            indexed=3,
-            message="Indexed 3 documents into ZVec for semantic search (mock mode)"
+            files_scanned=scanned_count,
+            indexed=indexed_count,
+            message=f"Indexed {indexed_count} documents into ZVec via Drive API (no downloads)"
         )
         
     except Exception as e:

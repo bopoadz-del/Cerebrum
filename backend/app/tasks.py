@@ -1,10 +1,12 @@
 """
 Celery Tasks for Cerebrum AI Platform
 
-Background tasks for processing Drive files, indexing documents, etc.
+Background tasks for processing Drive files via API, indexing documents, etc.
+No files are downloaded to disk - everything is processed via Google Drive API.
 """
 
 import os
+import asyncio
 from datetime import datetime
 from typing import List, Dict, Any
 from celery import Celery
@@ -26,8 +28,8 @@ celery_app.conf.update(
     timezone="UTC",
     enable_utc=True,
     task_track_started=True,
-    task_time_limit=3600,  # 1 hour max per task
-    worker_prefetch_multiplier=1,  # Process one task at a time per worker
+    task_time_limit=1800,  # 30 min max per task (Drive API calls can be slow)
+    worker_prefetch_multiplier=1,
 )
 
 
@@ -39,9 +41,15 @@ def process_drive_file_batch(
     access_token: str
 ) -> Dict[str, Any]:
     """
-    Process a batch of Google Drive files in background.
+    Process a batch of Google Drive files via API (no downloads).
     
-    Extracts text, generates embeddings, and indexes in ZVec for semantic search.
+    For each file:
+    1. Calls Drive API to extract text (export for Docs, stream for PDFs)
+    2. Generates embeddings locally using sentence-transformers
+    3. Indexes in ZVec vector store (local, no cloud DB)
+    4. Saves metadata to SQL database
+    
+    Files are never saved to disk - processed entirely in memory.
     
     Args:
         file_ids: List of Google Drive file IDs to process
@@ -51,13 +59,15 @@ def process_drive_file_batch(
     Returns:
         Dict with processed count and status
     """
-    # Lazy imports to avoid circular dependencies
     from sqlalchemy.orm import Session
     from app.db.session import SessionLocal
-    from app.services.document_parser import extract_text_from_drive_file, detect_project_from_filename
+    from app.services.document_parser import (
+        extract_text_from_drive_file,
+        detect_project_from_filename,
+        list_drive_files
+    )
     from app.services.zvec_service import get_zvec_service
     from app.models.document import Document
-    import asyncio
     
     db: Session = SessionLocal()
     processed_count = 0
@@ -75,8 +85,24 @@ def process_drive_file_batch(
                 "errors": len(file_ids)
             }
         
+        # Get file metadata from Drive API
+        # Run async function in sync context
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        try:
+            files_info = loop.run_until_complete(
+                list_drive_files(access_token, page_size=100)
+            )
+            # Filter to requested file IDs
+            files_info = [f for f in files_info if f['id'] in file_ids]
+        finally:
+            loop.close()
+        
         # Process each file
-        for file_id in file_ids:
+        for file_info in files_info:
+            file_id = file_info['id']
+            
             try:
                 # Check if already indexed
                 existing = db.query(Document).filter(
@@ -86,18 +112,62 @@ def process_drive_file_batch(
                 if existing and existing.status == "indexed":
                     continue  # Skip already indexed files
                 
-                # For now, we need the file info (name, mime_type) from the caller
-                # In a real implementation, you'd fetch this from Google Drive API
-                # For this task, we assume the file_ids come with metadata
+                # Extract text via Drive API (in memory, no download)
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    text = loop.run_until_complete(
+                        extract_text_from_drive_file(
+                            file_id,
+                            access_token,
+                            file_info.get('mimeType', 'application/pdf')
+                        )
+                    )
+                finally:
+                    loop.close()
                 
-                # TODO: Fetch file metadata from Google Drive
-                # file_info = await fetch_file_metadata(file_id, access_token)
+                if not text or len(text) < 100:
+                    print(f"Skipping {file_id}: insufficient content")
+                    continue
                 
-                # For now, skip files we can't get metadata for
-                # This is a placeholder - implement actual Drive API fetch
+                # Detect project from filename
+                project_name = detect_project_from_filename(file_info['name'])
                 
-                processed_count += 1
+                # Index in ZVec (local vector DB)
+                doc_id = f"drive_{file_id}"
+                metadata = {
+                    'drive_id': file_id,
+                    'name': file_info['name'],
+                    'mime_type': file_info.get('mimeType'),
+                    'modified_time': file_info.get('modifiedTime'),
+                    'user_id': user_id,
+                    'project': project_name,
+                    'content_preview': text[:500]
+                }
                 
+                success = zvec.add_document(doc_id, text, metadata)
+                
+                if success:
+                    # Save to SQL database
+                    if existing:
+                        existing.content = text[:2000]
+                        existing.project_name = project_name
+                        existing.status = "indexed"
+                        existing.updated_at = datetime.utcnow()
+                    else:
+                        doc = Document(
+                            drive_id=file_id,
+                            filename=file_info['name'],
+                            content=text[:2000],
+                            project_name=project_name,
+                            mime_type=file_info.get('mimeType'),
+                            status="indexed",
+                            user_id=user_id
+                        )
+                        db.add(doc)
+                    
+                    processed_count += 1
+                    
             except Exception as e:
                 error_count += 1
                 print(f"Failed to process file {file_id}: {e}")
@@ -114,9 +184,8 @@ def process_drive_file_batch(
         
     except Exception as exc:
         db.rollback()
-        # Retry with exponential backoff
         retry_count = self.request.retries
-        countdown = 60 * (2 ** retry_count)  # 60s, 120s, 240s
+        countdown = 60 * (2 ** retry_count)
         raise self.retry(exc=exc, countdown=countdown)
         
     finally:
@@ -132,9 +201,7 @@ def index_document_chunk(
     metadata: Dict[str, Any]
 ) -> Dict[str, Any]:
     """
-    Index a single document chunk in ZVec.
-    
-    Used for large documents that are split into chunks.
+    Index a single document chunk in ZVec (for large documents).
     """
     from app.services.zvec_service import get_zvec_service
     
@@ -144,10 +211,7 @@ def index_document_chunk(
         if not zvec.is_ready():
             raise RuntimeError("ZVec service not ready")
         
-        # Create unique ID for chunk
         chunk_id = f"{document_id}_chunk_{chunk_index}"
-        
-        # Add to ZVec
         success = zvec.add_document(chunk_id, chunk_text, metadata)
         
         if success:
@@ -170,10 +234,7 @@ def index_document_chunk(
 def cleanup_old_indexed_files(days: int = 30) -> Dict[str, Any]:
     """
     Clean up old indexed files from ZVec and database.
-    
-    Removes files that haven't been accessed in the specified number of days.
     """
-    from datetime import datetime, timedelta
     from sqlalchemy.orm import Session
     from app.db.session import SessionLocal
     from app.models.document import Document
@@ -183,23 +244,21 @@ def cleanup_old_indexed_files(days: int = 30) -> Dict[str, Any]:
     try:
         cutoff_date = datetime.utcnow() - timedelta(days=days)
         
-        # Find old documents
         old_docs = db.query(Document).filter(
             Document.updated_at < cutoff_date,
             Document.status == "indexed"
         ).all()
         
-        deleted_count = 0
+        archived_count = 0
         for doc in old_docs:
-            # Mark as archived instead of deleting
             doc.status = "archived"
-            deleted_count += 1
+            archived_count += 1
         
         db.commit()
         
         return {
             "status": "success",
-            "archived_count": deleted_count,
+            "archived_count": archived_count,
             "cutoff_date": cutoff_date.isoformat()
         }
         
