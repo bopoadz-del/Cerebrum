@@ -353,6 +353,35 @@ async def delete_file(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# Invoice Processing Endpoint (for chat commands)
+@router.post("/process-invoice")
+async def process_invoice(
+    background_tasks: BackgroundTasks,
+    source: str = Form(default="google_drive"),
+    auto_detect: bool = Form(default=True),
+    current_user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """Process an invoice from Google Drive or upload."""
+    import uuid
+    
+    task_id = str(uuid.uuid4())
+    
+    # In a full implementation, this would:
+    # 1. Fetch the invoice from Google Drive or storage
+    # 2. Extract text using OCR
+    # 3. Parse invoice fields (vendor, amount, date, line items)
+    # 4. Validate against POs
+    # 5. Store results
+    
+    return {
+        "task_id": task_id,
+        "status": "queued",
+        "message": "Invoice processing started",
+        "source": source,
+        "estimated_time": "2-3 minutes"
+    }
+
+
 # Health Check
 @router.get("/health")
 async def health_check() -> Dict[str, Any]:
