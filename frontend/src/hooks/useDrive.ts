@@ -35,7 +35,7 @@ const DEMO_PROJECTS: Project[] = [
 ];
 
 export function useDrive() {
-  const { user, token: authToken } = useAuth();
+  const { user } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [scanning, setScanning] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
@@ -43,8 +43,11 @@ export function useDrive() {
   const [backendAvailable, setBackendAvailable] = useState<boolean | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
 
+  // Get auth token from localStorage
+  const getAuthToken = () => localStorage.getItem('auth_token') || '';
+
   const getHeaders = () => ({
-    'Authorization': `Bearer ${authToken || localStorage.getItem('auth_token') || ''}`,
+    'Authorization': `Bearer ${getAuthToken()}`,
     'Content-Type': 'application/json'
   });
 
@@ -118,7 +121,7 @@ export function useDrive() {
     } finally {
       setLoading(false);
     }
-  }, [authToken]);
+  }, []);
 
   // Check connection on mount
   useEffect(() => {
@@ -314,7 +317,7 @@ export function useDrive() {
     } catch (e) {
       // Ignore errors - keep existing projects
     }
-  }, [authToken]);
+  }, []);
 
   // Disconnect Drive
   const disconnectDrive = async () => {
