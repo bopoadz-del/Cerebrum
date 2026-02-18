@@ -120,10 +120,11 @@ export function useDrive() {
     }
   }, [isConnected]);
 
-  // Refresh projects periodically
+  // Refresh projects periodically (every 12 hours)
   useEffect(() => {
     if (isConnected) {
-      const interval = setInterval(refreshProjects, 30000);
+      const TWELVE_HOURS = 12 * 60 * 60 * 1000; // 43,200,000 ms
+      const interval = setInterval(refreshProjects, TWELVE_HOURS);
       return () => clearInterval(interval);
     }
   }, [isConnected, refreshProjects]);

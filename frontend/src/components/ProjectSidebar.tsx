@@ -47,6 +47,7 @@ interface ProjectSidebarProps {
   isScanning: boolean;
   onConnectDrive: () => void;
   onScanDrive: () => void;
+  onRefreshProjects: () => void;
   onOpenSettings: () => void;
 }
 
@@ -68,6 +69,7 @@ export function ProjectSidebar({
   isScanning,
   onConnectDrive,
   onScanDrive,
+  onRefreshProjects,
   onOpenSettings,
 }: ProjectSidebarProps) {
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set(['1']));
@@ -193,9 +195,19 @@ export function ProjectSidebar({
       <div className="flex-1 overflow-y-auto py-2">
         <div className="px-3 pb-2">
           <div className="flex items-center justify-between px-2 mb-2">
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              Projects
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Projects
+              </span>
+              <button
+                onClick={onRefreshProjects}
+                disabled={isScanning}
+                className="p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 disabled:opacity-50 transition-colors"
+                title="Refresh projects"
+              >
+                <RefreshCw className={cn("w-3 h-3", isScanning && "animate-spin")} />
+              </button>
+            </div>
             <div className="flex items-center gap-2">
               {isScanning && (
                 <span className="text-xs text-blue-500 animate-pulse flex items-center gap-1">

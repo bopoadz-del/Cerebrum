@@ -96,6 +96,7 @@ function DesktopLayout() {
         isScanning={scanning}
         onConnectDrive={connectDrive}
         onScanDrive={scanDrive}
+        onRefreshProjects={refreshProjects}
         onOpenSettings={() => setShowSettings(true)}
       />
 
