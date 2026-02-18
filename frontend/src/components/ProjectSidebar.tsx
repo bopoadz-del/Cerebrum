@@ -46,7 +46,9 @@ interface ProjectSidebarProps {
   onNewChat: () => void;
   isDriveConnected: boolean;
   isScanning: boolean;
+  isDemoMode?: boolean;
   onConnectDrive: () => void;
+  onDisconnectDrive?: () => void;
   onScanDrive: () => void;
   onRefreshProjects: () => void;
   onOpenSettings: () => void;
@@ -68,7 +70,9 @@ export function ProjectSidebar({
   onNewChat,
   isDriveConnected,
   isScanning,
+  isDemoMode,
   onConnectDrive,
+  onDisconnectDrive,
   onScanDrive,
   onRefreshProjects,
   onOpenSettings,
@@ -257,49 +261,88 @@ export function ProjectSidebar({
 
       {/* Bottom Section */}
       <div className="border-t border-gray-200 bg-white">
+        {/* Demo Mode Indicator */}
+        {isDemoMode && (
+          <div className="px-3 pt-3">
+            <div className="px-3 py-1.5 bg-amber-50 text-amber-700 text-xs rounded-md text-center">
+              Demo Mode - Backend Unavailable
+            </div>
+          </div>
+        )}
+        
         {/* Google Drive Status */}
         <div className="p-3">
           {isDriveConnected ? (
-            <button
-              onClick={onScanDrive}
-              disabled={isScanning}
-              className={cn(
-                'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors',
-                'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+            <div className="relative group">
+              <button
+                onClick={onScanDrive}
+                disabled={isScanning}
+                className={cn(
+                  'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors',
+                  isDemoMode 
+                    ? 'bg-amber-50 text-amber-700 hover:bg-amber-100'
+                    : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                )}
+              >
+                <div className={cn(
+                  'w-5 h-5 rounded-full flex items-center justify-center',
+                  isDemoMode ? 'bg-amber-500' : 'bg-emerald-500'
+                )}>
+                  <Check className="w-3 h-3 text-white" />
+                </div>
+                <div className="flex-1 text-left">
+                  <span className="text-sm font-medium">Google Drive</span>
+                  <p className={cn(
+                    'text-xs flex items-center gap-1',
+                    isDemoMode ? 'text-amber-600' : 'text-emerald-600'
+                  )}>
+                    {isScanning ? (
+                      <>
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        Scanning...
+                      </>
+                    ) : isDemoMode ? (
+                      'Demo Mode'
+                    ) : (
+                      'Connected'
+                    )}
+                  </p>
+                </div>
+                <RefreshCw className={cn('w-4 h-4', isScanning && 'animate-spin')} />
+              </button>
+              
+              {/* Disconnect button - shows on hover */}
+              {onDisconnectDrive && (
+                <button
+                  onClick={onDisconnectDrive}
+                  className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-sm hover:bg-red-600"
+                  title="Disconnect Google Drive"
+                >
+                  <span className="text-xs">×</span>
+                </button>
               )}
-            >
-              <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center">
-                <Check className="w-3 h-3 text-white" />
-              </div>
-              <div className="flex-1 text-left">
-                <span className="text-sm font-medium">Google Drive</span>
-                <p className="text-xs text-emerald-600 flex items-center gap-1">
-                  {isScanning ? (
-                    <>
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                      Scanning...
-                    </>
-                  ) : (
-                    'Connected'
-                  )}
-                </p>
-              </div>
-              <RefreshCw className={cn('w-4 h-4', isScanning && 'animate-spin')} />
-            </button>
+            </div>
           ) : (
             <button
               onClick={onConnectDrive}
+              disabled={isScanning}
               className={cn(
                 'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors',
-                'bg-gray-100 text-gray-600 hover:bg-blue-50 hover:text-blue-600'
+                'bg-gray-100 text-gray-600 hover:bg-blue-50 hover:text-blue-600 disabled:opacity-50'
               )}
             >
-              <CloudOff className="w-5 h-5" />
+              {isScanning ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <CloudOff className="w-5 h-5" />
+              )}
               <div className="flex-1 text-left">
                 <span className="text-sm font-medium">Google Drive</span>
-                <p className="text-xs text-gray-500">Click to connect</p>
+                <p className="text-xs text-gray-500">
+                  {isScanning ? 'Connecting...' : 'Click to connect'}
+                </p>
               </div>
-              <Link className="w-4 h-4" />
+              {!isScanning && <Link className="w-4 h-4" />}
             </button>
           )}
         </div>

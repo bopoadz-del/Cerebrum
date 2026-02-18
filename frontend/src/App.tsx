@@ -48,7 +48,9 @@ function DesktopLayout() {
     scanning, 
     isConnected, 
     loading,
+    backendAvailable,
     connectDrive, 
+    disconnectDrive,
     scanDrive,
     refreshProjects 
   } = useDrive();
@@ -94,7 +96,9 @@ function DesktopLayout() {
         onNewChat={handleNewChat}
         isDriveConnected={isConnected}
         isScanning={scanning}
+        isDemoMode={!backendAvailable}
         onConnectDrive={connectDrive}
+        onDisconnectDrive={disconnectDrive}
         onScanDrive={scanDrive}
         onRefreshProjects={refreshProjects}
         onOpenSettings={() => setShowSettings(true)}

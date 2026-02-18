@@ -242,6 +242,24 @@ export function useDrive() {
     }
   }, [isConnected, refreshProjects]);
 
+  const disconnectDrive = async () => {
+    try {
+      // Try to notify backend
+      await fetch(`${API_URL}/connectors/google-drive/disconnect`, {
+        method: 'POST',
+        headers: getHeaders()
+      });
+    } catch (e) {
+      // Ignore errors
+    }
+    
+    // Clear local state
+    localStorage.removeItem('google_drive_connected');
+    localStorage.removeItem('google_oauth_state');
+    setIsConnected(false);
+    setProjects([]);
+  };
+
   return {
     projects,
     scanning,
@@ -249,6 +267,7 @@ export function useDrive() {
     loading,
     backendAvailable,
     connectDrive,
+    disconnectDrive,
     scanDrive,
     refreshProjects
   };
