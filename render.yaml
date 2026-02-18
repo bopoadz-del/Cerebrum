@@ -41,7 +41,7 @@ services:
       - key: GOOGLE_CLIENT_SECRET
         sync: false
       - key: GOOGLE_REDIRECT_URI
-        value: "https://cerebrum-api.onrender.com/api/v1/drive/auth/callback"
+        value: "https://cerebrum-api.onrender.com/api/v1/connectors/google-drive/callback"
       - key: FRONTEND_URL
         value: "https://cerebrum-frontend.onrender.com"
     healthCheckPath: /health/live
