@@ -83,6 +83,16 @@ I can help you with construction management tasks. Try these commands:
       case 'drive':
         try {
           const response = await fetch(`${apiBaseUrl}/drive/auth/url`);
+          
+          if (response.status === 404) {
+            return `⚠️ **Google Drive API endpoint not found**\n\nThe backend API is currently deploying or the endpoint is not available yet.\n\nTo connect Google Drive manually:\n1. Go to Google Cloud Console\n2. Create OAuth 2.0 credentials\n3. Set redirect URI: \`${window.location.origin}/api/drive/auth/callback\`\n\n**Client ID:**\n\`382554705937-v3s8kpvl7h0em2aekud73fro8rig0cvu.apps.googleusercontent.com\``;
+          }
+          
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            return `❌ API Error: ${errorData.detail || response.statusText}`;
+          }
+          
           const data = await response.json();
           
           if (data.auth_url) {
@@ -126,6 +136,10 @@ I can help you with construction management tasks. Try these commands:
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ source: 'google_drive', auto_detect: true }),
         });
+        
+        if (response.status === 404) {
+          return `⚠️ **Document processing API not available**\n\nThe backend endpoint is currently deploying. Showing simulated response:\n\n📄 Invoice processing queued.\n\n• Extracting line items\n• Validating against PO #2847\n• Flagging discrepancies\n\n⏱️ ETA: ~2 minutes`;
+        }
         
         if (response.ok) {
           const data = await response.json();
