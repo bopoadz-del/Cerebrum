@@ -211,6 +211,17 @@ class Settings(BaseSettings):
     S3_BACKUP_PREFIX: str = Field(default="backups/", description="S3 backup prefix")
     
     # =================================================================
+    # Google OAuth Settings
+    # =================================================================
+    GOOGLE_CLIENT_ID: Optional[str] = Field(default=None, description="Google OAuth client ID")
+    GOOGLE_CLIENT_SECRET: Optional[str] = Field(default=None, description="Google OAuth client secret")
+    GOOGLE_REDIRECT_URI: str = Field(
+        default="http://localhost:8000/api/v1/drive/auth/callback",
+        description="Google OAuth redirect URI"
+    )
+    FRONTEND_URL: str = Field(default="http://localhost:3000", description="Frontend URL for OAuth origins")
+    
+    # =================================================================
     # Email Settings
     # =================================================================
     SMTP_HOST: Optional[str] = Field(default=None, description="SMTP host")
