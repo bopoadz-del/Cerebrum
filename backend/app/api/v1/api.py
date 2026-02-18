@@ -5,8 +5,37 @@ Defines the v1 API routes and versioning configuration.
 """
 
 from fastapi import APIRouter
+import logging
 
-from app.api.v1.endpoints import auth, admin, dejavu, formulas, sessions, connectors, google_drive, documents, safety
+logger = logging.getLogger(__name__)
+
+# Import endpoints with error handling for missing dependencies
+from app.api.v1.endpoints import auth, admin, dejavu, formulas, sessions, connectors
+
+# Try to import optional endpoints that may have external dependencies
+try:
+    from app.api.v1.endpoints import google_drive
+    GOOGLE_DRIVE_AVAILABLE = True
+    logger.info("Google Drive endpoints loaded")
+except Exception as e:
+    GOOGLE_DRIVE_AVAILABLE = False
+    logger.warning(f"Google Drive endpoints not available: {e}")
+
+try:
+    from app.api.v1.endpoints import documents
+    DOCUMENTS_AVAILABLE = True
+    logger.info("Documents endpoints loaded")
+except Exception as e:
+    DOCUMENTS_AVAILABLE = False
+    logger.warning(f"Documents endpoints not available: {e}")
+
+try:
+    from app.api.v1.endpoints import safety
+    SAFETY_AVAILABLE = True
+    logger.info("Safety endpoints loaded")
+except Exception as e:
+    SAFETY_AVAILABLE = False
+    logger.warning(f"Safety endpoints not available: {e}")
 
 # Create v1 router
 api_v1_router = APIRouter()
@@ -42,23 +71,26 @@ api_v1_router.include_router(
     tags=["Connectors"],
 )
 
-api_v1_router.include_router(
-    google_drive.router,
-    prefix="/drive",
-    tags=["Google Drive"],
-)
+if GOOGLE_DRIVE_AVAILABLE:
+    api_v1_router.include_router(
+        google_drive.router,
+        prefix="/drive",
+        tags=["Google Drive"],
+    )
 
-api_v1_router.include_router(
-    documents.router,
-    prefix="/documents",
-    tags=["Document AI"],
-)
+if DOCUMENTS_AVAILABLE:
+    api_v1_router.include_router(
+        documents.router,
+        prefix="/documents",
+        tags=["Document AI"],
+    )
 
-api_v1_router.include_router(
-    safety.router,
-    prefix="/safety",
-    tags=["Safety Analysis"],
-)
+if SAFETY_AVAILABLE:
+    api_v1_router.include_router(
+        safety.router,
+        prefix="/safety",
+        tags=["Safety Analysis"],
+    )
 
 
 # API version info endpoint
