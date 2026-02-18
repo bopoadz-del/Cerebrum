@@ -7,6 +7,7 @@ import {
   FolderOpen,
   MessageSquare,
   Cloud,
+  CloudOff,
   Settings,
   Plus,
   Link,
@@ -103,72 +104,6 @@ export function ProjectSidebar({
     return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(chatDate);
   };
 
-  // If Drive is not connected, show connect prompt
-  if (!isDriveConnected) {
-    return (
-      <div className="w-[280px] h-screen bg-gray-50 border-r border-gray-200 flex flex-col">
-        {/* Header */}
-        <div className="h-14 flex items-center justify-between px-4 border-b border-gray-200 bg-white">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
-              <span className="text-white font-semibold text-sm">R</span>
-            </div>
-            <span className="font-semibold text-gray-900">Reasoner</span>
-          </div>
-        </div>
-
-        {/* Connect Drive Prompt */}
-        <div className="flex-1 flex flex-col items-center justify-center p-6">
-          <div className="w-16 h-16 rounded-2xl bg-blue-100 flex items-center justify-center mb-4">
-            <Cloud className="w-8 h-8 text-blue-600" />
-          </div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Connect Google Drive</h3>
-          <p className="text-sm text-gray-500 text-center mb-6">
-            Connect your Google Drive to auto-discover projects and access your files for AI analysis.
-          </p>
-          <Button
-            onClick={onConnectDrive}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            <Link className="w-4 h-4 mr-2" />
-            Connect Google Drive
-          </Button>
-        </div>
-
-        {/* Bottom - Settings & Logout */}
-        <div className="border-t border-gray-200 bg-white p-3 space-y-1">
-          {user && (
-            <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-gray-50 mb-2">
-              <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center">
-                <User className="w-4 h-4 text-indigo-600" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">{user.full_name}</p>
-                <p className="text-xs text-gray-500 truncate">{user.email}</p>
-              </div>
-            </div>
-          )}
-          
-          <button
-            onClick={onOpenSettings}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 text-gray-700 transition-colors"
-          >
-            <Settings className="w-5 h-5" />
-            <span className="text-sm font-medium">Settings</span>
-          </button>
-          
-          <button
-            onClick={logout}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-red-50 text-gray-700 hover:text-red-600 transition-colors"
-          >
-            <LogOut className="w-5 h-5" />
-            <span className="text-sm font-medium">Sign Out</span>
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="w-[280px] h-screen bg-gray-50 border-r border-gray-200 flex flex-col">
       {/* Header */}
@@ -191,7 +126,7 @@ export function ProjectSidebar({
         </Button>
       </div>
 
-      {/* Projects Section */}
+      {/* Projects Section - Always visible */}
       <div className="flex-1 overflow-y-auto py-2">
         <div className="px-3 pb-2">
           <div className="flex items-center justify-between px-2 mb-2">
@@ -199,14 +134,16 @@ export function ProjectSidebar({
               <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 Projects
               </span>
-              <button
-                onClick={onRefreshProjects}
-                disabled={isScanning}
-                className="p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 disabled:opacity-50 transition-colors"
-                title="Refresh projects"
-              >
-                <RefreshCw className={cn("w-3 h-3", isScanning && "animate-spin")} />
-              </button>
+              {isDriveConnected && (
+                <button
+                  onClick={onRefreshProjects}
+                  disabled={isScanning}
+                  className="p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 disabled:opacity-50 transition-colors"
+                  title="Refresh projects"
+                >
+                  <RefreshCw className={cn("w-3 h-3", isScanning && "animate-spin")} />
+                </button>
+              )}
             </div>
             <div className="flex items-center gap-2">
               {isScanning && (
@@ -221,14 +158,27 @@ export function ProjectSidebar({
 
           {/* Project Tree */}
           <div className="space-y-0.5">
-            {projects.length === 0 ? (
+            {!isDriveConnected ? (
+              <div className="px-3 py-6 text-center border border-dashed border-gray-300 rounded-lg mx-2">
+                <Cloud className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                <p className="text-sm text-gray-500 mb-1">Connect Google Drive</p>
+                <p className="text-xs text-gray-400 mb-3">to auto-discover projects</p>
+                <button
+                  onClick={onConnectDrive}
+                  className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  Connect now →
+                </button>
+              </div>
+            ) : projects.length === 0 ? (
               <div className="px-3 py-8 text-center">
                 <p className="text-sm text-gray-500">No projects found</p>
                 <button
                   onClick={onScanDrive}
-                  className="text-xs text-blue-500 hover:text-blue-600 mt-2"
+                  disabled={isScanning}
+                  className="text-xs text-blue-500 hover:text-blue-600 mt-2 disabled:opacity-50"
                 >
-                  Scan Drive
+                  {isScanning ? 'Scanning...' : 'Scan Drive'}
                 </button>
               </div>
             ) : (
@@ -309,32 +259,49 @@ export function ProjectSidebar({
       <div className="border-t border-gray-200 bg-white">
         {/* Google Drive Status */}
         <div className="p-3">
-          <button
-            onClick={onScanDrive}
-            disabled={isScanning}
-            className={cn(
-              'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors',
-              'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-            )}
-          >
-            <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center">
-              <Check className="w-3 h-3 text-white" />
-            </div>
-            <div className="flex-1 text-left">
-              <span className="text-sm font-medium">Google Drive</span>
-              <p className="text-xs text-emerald-600 flex items-center gap-1">
-                {isScanning ? (
-                  <>
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                    Scanning...
-                  </>
-                ) : (
-                  'Connected'
-                )}
-              </p>
-            </div>
-            <RefreshCw className={cn('w-4 h-4', isScanning && 'animate-spin')} />
-          </button>
+          {isDriveConnected ? (
+            <button
+              onClick={onScanDrive}
+              disabled={isScanning}
+              className={cn(
+                'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors',
+                'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+              )}
+            >
+              <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center">
+                <Check className="w-3 h-3 text-white" />
+              </div>
+              <div className="flex-1 text-left">
+                <span className="text-sm font-medium">Google Drive</span>
+                <p className="text-xs text-emerald-600 flex items-center gap-1">
+                  {isScanning ? (
+                    <>
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      Scanning...
+                    </>
+                  ) : (
+                    'Connected'
+                  )}
+                </p>
+              </div>
+              <RefreshCw className={cn('w-4 h-4', isScanning && 'animate-spin')} />
+            </button>
+          ) : (
+            <button
+              onClick={onConnectDrive}
+              className={cn(
+                'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors',
+                'bg-gray-100 text-gray-600 hover:bg-blue-50 hover:text-blue-600'
+              )}
+            >
+              <CloudOff className="w-5 h-5" />
+              <div className="flex-1 text-left">
+                <span className="text-sm font-medium">Google Drive</span>
+                <p className="text-xs text-gray-500">Click to connect</p>
+              </div>
+              <Link className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
         {/* User & Settings */}
