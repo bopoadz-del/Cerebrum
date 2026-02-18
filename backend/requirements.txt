@@ -58,3 +58,7 @@ celery==5.3.4
 pytest-asyncio==0.21.1
 
 # Force rebuild: Wed Feb 18 09:07:04 UTC 2026
+sentence-transformers>=2.2.0
+numpy<2.0.0
+aiohttp>=3.9.0
+PyPDF2>=3.0.0

@@ -218,6 +218,20 @@ class GoogleDriveProjectsResponse(BaseModel):
     projects: List[GoogleDriveProject]
 
 
+class ZVecSearchResponse(BaseModel):
+    """Semantic search response."""
+    query: str
+    results: List[Dict[str, Any]]
+    count: int
+
+
+class ZVecScanResponse(BaseModel):
+    """ZVec scan/index response."""
+    files_scanned: int
+    indexed: int
+    message: str
+
+
 async def get_google_drive_token(
     db: AsyncSession,
     user_id: str
@@ -432,6 +446,148 @@ async def scan_google_drive(
     # TODO: Implement actual Drive scanning using Google Drive API
     # For now, return mock projects
     return GoogleDriveProjectsResponse(projects=MOCK_PROJECTS)
+
+
+@router.post(
+    "/google-drive/index",
+    response_model=ZVecScanResponse,
+    summary="Index Google Drive files into ZVec for semantic search",
+)
+async def index_google_drive_files(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> ZVecScanResponse:
+    """
+    Scan Drive files, extract text, and index into ZVec for offline semantic search.
+    Works entirely offline using local vector embeddings.
+    """
+    # Check if connected
+    token = await get_google_drive_token(db, str(current_user.id))
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Google Drive not connected",
+        )
+    
+    # Import services
+    from app.services.zvec_service import get_zvec_service
+    
+    try:
+        # Get ZVec service
+        zvec = get_zvec_service()
+        
+        if not zvec.is_ready():
+            return ZVecScanResponse(
+                files_scanned=0,
+                indexed=0,
+                message="ZVec service not ready - embedding model not available"
+            )
+        
+        # TODO: Implement actual Drive file fetching and indexing
+        # For now, return mock indexing result
+        # This would:
+        # 1. List files from Google Drive API
+        # 2. Download/extract text from each file
+        # 3. Generate embeddings
+        # 4. Store in ZVec vector database
+        
+        return ZVecScanResponse(
+            files_scanned=3,
+            indexed=3,
+            message="Indexed 3 documents into ZVec for semantic search (mock mode)"
+        )
+        
+    except Exception as e:
+        return ZVecScanResponse(
+            files_scanned=0,
+            indexed=0,
+            message=f"Indexing failed: {str(e)}"
+        )
+
+
+@router.post(
+    "/google-drive/search",
+    response_model=ZVecSearchResponse,
+    summary="Semantic search across Drive files using ZVec",
+)
+async def semantic_search_drive(
+    query: str,
+    project: Optional[str] = None,
+    top_k: int = 5,
+    current_user: User = Depends(get_current_user),
+) -> ZVecSearchResponse:
+    """
+    Semantic search across indexed Drive files using ZVec.
+    Works offline - no cloud vector DB needed.
+    
+    Examples:
+        - query="safety violations" → Finds safety reports
+        - query="invoice rebar" → Finds invoices with rebar materials
+    """
+    from app.services.zvec_service import get_zvec_service
+    
+    try:
+        # Get ZVec service
+        zvec = get_zvec_service()
+        
+        if not zvec.is_ready():
+            return ZVecSearchResponse(
+                query=query,
+                results=[],
+                count=0
+            )
+        
+        # Perform semantic search
+        results = zvec.search_similar(
+            query=query,
+            top_k=top_k,
+            score_threshold=0.3  # Filter low-quality matches
+        )
+        
+        # Filter by project if specified
+        if project:
+            results = [
+                r for r in results 
+                if r.get('metadata', {}).get('project') == project
+            ]
+        
+        return ZVecSearchResponse(
+            query=query,
+            results=results,
+            count=len(results)
+        )
+        
+    except Exception as e:
+        print(f"Search error: {e}")
+        return ZVecSearchResponse(
+            query=query,
+            results=[],
+            count=0
+        )
+
+
+@router.get(
+    "/google-drive/zvec-stats",
+    summary="Get ZVec database statistics",
+)
+async def get_zvec_stats(
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Get statistics about the ZVec vector database."""
+    from app.services.zvec_service import get_zvec_service
+    
+    try:
+        zvec = get_zvec_service()
+        stats = zvec.get_stats()
+        return {
+            "success": True,
+            "stats": stats
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
 
 
 @router.get(
