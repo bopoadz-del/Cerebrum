@@ -138,7 +138,7 @@ export function ProjectSidebar({
               <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 Projects
               </span>
-              {isDriveConnected && (
+              {(isDriveConnected || projects.length > 0) && (
                 <button
                   onClick={onRefreshProjects}
                   disabled={isScanning}
