@@ -10,6 +10,7 @@ import json
 import numpy as np
 from typing import List, Dict, Optional, Any
 from pathlib import Path
+from datetime import datetime
 
 # Try to import sentence-transformers
 try:
