@@ -18,10 +18,17 @@ from googleapiclient.errors import HttpError
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.api.deps import get_db_session
-from app.models.user import User
-from app.models.integration import IntegrationToken
 
 logger = get_logger(__name__)
+
+# Lazy import IntegrationToken to avoid circular imports
+def _get_integration_token_model():
+    try:
+        from app.models.integration import IntegrationToken
+        return IntegrationToken
+    except ImportError:
+        logger.warning("IntegrationToken model not found, using stub implementation")
+        return None
 
 SCOPES = [
     'https://www.googleapis.com/auth/drive.readonly',
