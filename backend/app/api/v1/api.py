@@ -14,13 +14,9 @@ from app.api.v1.endpoints import auth, admin, dejavu, formulas, sessions, connec
 from app.api.health import router as health_router
 
 # Try to import optional endpoints that may have external dependencies
-try:
-    from app.api.v1.endpoints import google_drive
-    GOOGLE_DRIVE_AVAILABLE = True
-    logger.info("Google Drive endpoints loaded")
-except Exception as e:
-    GOOGLE_DRIVE_AVAILABLE = False
-    logger.warning(f"Google Drive endpoints not available: {e}")
+from app.api.v1.endpoints import google_drive
+GOOGLE_DRIVE_AVAILABLE = True
+logger.info("Google Drive endpoints loaded")
 
 try:
     from app.api.v1.endpoints import documents
