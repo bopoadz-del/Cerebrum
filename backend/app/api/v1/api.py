@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 # Import endpoints with error handling for missing dependencies
 from app.api.v1.endpoints import auth, admin, dejavu, formulas, sessions, connectors
+from app.api.health import router as health_router
 
 # Try to import optional endpoints that may have external dependencies
 try:
@@ -69,6 +70,12 @@ api_v1_router.include_router(
 api_v1_router.include_router(
     connectors.router,
     tags=["Connectors"],
+)
+
+api_v1_router.include_router(
+    health_router,
+    prefix="/health",
+    tags=["Health"],
 )
 
 if GOOGLE_DRIVE_AVAILABLE:
