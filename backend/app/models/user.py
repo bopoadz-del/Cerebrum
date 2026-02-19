@@ -140,6 +140,7 @@ class User(BaseModel):
     audit_logs: Mapped[List["AuditLog"]] = relationship(
     google_drive_tokens: Mapped[List["GoogleDriveToken"]] = relationship("GoogleDriveToken", back_populates="user")
     google_drive_tokens: Mapped[List["GoogleDriveToken"]] = relationship("GoogleDriveToken", back_populates="user")
+    google_drive_tokens: Mapped[List["GoogleDriveToken"]] = relationship("GoogleDriveToken", back_populates="user")
         "AuditLog",
         back_populates="user",
         lazy="selectin",
