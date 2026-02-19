@@ -194,7 +194,7 @@ def create_application() -> FastAPI:
     
     # Include routers
     app.include_router(health_router, tags=["health"])
-    app.include_router(api_v1_router, prefix="/api")
+    app.include_router(api_v1_router, prefix="/api/v1")
     app.include_router(health_router, prefix="/api/v1", tags=["health"])
     
     # Root-level health aliases for compatibility
