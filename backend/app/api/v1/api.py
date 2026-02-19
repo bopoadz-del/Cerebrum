@@ -12,14 +12,14 @@ logger = logging.getLogger(__name__)
 from app.api.v1.endpoints import auth, admin, dejavu, formulas, sessions, connectors
 from app.api.health import router as health_router
 
-# Try to import optional endpoints that may have external dependencies
+# Try to import optional endpoints
 try:
     from app.api.v1.endpoints import google_drive
     GOOGLE_DRIVE_AVAILABLE = True
     logger.info("Google Drive endpoints loaded")
 except Exception as e:
+    GOOGLE_DRIVE_AVAILABLE = False
     logger.error(f"GOOGLE_DRIVE IMPORT FAILED: {e}")
-    raise  # Re-raise to crash and see error in logs
 
 try:
     from app.api.v1.endpoints import documents
@@ -40,60 +40,20 @@ except Exception as e:
 # Create v1 router
 api_v1_router = APIRouter()
 
-# Include endpoint routers - NO prefix here, prefixes are in endpoint files
-api_v1_router.include_router(
-    auth.router,
-    tags=["Authentication"],
-)
-
-api_v1_router.include_router(
-    admin.router,
-    tags=["Admin"],
-)
-
-api_v1_router.include_router(
-    dejavu.router,
-    tags=["Dejavu - Database Visualization"],
-)
-
-api_v1_router.include_router(
-    formulas.router,
-    tags=["Formulas"],
-)
-
-api_v1_router.include_router(
-    sessions.router,
-    tags=["Sessions"],
-)
-
-api_v1_router.include_router(
-    connectors.router,
-    tags=["Connectors"],
-)
-
-api_v1_router.include_router(
-    health_router,
-    prefix="/health",
-    tags=["Health"],
-)
+# Include endpoint routers
+api_v1_router.include_router(auth.router, tags=["Authentication"])
+api_v1_router.include_router(admin.router, tags=["Admin"])
+api_v1_router.include_router(dejavu.router, tags=["Dejavu"])
+api_v1_router.include_router(formulas.router, tags=["Formulas"])
+api_v1_router.include_router(sessions.router, tags=["Sessions"])
+api_v1_router.include_router(connectors.router, tags=["Connectors"])
+api_v1_router.include_router(health_router, prefix="/health", tags=["Health"])
 
 if GOOGLE_DRIVE_AVAILABLE:
-    api_v1_router.include_router(
-        google_drive.router,
-        prefix="/drive",
-        tags=["Google Drive"],
-    )
+    api_v1_router.include_router(google_drive.router, prefix="/drive", tags=["Google Drive"])
 
 if DOCUMENTS_AVAILABLE:
-    api_v1_router.include_router(
-        documents.router,
-        prefix="/documents",
-        tags=["Document AI"],
-    )
+    api_v1_router.include_router(documents.router, prefix="/documents", tags=["Document AI"])
 
 if SAFETY_AVAILABLE:
-    api_v1_router.include_router(
-        safety.router,
-        prefix="/safety",
-        tags=["Safety Analysis"],
-    )
+    api_v1_router.include_router(safety.router, prefix="/safety", tags=["Safety Analysis"])
