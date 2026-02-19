@@ -214,7 +214,7 @@ def setup_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={
-                "error": "ERR_DATABASE",
+                "error": "ERR_DATABASE", "detail": str(exc),
                 "message": message,
             },
         )
@@ -255,7 +255,7 @@ def setup_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={
-                "error": "ERR_DATABASE",
+                "error": "ERR_DATABASE", "detail": str(exc),
                 "message": "Database constraint violation",
             },
         )
