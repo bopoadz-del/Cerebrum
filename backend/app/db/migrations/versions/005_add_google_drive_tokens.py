@@ -7,6 +7,7 @@ Create Date: 2025-02-20 00:00:00.000000
 """
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.sql import func
 
 # revision identifiers, used by Alembic.
 revision = '005'
@@ -29,8 +30,8 @@ def upgrade() -> None:
         sa.Column('scopes', sa.Text(), nullable=True),
         sa.Column('is_active', sa.Boolean(), nullable=True),
         sa.Column('revoked_at', sa.DateTime(), nullable=True),
-        sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.text('now()')),
-        sa.Column('updated_at', sa.DateTime(), nullable=False, server_default=sa.text('now()')),
+        sa.Column('created_at', sa.DateTime(timezone=True), server_default=func.now(), nullable=False),
+        sa.Column('updated_at', sa.DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False),
         sa.Column('last_used_at', sa.DateTime(), nullable=True),
         sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
         sa.PrimaryKeyConstraint('id'),
