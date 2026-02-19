@@ -7,6 +7,7 @@ Create Date: 2025-02-20 00:00:00.000000
 """
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 
 # revision identifiers, used by Alembic.
@@ -20,7 +21,7 @@ def upgrade() -> None:
     op.create_table(
         'google_drive_tokens',
         sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('user_id', sa.Integer(), nullable=False),
+        sa.Column('user_id', UUID(as_uuid=True), nullable=False),  # FIXED: UUID to match users.id
         sa.Column('access_token', sa.Text(), nullable=False),
         sa.Column('refresh_token', sa.Text(), nullable=False),
         sa.Column('token_type', sa.String(length=50), nullable=True),
