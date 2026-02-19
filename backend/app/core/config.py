@@ -73,17 +73,9 @@ class Settings(BaseSettings):
     # Security Settings
     # =================================================================
     SECRET_KEY: str = Field(
-        default_factory=lambda: secrets.token_urlsafe(32),
-        description="Secret key for encryption",
+        default="",
+        description="Secret key for encryption (must be set via environment)",
     )
-    
-    @field_validator("SECRET_KEY", mode="before")
-    @classmethod
-    def validate_secret_key(cls, v):
-        """Validate SECRET_KEY is not default or empty."""
-        if not v or v == "change-me" or len(v) < 32:
-            raise ValueError("SECRET_KEY must be set and at least 32 characters")
-        return v
     PASSWORD_PEPPER: str = Field(
         default="",
         description="Pepper for password hashing",
@@ -285,10 +277,15 @@ class Settings(BaseSettings):
     # =================================================================
     # Validators
     # =================================================================
-    @field_validator("SECRET_KEY")
+    @field_validator("SECRET_KEY", mode="before")
     @classmethod
     def validate_secret_key(cls, v: str) -> str:
-        """Validate secret key length."""
+        """Validate secret key is set and has minimum length."""
+        if not v or v == "change-me":
+            raise ValueError(
+                "SECRET_KEY environment variable must be set to a secure value "
+                "(at least 32 characters recommended)"
+            )
         if len(v) < 32:
             raise ValueError("SECRET_KEY must be at least 32 characters")
         return v
@@ -367,13 +364,8 @@ class Settings(BaseSettings):
         return "/api/v1"
 
 
-# Global settings instance
+# Global settings instance - Pydantic validates SECRET_KEY on instantiation
 settings = Settings()
-
-# Validate critical environment variables at startup (fail fast)
-import os
-if not os.getenv('SECRET_KEY'):
-    raise ValueError("FATAL: SECRET_KEY environment variable is missing")
 
 
 def get_settings() -> Settings:
