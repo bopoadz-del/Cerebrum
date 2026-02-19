@@ -1,3 +1,4 @@
+from PIL import Image
 """
 OCR Pipeline with Tesseract Integration
 Extracts text from images and PDFs using Tesseract OCR.
