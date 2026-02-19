@@ -1,6 +1,5 @@
 """
 API Version 1 Router
-
 Defines the v1 API routes and versioning configuration.
 """
 
@@ -10,14 +9,17 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Import endpoints with error handling for missing dependencies
-
 from app.api.v1.endpoints import auth, admin, dejavu, formulas, sessions, connectors
 from app.api.health import router as health_router
 
-Try to import optional endpoints that may have external dependencies
-from app.api.v1.endpoints import google_drive
-GOOGLE_DRIVE_AVAILABLE = True
-logger.info("Google Drive endpoints loaded")
+# Try to import optional endpoints that may have external dependencies
+try:
+    from app.api.v1.endpoints import google_drive
+    GOOGLE_DRIVE_AVAILABLE = True
+    logger.info("Google Drive endpoints loaded")
+except Exception as e:
+    GOOGLE_DRIVE_AVAILABLE = False
+    logger.warning(f"Google Drive endpoints not available: {e}")
 
 try:
     from app.api.v1.endpoints import documents
@@ -35,10 +37,10 @@ except Exception as e:
     SAFETY_AVAILABLE = False
     logger.warning(f"Safety endpoints not available: {e}")
 
-Create v1 router
+# Create v1 router
 api_v1_router = APIRouter()
 
-Include endpoint routers - NO prefix here, prefixes are in endpoint files
+# Include endpoint routers - NO prefix here, prefixes are in endpoint files
 api_v1_router.include_router(
     auth.router,
     tags=["Authentication"],
@@ -95,20 +97,3 @@ if SAFETY_AVAILABLE:
         prefix="/safety",
         tags=["Safety Analysis"],
     )
-
-
-API version info endpoint
-@api_v1_router.get("/", tags=["Info"])
-async def api_info() -> dict:
-    """
-    Get API version information.
-    
-    Returns:
-        API version details
-    """
-    return {
-        "version": "1.0.0",
-        "name": "Cerebrum AI Platform API",
-        "status": "stable",
-        "documentation": "/api/docs",
-    }
