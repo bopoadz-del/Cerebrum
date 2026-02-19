@@ -9,7 +9,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-Import endpoints with error handling for missing dependencies
+# Import endpoints with error handling for missing dependencies
+
 from app.api.v1.endpoints import auth, admin, dejavu, formulas, sessions, connectors
 from app.api.health import router as health_router
 
