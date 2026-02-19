@@ -41,7 +41,7 @@ class GoogleDriveToken(Base):
     last_used_at = Column(DateTime, nullable=True)
     
     # Relationship
-    user = relationship("User", back_populates="google_drive_tokens")
+    # user relationship removed temporarily
 
     def is_expired(self) -> bool:
         """Check if access token is expired (with 5 min buffer)"""
