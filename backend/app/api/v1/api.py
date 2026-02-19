@@ -18,19 +18,19 @@ from app.api.v1.endpoints import google_drive
 GOOGLE_DRIVE_AVAILABLE = True
 logger.info("Google Drive endpoints loaded")
 
-try:
+# try:
     from app.api.v1.endpoints import documents
     DOCUMENTS_AVAILABLE = True
     logger.info("Documents endpoints loaded")
-except Exception as e:
+# except Exception as e:
     DOCUMENTS_AVAILABLE = False
     logger.warning(f"Documents endpoints not available: {e}")
 
-try:
+# try:
     from app.api.v1.endpoints import safety
     SAFETY_AVAILABLE = True
     logger.info("Safety endpoints loaded")
-except Exception as e:
+# except Exception as e:
     SAFETY_AVAILABLE = False
     logger.warning(f"Safety endpoints not available: {e}")
 
