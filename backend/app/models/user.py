@@ -145,6 +145,7 @@ class User(BaseModel):
         back_populates="user",
         lazy="selectin",
     )
+    google_drive_tokens: Mapped[List["GoogleDriveToken"]] = relationship("GoogleDriveToken", back_populates="user")
     
     def __repr__(self) -> str:
         return f"<User(id={self.id}, email={self.email}, role={self.role})>"
