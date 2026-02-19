@@ -29,31 +29,21 @@ except Exception as e:
     DOCUMENTS_AVAILABLE = False
     logger.warning(f"Documents endpoints not available: {e}")
 
-try:
-    from app.api.v1.endpoints import safety
-    SAFETY_AVAILABLE = True
-    logger.info("Safety endpoints loaded")
-except Exception as e:
-    SAFETY_AVAILABLE = False
-    logger.warning(f"Safety endpoints not available: {e}")
+# Create main router
+router = APIRouter()
 
-# Create v1 router
-api_v1_router = APIRouter()
+# Include core endpoints
+router.include_router(health_router, tags=["health"])
+router.include_router(auth.router, prefix="/auth", tags=["authentication"])
+router.include_router(admin.router, prefix="/admin", tags=["admin"])
+router.include_router(dejavu.router, prefix="/dejavu", tags=["dejavu"])
+router.include_router(formulas.router, prefix="/formulas", tags=["formulas"])
+router.include_router(sessions.router, prefix="/sessions", tags=["sessions"])
+router.include_router(connectors.router, prefix="/connectors", tags=["connectors"])
 
-# Include endpoint routers
-api_v1_router.include_router(auth.router, tags=["Authentication"])
-api_v1_router.include_router(admin.router, tags=["Admin"])
-api_v1_router.include_router(dejavu.router, tags=["Dejavu"])
-api_v1_router.include_router(formulas.router, tags=["Formulas"])
-api_v1_router.include_router(sessions.router, tags=["Sessions"])
-api_v1_router.include_router(connectors.router, tags=["Connectors"])
-api_v1_router.include_router(health_router, prefix="/health", tags=["Health"])
-
+# Include optional endpoints conditionally
 if GOOGLE_DRIVE_AVAILABLE:
-    api_v1_router.include_router(google_drive.router, prefix="/drive", tags=["Google Drive"])
-
+    router.include_router(google_drive.router, prefix="/drive", tags=["google-drive"])
+    
 if DOCUMENTS_AVAILABLE:
-    api_v1_router.include_router(documents.router, prefix="/documents", tags=["Document AI"])
-
-if SAFETY_AVAILABLE:
-    api_v1_router.include_router(safety.router, prefix="/safety", tags=["Safety Analysis"])
+    router.include_router(documents.router, prefix="/documents", tags=["documents"])
