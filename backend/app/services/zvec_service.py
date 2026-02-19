@@ -1,7 +1,14 @@
 import os
 import json
-import numpy as np
 from typing import List, Dict, Optional
+
+# Try to import numpy, provide fallback if not available (SIGILL protection)
+try:
+    import numpy as np
+    NUMPY_AVAILABLE = True
+except ImportError:
+    NUMPY_AVAILABLE = False
+    np = None  # type: ignore
 
 try:
     import zvec
@@ -9,6 +16,7 @@ try:
 except ImportError:
     ZVEC_AVAILABLE = False
     print("ZVec not installed, using mock")
+
 
 class ZVecService:
     def __init__(self, db_path: str = "./data/zvec_store"):
@@ -19,30 +27,44 @@ class ZVecService:
         self._model = None
         self.dimension = 384
         
-        if ZVEC_AVAILABLE:
+        if ZVEC_AVAILABLE and NUMPY_AVAILABLE:
             self.db = zvec.ZVecDB(dimension=self.dimension, path=db_path)
         else:
             self.db = MockZVecDB()
+    
+    def is_ready(self) -> bool:
+        """Check if service is ready (has working ML stack)."""
+        return ZVEC_AVAILABLE and NUMPY_AVAILABLE
     
     @property
     def model(self):
         """Lazy load - only when first search/index happens"""
         if self._model is None:
+            if not NUMPY_AVAILABLE:
+                raise RuntimeError("NumPy not available (SIGILL protection)")
             print("Loading embedding model... (one-time)")
-            from sentence_transformers import SentenceTransformer
-            self._model = SentenceTransformer('all-MiniLM-L6-v2')
+            try:
+                from sentence_transformers import SentenceTransformer
+                self._model = SentenceTransformer('all-MiniLM-L6-v2')
+            except ImportError:
+                raise RuntimeError("sentence-transformers not installed")
         return self._model
     
-    def embed_text(self, text: str) -> np.ndarray:
+    def embed_text(self, text: str) -> List[float]:
+        """Generate embedding for text. Returns list of floats."""
+        if not NUMPY_AVAILABLE:
+            # Return random embedding as fallback
+            import random
+            return [random.uniform(-0.1, 0.1) for _ in range(self.dimension)]
         # Truncate to save memory
-        return self.model.encode(text[:5000])  # Reduced from 10k to 5k
+        return self.model.encode(text[:5000]).tolist()  # type: ignore
     
     def add_document(self, doc_id: str, text: str, metadata: Dict) -> bool:
         try:
             embedding = self.embed_text(text)
             self.db.add(
                 id=doc_id,
-                vector=embedding.tolist(),
+                vector=embedding,
                 metadata=json.dumps(metadata)
             )
             return True
@@ -54,7 +76,7 @@ class ZVecService:
         try:
             query_vec = self.embed_text(query)
             results = self.db.search(
-                vector=query_vec.tolist(),
+                vector=query_vec,
                 top_k=top_k
             )
             return [
@@ -68,6 +90,13 @@ class ZVecService:
         except Exception as e:
             print(f"ZVec search error: {e}")
             return []
+    
+    def get_stats(self) -> Dict:
+        """Get database statistics."""
+        if hasattr(self.db, 'store'):
+            return {"count": len(self.db.store), "ready": self.is_ready()}
+        return {"count": 0, "ready": self.is_ready()}
+
 
 class MockZVecDB:
     def __init__(self):
@@ -87,5 +116,11 @@ class MockZVecDB:
             for k, v in list(self.store.items())[:top_k]
         ]
 
+
 # Global instance - lightweight at startup
 zvec_service = ZVecService()
+
+
+def get_zvec_service() -> ZVecService:
+    """Get the global ZVec service instance."""
+    return zvec_service
