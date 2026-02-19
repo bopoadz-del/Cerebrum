@@ -149,7 +149,6 @@ async def lifespan(app: FastAPI):
 def create_application() -> FastAPI:
     """Create and configure the FastAPI application."""
     app = FastAPI(
-setup_cors(app)
         title=settings.APP_NAME,
         version=settings.APP_VERSION,
         description="Construction Intelligence Platform - 14-Layer Architecture",
