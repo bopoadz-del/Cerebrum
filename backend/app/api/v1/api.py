@@ -29,21 +29,21 @@ except Exception as e:
     DOCUMENTS_AVAILABLE = False
     logger.warning(f"Documents endpoints not available: {e}")
 
-# Create main router
-router = APIRouter()
+# Create main router - MUST BE NAMED api_v1_router for main.py
+api_v1_router = APIRouter()
 
 # Include core endpoints
-router.include_router(health_router, tags=["health"])
-router.include_router(auth.router, prefix="/auth", tags=["authentication"])
-router.include_router(admin.router, prefix="/admin", tags=["admin"])
-router.include_router(dejavu.router, prefix="/dejavu", tags=["dejavu"])
-router.include_router(formulas.router, prefix="/formulas", tags=["formulas"])
-router.include_router(sessions.router, prefix="/sessions", tags=["sessions"])
-router.include_router(connectors.router, prefix="/connectors", tags=["connectors"])
+api_v1_router.include_router(health_router, tags=["health"])
+api_v1_router.include_router(auth.router, prefix="/auth", tags=["authentication"])
+api_v1_router.include_router(admin.router, prefix="/admin", tags=["admin"])
+api_v1_router.include_router(dejavu.router, prefix="/dejavu", tags=["dejavu"])
+api_v1_router.include_router(formulas.router, prefix="/formulas", tags=["formulas"])
+api_v1_router.include_router(sessions.router, prefix="/sessions", tags=["sessions"])
+api_v1_router.include_router(connectors.router, prefix="/connectors", tags=["connectors"])
 
 # Include optional endpoints conditionally
 if GOOGLE_DRIVE_AVAILABLE:
-    router.include_router(google_drive.router, prefix="/drive", tags=["google-drive"])
+    api_v1_router.include_router(google_drive.router, prefix="/drive", tags=["google-drive"])
     
 if DOCUMENTS_AVAILABLE:
-    router.include_router(documents.router, prefix="/documents", tags=["documents"])
+    api_v1_router.include_router(documents.router, prefix="/documents", tags=["documents"])
