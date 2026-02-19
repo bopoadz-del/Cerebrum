@@ -1,3 +1,4 @@
+from sqlalchemy.orm import relationship
 """
 User Model
 
