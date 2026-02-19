@@ -11,6 +11,7 @@ import os
 import sys
 from contextlib import asynccontextmanager
 
+from app.core.cors import setup_cors
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -148,6 +149,7 @@ async def lifespan(app: FastAPI):
 def create_application() -> FastAPI:
     """Create and configure the FastAPI application."""
     app = FastAPI(
+setup_cors(app)
         title=settings.APP_NAME,
         version=settings.APP_VERSION,
         description="Construction Intelligence Platform - 14-Layer Architecture",
@@ -194,6 +196,7 @@ def create_application() -> FastAPI:
     # Include routers
     app.include_router(health_router, tags=["health"])
     app.include_router(api_v1_router, prefix="/api")
+    app.include_router(health_router, prefix="/api/v1", tags=["health"])
     
     # Root-level health aliases for compatibility
     @app.get("/healthz", tags=["health"])
