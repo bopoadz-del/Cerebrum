@@ -1,4 +1,3 @@
-from sqlalchemy.orm import relationship
 """
 User Model
 
@@ -138,14 +137,10 @@ class User(BaseModel):
         lazy="selectin",
     )
     audit_logs: Mapped[List["AuditLog"]] = relationship(
-    google_drive_tokens: Mapped[List["GoogleDriveToken"]] = relationship("GoogleDriveToken", back_populates="user")
-    google_drive_tokens: Mapped[List["GoogleDriveToken"]] = relationship("GoogleDriveToken", back_populates="user")
-    google_drive_tokens: Mapped[List["GoogleDriveToken"]] = relationship("GoogleDriveToken", back_populates="user")
         "AuditLog",
         back_populates="user",
         lazy="selectin",
     )
-    google_drive_tokens: Mapped[List["GoogleDriveToken"]] = relationship("GoogleDriveToken", back_populates="user")
     
     def __repr__(self) -> str:
         return f"<User(id={self.id}, email={self.email}, role={self.role})>"
