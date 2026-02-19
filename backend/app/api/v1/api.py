@@ -9,35 +9,35 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Import endpoints with error handling for missing dependencies
+Import endpoints with error handling for missing dependencies
 from app.api.v1.endpoints import auth, admin, dejavu, formulas, sessions, connectors
 from app.api.health import router as health_router
 
-# Try to import optional endpoints that may have external dependencies
+Try to import optional endpoints that may have external dependencies
 from app.api.v1.endpoints import google_drive
 GOOGLE_DRIVE_AVAILABLE = True
 logger.info("Google Drive endpoints loaded")
 
-# try:
+try:
     from app.api.v1.endpoints import documents
     DOCUMENTS_AVAILABLE = True
     logger.info("Documents endpoints loaded")
-# except Exception as e:
+except Exception as e:
     DOCUMENTS_AVAILABLE = False
     logger.warning(f"Documents endpoints not available: {e}")
 
-# try:
+try:
     from app.api.v1.endpoints import safety
     SAFETY_AVAILABLE = True
     logger.info("Safety endpoints loaded")
-# except Exception as e:
+except Exception as e:
     SAFETY_AVAILABLE = False
     logger.warning(f"Safety endpoints not available: {e}")
 
-# Create v1 router
+Create v1 router
 api_v1_router = APIRouter()
 
-# Include endpoint routers - NO prefix here, prefixes are in endpoint files
+Include endpoint routers - NO prefix here, prefixes are in endpoint files
 api_v1_router.include_router(
     auth.router,
     tags=["Authentication"],
@@ -96,7 +96,7 @@ if SAFETY_AVAILABLE:
     )
 
 
-# API version info endpoint
+API version info endpoint
 @api_v1_router.get("/", tags=["Info"])
 async def api_info() -> dict:
     """
