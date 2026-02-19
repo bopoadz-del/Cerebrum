@@ -18,8 +18,8 @@ try:
     GOOGLE_DRIVE_AVAILABLE = True
     logger.info("Google Drive endpoints loaded")
 except Exception as e:
-    GOOGLE_DRIVE_AVAILABLE = False
-    logger.warning(f"Google Drive endpoints not available: {e}")
+    logger.error(f"GOOGLE_DRIVE IMPORT FAILED: {e}")
+    raise  # Re-raise to crash and see error in logs
 
 try:
     from app.api.v1.endpoints import documents
