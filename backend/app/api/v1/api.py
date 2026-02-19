@@ -43,7 +43,7 @@ api_v1_router.include_router(connectors.router, prefix="/connectors", tags=["con
 
 # Include optional endpoints conditionally
 if GOOGLE_DRIVE_AVAILABLE:
-    api_v1_router.include_router(google_drive.router, prefix="/drive", tags=["google-drive"])
+    api_v1_router.include_router(google_drive.router, tags=["google-drive"])
     
 if DOCUMENTS_AVAILABLE:
     api_v1_router.include_router(documents.router, prefix="/documents", tags=["documents"])
