@@ -138,7 +138,6 @@ class User(BaseModel):
     )
     audit_logs: Mapped[List["AuditLog"]] = relationship(
         "AuditLog",
-        back_populates="user",
         lazy="selectin",
     )
     
