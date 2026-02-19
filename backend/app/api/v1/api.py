@@ -34,7 +34,7 @@ api_v1_router = APIRouter()
 
 # Include core endpoints
 api_v1_router.include_router(health_router, tags=["health"])
-api_v1_router.include_router(auth.router, prefix="/auth", tags=["authentication"])
+api_v1_router.include_router(auth.router, tags=["authentication"])
 api_v1_router.include_router(admin.router, prefix="/admin", tags=["admin"])
 api_v1_router.include_router(dejavu.router, prefix="/dejavu", tags=["dejavu"])
 api_v1_router.include_router(formulas.router, prefix="/formulas", tags=["formulas"])
