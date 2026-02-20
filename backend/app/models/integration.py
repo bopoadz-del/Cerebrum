@@ -57,3 +57,12 @@ class IntegrationToken(BaseModel):
     
     def __repr__(self) -> str:
         return f"<IntegrationToken {self.service} user={self.user_id}>"
+
+
+class IntegrationProvider:
+    """Integration provider constants."""
+    GOOGLE_DRIVE = "google_drive"
+    ONEDRIVE = "onedrive"
+    DROPBOX = "dropbox"
+    SLACK = "slack"
+    PROCORE = "procore"
