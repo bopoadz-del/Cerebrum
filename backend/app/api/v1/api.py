@@ -46,4 +46,4 @@ if DOCUMENTS_AVAILABLE:
     api_v1_router.include_router(documents.router, prefix="/documents", tags=["documents"])
 
 if GOOGLE_DRIVE_AVAILABLE:
-    api_v1_router.include_router(google_drive.router, prefix="/drive", tags=["google-drive"])
+    api_v1_router.include_router(google_drive.router, prefix="/connectors/google-drive", tags=["google-drive"])
