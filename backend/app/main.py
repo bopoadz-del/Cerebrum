@@ -210,6 +210,12 @@ def create_application() -> FastAPI:
         from app.api.health import readiness
         return await readiness()
     
+    @app.get("/health", tags=["health"])
+    async def root_health():
+        """Root-level health check for Docker/Railway/Render."""
+        from app.api.health import liveness
+        return await liveness()
+    
     return app
 
 
