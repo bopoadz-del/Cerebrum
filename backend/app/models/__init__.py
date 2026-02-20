@@ -16,4 +16,3 @@ __all__ = [
     "Document",
     "DocumentChunk",
 ]
-from .google_drive import GoogleDriveToken

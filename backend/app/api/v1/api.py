@@ -14,14 +14,6 @@ from app.api.health import router as health_router
 
 # Try to import optional endpoints
 try:
-    from app.api.v1.endpoints import google_drive
-    GOOGLE_DRIVE_AVAILABLE = True
-    logger.info("Google Drive endpoints loaded")
-except Exception as e:
-    GOOGLE_DRIVE_AVAILABLE = False
-    logger.error(f"GOOGLE_DRIVE IMPORT FAILED: {e}")
-
-try:
     from app.api.v1.endpoints import documents
     DOCUMENTS_AVAILABLE = True
     logger.info("Documents endpoints loaded")
@@ -42,8 +34,5 @@ api_v1_router.include_router(sessions.router, prefix="/sessions", tags=["session
 api_v1_router.include_router(connectors.router, prefix="/connectors", tags=["connectors"])
 
 # Include optional endpoints conditionally
-if GOOGLE_DRIVE_AVAILABLE:
-    api_v1_router.include_router(google_drive.router, tags=["google-drive"])
-    
 if DOCUMENTS_AVAILABLE:
     api_v1_router.include_router(documents.router, prefix="/documents", tags=["documents"])
