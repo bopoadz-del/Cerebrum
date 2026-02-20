@@ -32,7 +32,7 @@ class GoogleDriveService:
                 }
             )
             if response.status_code != 200:
-                raise HTTPException(status_code=400, detail="Failed to exchange code")
+                raise HTTPException(status_code=400, detail=f"Token exchange failed: {response.text}")
             return response.json()
     
     async def get_valid_token(self, user_id: str) -> str:
@@ -42,10 +42,9 @@ class GoogleDriveService:
         ).first()
         
         if not token:
-            raise HTTPException(status_code=401, detail="Google Drive not connected")
+            raise HTTPException(status_code=401, detail="Google Drive not connected. Please authenticate first.")
         
         if token.is_expired():
-            # Refresh token
             async with httpx.AsyncClient() as client:
                 response = await client.post(
                     self.OAUTH_TOKEN_URL,
@@ -59,7 +58,7 @@ class GoogleDriveService:
                 if response.status_code != 200:
                     token.is_active = False
                     self.db.commit()
-                    raise HTTPException(status_code=401, detail="Failed to refresh token")
+                    raise HTTPException(status_code=401, detail="Failed to refresh token. Please re-authenticate.")
                 
                 data = response.json()
                 token.access_token = data["access_token"]
@@ -84,22 +83,24 @@ class GoogleDriveService:
                 params={
                     "q": " and ".join(q_parts),
                     "pageSize": 100,
-                    "fields": "files(id,name,mimeType,size,modifiedTime,webViewLink)"
+                    "fields": "files(id,name,mimeType,size,modifiedTime,webViewLink,thumbnailLink)",
+                    "orderBy": "folder,name"
                 }
             )
             
             if response.status_code != 200:
-                raise HTTPException(status_code=400, detail="Failed to fetch files")
+                raise HTTPException(status_code=400, detail="Failed to fetch files from Google Drive")
             
             files = response.json().get("files", [])
             return [{
                 "id": f["id"],
                 "name": f["name"],
                 "mime_type": f["mimeType"],
-                "size": int(f.get("size", 0)) if "size" in f else None,
+                "size": int(f["size"]) if "size" in f else None,
                 "modified_time": f.get("modifiedTime"),
                 "is_folder": f["mimeType"] == "application/vnd.google-apps.folder",
-                "web_view_link": f.get("webViewLink")
+                "web_view_link": f.get("webViewLink"),
+                "thumbnail_link": f.get("thumbnailLink")
             } for f in files]
     
     def save_tokens(self, user_id: str, token_data: Dict, email: Optional[str] = None):

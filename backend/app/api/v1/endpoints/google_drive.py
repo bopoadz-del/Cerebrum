@@ -1,8 +1,7 @@
 """
-Google Drive Endpoints
+Google Drive API Endpoints
 """
 from typing import Optional, List, Dict, Any
-from datetime import datetime
 import secrets
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -11,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user, User, get_db
 from app.services.google_drive_service import GoogleDriveService
 from app.core.config import settings
+import httpx
 
 router = APIRouter()
 
@@ -28,9 +28,11 @@ class DriveFileResponse(BaseModel):
     size: Optional[int] = None
     modified_time: Optional[str] = None
     is_folder: bool = False
+    web_view_link: Optional[str] = None
 
 @router.get("/auth/url", response_model=AuthUrlResponse)
 async def get_auth_url(current_user: User = Depends(get_current_user)):
+    """Get Google OAuth URL"""
     client_id = settings.GOOGLE_CLIENT_ID
     if not client_id:
         raise HTTPException(status_code=500, detail="Google OAuth not configured")
@@ -43,6 +45,7 @@ async def get_auth_url(current_user: User = Depends(get_current_user)):
         "&response_type=code"
         "&scope=https://www.googleapis.com/auth/drive.readonly"
         "+https://www.googleapis.com/auth/drive.file"
+        "+https://www.googleapis.com/auth/drive.metadata.readonly"
         f"&state={state}"
         "&access_type=offline"
         "&prompt=consent"
@@ -55,11 +58,12 @@ async def oauth_callback(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    """Handle OAuth callback"""
     service = GoogleDriveService(db)
     token_data = await service.exchange_code(request.code)
     
-    # Get email from Google
-    async with __import__('httpx').AsyncClient() as client:
+    # Get user email from Google
+    async with httpx.AsyncClient() as client:
         userinfo = await client.get(
             "https://www.googleapis.com/oauth2/v2/userinfo",
             headers={"Authorization": f"Bearer {token_data['access_token']}"}
@@ -67,7 +71,7 @@ async def oauth_callback(
         email = userinfo.json().get("email") if userinfo.status_code == 200 else None
     
     service.save_tokens(str(current_user.id), token_data, email)
-    return {"success": True, "email": email}
+    return {"success": True, "message": "Google Drive connected", "email": email}
 
 @router.get("/files", response_model=List[DriveFileResponse])
 async def list_files(
@@ -75,6 +79,26 @@ async def list_files(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    """List files from Google Drive"""
     service = GoogleDriveService(db)
     files = await service.list_files(str(current_user.id), folder_id)
     return [DriveFileResponse(**f) for f in files]
+
+@router.get("/status")
+async def get_status(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Check Google Drive connection status"""
+    from app.models.google_drive import GoogleDriveToken
+    
+    token = db.query(GoogleDriveToken).filter(
+        GoogleDriveToken.user_id == str(current_user.id),
+        GoogleDriveToken.is_active == True
+    ).first()
+    
+    return {
+        "connected": token is not None,
+        "email": token.google_email if token else None,
+        "last_used": token.last_used_at.isoformat() if token and token.last_used_at else None
+    }
