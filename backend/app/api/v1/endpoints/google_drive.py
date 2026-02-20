@@ -3,23 +3,20 @@ Google Drive API Endpoints
 """
 from typing import Optional, List, Dict, Any
 import secrets
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+import httpx
 
 from app.api.deps import get_current_user, User, get_db
 from app.services.google_drive_service import GoogleDriveService
 from app.core.config import settings
-import httpx
 
 router = APIRouter()
 
 class AuthUrlResponse(BaseModel):
     auth_url: str
     state: str
-
-class TokenExchangeRequest(BaseModel):
-    code: str
 
 class DriveFileResponse(BaseModel):
     id: str
@@ -37,7 +34,9 @@ async def get_auth_url(current_user: User = Depends(get_current_user)):
     if not client_id:
         raise HTTPException(status_code=500, detail="Google OAuth not configured")
     
-    state = secrets.token_urlsafe(32)
+    # Include user_id in state so we can identify them on callback
+    state = f"{secrets.token_urlsafe(16)}:{str(current_user.id)}"
+    
     auth_url = (
         "https://accounts.google.com/o/oauth2/v2/auth"
         f"?client_id={client_id}"
@@ -52,26 +51,41 @@ async def get_auth_url(current_user: User = Depends(get_current_user)):
     )
     return AuthUrlResponse(auth_url=auth_url, state=state)
 
-@router.post("/auth/callback")
+@router.get("/callback")
 async def oauth_callback(
-    request: TokenExchangeRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    code: str,
+    state: str,
+    db: Session = Depends(get_db)
 ):
-    """Handle OAuth callback"""
-    service = GoogleDriveService(db)
-    token_data = await service.exchange_code(request.code)
-    
-    # Get user email from Google
-    async with httpx.AsyncClient() as client:
-        userinfo = await client.get(
-            "https://www.googleapis.com/oauth2/v2/userinfo",
-            headers={"Authorization": f"Bearer {token_data['access_token']}"}
-        )
-        email = userinfo.json().get("email") if userinfo.status_code == 200 else None
-    
-    service.save_tokens(str(current_user.id), token_data, email)
-    return {"success": True, "message": "Google Drive connected", "email": email}
+    """Handle OAuth callback from Google (NO AUTH REQUIRED - called by Google)"""
+    try:
+        # Extract user_id from state (format: random:user_id)
+        user_id = state.split(":")[-1] if ":" in state else state
+        
+        service = GoogleDriveService(db)
+        token_data = await service.exchange_code(code)
+        
+        # Get user email from Google
+        async with httpx.AsyncClient() as client:
+            userinfo = await client.get(
+                "https://www.googleapis.com/oauth2/v2/userinfo",
+                headers={"Authorization": f"Bearer {token_data['access_token']}"}
+            )
+            email = userinfo.json().get("email") if userinfo.status_code == 200 else None
+        
+        # Save tokens
+        from uuid import UUID
+        service.save_tokens(UUID(user_id), token_data, email)
+        
+        # Return HTML that closes the popup and notifies parent window
+        return {
+            "success": True,
+            "message": "Google Drive connected successfully",
+            "email": email
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"OAuth failed: {str(e)}")
 
 @router.get("/files", response_model=List[DriveFileResponse])
 async def list_files(
@@ -79,7 +93,7 @@ async def list_files(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """List files from Google Drive"""
+    """List files from Google Drive (requires auth)"""
     service = GoogleDriveService(db)
     files = await service.list_files(str(current_user.id), folder_id)
     return [DriveFileResponse(**f) for f in files]
@@ -91,7 +105,6 @@ async def get_status(
 ):
     """Check Google Drive connection status"""
     from app.models.google_drive import GoogleDriveToken
-    
     token = db.query(GoogleDriveToken).filter(
         GoogleDriveToken.user_id == str(current_user.id),
         GoogleDriveToken.is_active == True
