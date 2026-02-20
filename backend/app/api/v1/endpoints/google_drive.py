@@ -79,9 +79,8 @@ async def oauth_callback(
             )
             email = userinfo.json().get("email") if userinfo.status_code == 200 else None
         
-        # Save tokens
-        from uuid import UUID
-        service.save_tokens(UUID(user_id), token_data, email)
+        # Save tokens - user_id should already be a valid UUID string from auth/url
+        service.save_tokens(user_id, token_data, email)
         
         return {
             "success": True,

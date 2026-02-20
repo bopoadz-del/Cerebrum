@@ -108,10 +108,18 @@ class GoogleDriveService:
     
     def save_tokens(self, user_id: str, token_data: Dict, email: Optional[str] = None):
         try:
+            from uuid import UUID
+            
+            # Convert user_id string to UUID
+            try:
+                user_uuid = UUID(user_id)
+            except ValueError:
+                raise HTTPException(status_code=400, detail=f"Invalid user_id format: {user_id}")
+            
             expires_in = token_data.get("expires_in", 3600)
             
             existing = self.db.query(GoogleDriveToken).filter(
-                GoogleDriveToken.user_id == user_id
+                GoogleDriveToken.user_id == user_uuid
             ).first()
             
             if existing:
@@ -123,7 +131,7 @@ class GoogleDriveService:
                 existing.updated_at = datetime.utcnow()
             else:
                 token = GoogleDriveToken(
-                    user_id=user_id,
+                    user_id=user_uuid,
                     access_token=token_data["access_token"],
                     refresh_token=token_data["refresh_token"],
                     expires_at=datetime.utcnow() + timedelta(seconds=expires_in),
