@@ -84,7 +84,12 @@ async def oauth_callback(
             "email": email
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
+        import traceback
+        error_detail = f"{str(e)}\n{traceback.format_exc()}"
+        print(f"OAuth callback error: {error_detail}")  # Log to stdout
         raise HTTPException(status_code=400, detail=f"OAuth failed: {str(e)}")
 
 @router.get("/files", response_model=List[DriveFileResponse])
