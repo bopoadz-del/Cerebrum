@@ -20,6 +20,9 @@ class GoogleDriveService:
         self.redirect_uri = settings.GOOGLE_REDIRECT_URI
     
     async def exchange_code(self, code: str) -> Dict[str, Any]:
+        if not self.client_id or not self.client_secret:
+            raise HTTPException(status_code=500, detail="Google OAuth credentials not configured")
+        
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 self.OAUTH_TOKEN_URL,
@@ -104,27 +107,31 @@ class GoogleDriveService:
             } for f in files]
     
     def save_tokens(self, user_id: str, token_data: Dict, email: Optional[str] = None):
-        expires_in = token_data.get("expires_in", 3600)
-        
-        existing = self.db.query(GoogleDriveToken).filter(
-            GoogleDriveToken.user_id == user_id
-        ).first()
-        
-        if existing:
-            existing.access_token = token_data["access_token"]
-            existing.refresh_token = token_data.get("refresh_token", existing.refresh_token)
-            existing.expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
-            existing.google_email = email or existing.google_email
-            existing.is_active = True
-            existing.updated_at = datetime.utcnow()
-        else:
-            token = GoogleDriveToken(
-                user_id=user_id,
-                access_token=token_data["access_token"],
-                refresh_token=token_data["refresh_token"],
-                expires_at=datetime.utcnow() + timedelta(seconds=expires_in),
-                google_email=email
-            )
-            self.db.add(token)
-        
-        self.db.commit()
+        try:
+            expires_in = token_data.get("expires_in", 3600)
+            
+            existing = self.db.query(GoogleDriveToken).filter(
+                GoogleDriveToken.user_id == user_id
+            ).first()
+            
+            if existing:
+                existing.access_token = token_data["access_token"]
+                existing.refresh_token = token_data.get("refresh_token", existing.refresh_token)
+                existing.expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
+                existing.google_email = email or existing.google_email
+                existing.is_active = True
+                existing.updated_at = datetime.utcnow()
+            else:
+                token = GoogleDriveToken(
+                    user_id=user_id,
+                    access_token=token_data["access_token"],
+                    refresh_token=token_data["refresh_token"],
+                    expires_at=datetime.utcnow() + timedelta(seconds=expires_in),
+                    google_email=email
+                )
+                self.db.add(token)
+            
+            self.db.commit()
+        except Exception as e:
+            self.db.rollback()
+            raise HTTPException(status_code=500, detail=f"Database error saving tokens: {str(e)}")
