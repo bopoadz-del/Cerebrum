@@ -29,6 +29,14 @@ except Exception as e:
     GOOGLE_DRIVE_AVAILABLE = False
     logger.warning(f"Google Drive endpoints not available: {e}")
 
+# Import db_check endpoint
+try:
+    from app.api.v1.endpoints import db_check
+    DB_CHECK_AVAILABLE = True
+except Exception as e:
+    DB_CHECK_AVAILABLE = False
+    logger.warning(f"DB check endpoints not available: {e}")
+
 # Create main router - MUST BE NAMED api_v1_router for main.py
 api_v1_router = APIRouter()
 
@@ -47,3 +55,6 @@ if DOCUMENTS_AVAILABLE:
 
 if GOOGLE_DRIVE_AVAILABLE:
     api_v1_router.include_router(google_drive.router, prefix="/connectors/google-drive", tags=["google-drive"])
+
+if DB_CHECK_AVAILABLE:
+    api_v1_router.include_router(db_check.router, prefix="/db", tags=["db-check"])
