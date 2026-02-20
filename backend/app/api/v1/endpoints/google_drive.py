@@ -28,15 +28,9 @@ class DriveFileResponse(BaseModel):
     web_view_link: Optional[str] = None
 
 @router.get("/health")
-async def health_check(db: Session = Depends(get_db)):
-    """Health check for Google Drive integration"""
-    try:
-        # Test if we can query the table
-        from app.models.google_drive import GoogleDriveToken
-        count = db.query(GoogleDriveToken).count()
-        return {"status": "ok", "table": "google_drive_tokens", "token_count": count}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
+async def health_check():
+    """Health check for Google Drive integration - NO DB"""
+    return {"status": "ok", "message": "endpoint reachable"}
 
 @router.get("/auth/url", response_model=AuthUrlResponse)
 async def get_auth_url(current_user: User = Depends(get_current_user)):
