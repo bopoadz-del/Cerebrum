@@ -3,6 +3,7 @@ Google Drive API Endpoints
 """
 from typing import Optional, List, Dict, Any
 import secrets
+import uuid
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -13,6 +14,15 @@ from app.services.google_drive_service import GoogleDriveService
 from app.core.config import settings
 
 router = APIRouter()
+
+def string_to_uuid(user_id_str: str) -> uuid.UUID:
+    """Convert any string to a deterministic UUID."""
+    try:
+        # Try parsing as UUID first
+        return uuid.UUID(user_id_str)
+    except ValueError:
+        # Generate UUID5 from string (deterministic)
+        return uuid.uuid5(uuid.NAMESPACE_DNS, f"user:{user_id_str}")
 
 class AuthUrlResponse(BaseModel):
     auth_url: str
@@ -60,14 +70,10 @@ async def oauth_callback(
     """Handle OAuth callback from Google (NO AUTH REQUIRED - called by Google)"""
     try:
         # Extract user_id from state (format: random:user_id)
-        user_id = state.split(":")[-1] if ":" in state else state
+        user_id_raw = state.split(":")[-1] if ":" in state else state
         
-        # Validate user_id is a proper UUID
-        from uuid import UUID
-        try:
-            UUID(user_id)
-        except ValueError:
-            raise HTTPException(status_code=400, detail=f"Invalid user_id format in state: {user_id}")
+        # Convert to UUID (handles both UUID strings and arbitrary strings)
+        user_id = string_to_uuid(user_id_raw)
         
         # Validate Google OAuth is configured
         if not settings.GOOGLE_CLIENT_ID:
@@ -86,7 +92,7 @@ async def oauth_callback(
             )
             email = userinfo.json().get("email") if userinfo.status_code == 200 else None
         
-        # Save tokens - user_id is already validated as UUID
+        # Save tokens with UUID
         service.save_tokens(user_id, token_data, email)
         
         return {

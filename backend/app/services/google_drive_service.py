@@ -3,6 +3,7 @@ Google Drive Service
 """
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
+import uuid
 import httpx
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -106,20 +107,12 @@ class GoogleDriveService:
                 "thumbnail_link": f.get("thumbnailLink")
             } for f in files]
     
-    def save_tokens(self, user_id: str, token_data: Dict, email: Optional[str] = None):
+    def save_tokens(self, user_id: uuid.UUID, token_data: Dict, email: Optional[str] = None):
         try:
-            from uuid import UUID
-            
-            # Convert user_id string to UUID
-            try:
-                user_uuid = UUID(user_id)
-            except ValueError:
-                raise HTTPException(status_code=400, detail=f"Invalid user_id format: {user_id}")
-            
             expires_in = token_data.get("expires_in", 3600)
             
             existing = self.db.query(GoogleDriveToken).filter(
-                GoogleDriveToken.user_id == user_uuid
+                GoogleDriveToken.user_id == user_id
             ).first()
             
             if existing:
@@ -131,10 +124,10 @@ class GoogleDriveService:
                 existing.updated_at = datetime.utcnow()
             else:
                 token = GoogleDriveToken(
-                    user_id=user_uuid,
+                    user_id=user_id,
                     access_token=token_data["access_token"],
                     refresh_token=token_data["refresh_token"],
-                    expires_at=datetime.utcnow() + timedelta(seconds=expires_in),
+                    expires_at = datetime.utcnow() + timedelta(seconds=expires_in),
                     google_email=email
                 )
                 self.db.add(token)
