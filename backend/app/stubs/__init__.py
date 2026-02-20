@@ -9,6 +9,7 @@ from .base import BaseStub, StubResponse, StubError
 from .procore import ProcoreStub
 from .aconex import AconexStub
 from .primavera import PrimaveraStub
+from .google_drive import GoogleDriveStub
 from .slack import SlackStub
 from .openai import OpenAIStub
 
@@ -19,6 +20,7 @@ __all__ = [
     "ProcoreStub",
     "AconexStub",
     "PrimaveraStub",
+    "GoogleDriveStub",
     "SlackStub",
     "OpenAIStub",
     "get_stub",
@@ -30,6 +32,7 @@ _STUB_REGISTRY = {
     "procore": ProcoreStub,
     "aconex": AconexStub,
     "primavera": PrimaveraStub,
+    "google_drive": GoogleDriveStub,
     "slack": SlackStub,
     "openai": OpenAIStub,
 }
