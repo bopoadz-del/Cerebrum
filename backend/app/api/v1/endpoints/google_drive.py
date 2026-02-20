@@ -123,14 +123,15 @@ async def get_status(
     current_user: User = Depends(get_current_user)
 ):
     """Check Google Drive connection status"""
-    from app.models.google_drive import GoogleDriveToken
-    token = db.query(GoogleDriveToken).filter(
-        GoogleDriveToken.user_id == str(current_user.id),
-        GoogleDriveToken.is_active == True
+    from app.models.integration import IntegrationToken
+    token = db.query(IntegrationToken).filter(
+        IntegrationToken.user_id == current_user.id,
+        IntegrationToken.service == "google_drive",
+        IntegrationToken.is_active == True
     ).first()
     
     return {
         "connected": token is not None,
-        "email": token.google_email if token else None,
-        "last_used": token.last_used_at.isoformat() if token and token.last_used_at else None
+        "email": None,  # IntegrationToken doesn't store email, could be fetched from Google API
+        "last_used": token.updated_at.isoformat() if token and token.updated_at else None
     }

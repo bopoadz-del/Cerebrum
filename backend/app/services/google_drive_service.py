@@ -8,7 +8,7 @@ import httpx
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from app.core.config import settings
-from app.models.google_drive import GoogleDriveToken
+from app.models.integration import IntegrationToken
 
 class GoogleDriveService:
     OAUTH_TOKEN_URL = "https://oauth2.googleapis.com/token"
@@ -39,41 +39,44 @@ class GoogleDriveService:
                 raise HTTPException(status_code=400, detail=f"Token exchange failed: {response.text}")
             return response.json()
     
-    async def get_valid_token(self, user_id: str) -> str:
-        token = self.db.query(GoogleDriveToken).filter(
-            GoogleDriveToken.user_id == user_id,
-            GoogleDriveToken.is_active == True
+    async def get_valid_token(self, user_id: uuid.UUID) -> str:
+        token = self.db.query(IntegrationToken).filter(
+            IntegrationToken.user_id == user_id,
+            IntegrationToken.service == "google_drive",
+            IntegrationToken.is_active == True
         ).first()
         
         if not token:
             raise HTTPException(status_code=401, detail="Google Drive not connected. Please authenticate first.")
         
-        if token.is_expired():
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    self.OAUTH_TOKEN_URL,
-                    data={
-                        "refresh_token": token.refresh_token,
-                        "client_id": self.client_id,
-                        "client_secret": self.client_secret,
-                        "grant_type": "refresh_token"
-                    }
-                )
-                if response.status_code != 200:
-                    token.is_active = False
+        # Check if token is expired and needs refresh
+        if token.expiry and token.expiry < datetime.utcnow():
+            if token.refresh_token:
+                async with httpx.AsyncClient() as client:
+                    response = await client.post(
+                        self.OAUTH_TOKEN_URL,
+                        data={
+                            "refresh_token": token.refresh_token,
+                            "client_id": self.client_id,
+                            "client_secret": self.client_secret,
+                            "grant_type": "refresh_token"
+                        }
+                    )
+                    if response.status_code != 200:
+                        token.is_active = False
+                        self.db.commit()
+                        raise HTTPException(status_code=401, detail="Failed to refresh token. Please re-authenticate.")
+                    
+                    data = response.json()
+                    token.access_token = data["access_token"]
+                    token.expiry = datetime.utcnow() + timedelta(seconds=data.get("expires_in", 3600))
                     self.db.commit()
-                    raise HTTPException(status_code=401, detail="Failed to refresh token. Please re-authenticate.")
-                
-                data = response.json()
-                token.access_token = data["access_token"]
-                token.expires_at = datetime.utcnow() + timedelta(seconds=data.get("expires_in", 3600))
-                self.db.commit()
+            else:
+                raise HTTPException(status_code=401, detail="Token expired and no refresh token available.")
         
-        token.last_used_at = datetime.utcnow()
-        self.db.commit()
         return token.access_token
     
-    async def list_files(self, user_id: str, folder_id: Optional[str] = None) -> List[Dict]:
+    async def list_files(self, user_id: uuid.UUID, folder_id: Optional[str] = None) -> List[Dict]:
         access_token = await self.get_valid_token(user_id)
         
         q_parts = ["trashed = false"]
@@ -108,27 +111,33 @@ class GoogleDriveService:
             } for f in files]
     
     def save_tokens(self, user_id: uuid.UUID, token_data: Dict, email: Optional[str] = None):
+        """Save tokens to integration_tokens table"""
         try:
             expires_in = token_data.get("expires_in", 3600)
             
-            existing = self.db.query(GoogleDriveToken).filter(
-                GoogleDriveToken.user_id == user_id
+            # Check for existing token
+            existing = self.db.query(IntegrationToken).filter(
+                IntegrationToken.user_id == user_id,
+                IntegrationToken.service == "google_drive"
             ).first()
             
             if existing:
                 existing.access_token = token_data["access_token"]
                 existing.refresh_token = token_data.get("refresh_token", existing.refresh_token)
-                existing.expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
-                existing.google_email = email or existing.google_email
+                existing.expiry = datetime.utcnow() + timedelta(seconds=expires_in)
                 existing.is_active = True
-                existing.updated_at = datetime.utcnow()
             else:
-                token = GoogleDriveToken(
+                # Create new token
+                token = IntegrationToken(
+                    token_id=str(uuid.uuid4()),
                     user_id=user_id,
+                    service="google_drive",
                     access_token=token_data["access_token"],
-                    refresh_token=token_data["refresh_token"],
-                    expires_at = datetime.utcnow() + timedelta(seconds=expires_in),
-                    google_email=email
+                    refresh_token=token_data.get("refresh_token"),
+                    token_uri="https://oauth2.googleapis.com/token",
+                    scopes=token_data.get("scope", ""),
+                    expiry=datetime.utcnow() + timedelta(seconds=expires_in),
+                    is_active=True
                 )
                 self.db.add(token)
             
