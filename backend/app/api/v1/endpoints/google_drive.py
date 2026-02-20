@@ -62,6 +62,10 @@ async def oauth_callback(
         # Extract user_id from state (format: random:user_id)
         user_id = state.split(":")[-1] if ":" in state else state
         
+        # Validate Google OAuth is configured
+        if not settings.GOOGLE_CLIENT_ID or not settings.GOOGLE_CLIENT_SECRET:
+            raise HTTPException(status_code=500, detail="Google OAuth not configured on server")
+        
         service = GoogleDriveService(db)
         token_data = await service.exchange_code(code)
         
@@ -77,7 +81,7 @@ async def oauth_callback(
         from uuid import UUID
         service.save_tokens(UUID(user_id), token_data, email)
         
-        # Return HTML that closes the popup and notifies parent window
+        # Return success
         return {
             "success": True,
             "message": "Google Drive connected successfully",
@@ -87,10 +91,9 @@ async def oauth_callback(
     except HTTPException:
         raise
     except Exception as e:
-        import traceback
-        error_detail = f"{str(e)}\n{traceback.format_exc()}"
-        print(f"OAuth callback error: {error_detail}")  # Log to stdout
-        raise HTTPException(status_code=400, detail=f"OAuth failed: {str(e)}")
+        error_msg = str(e) or type(e).__name__
+        print(f"OAuth callback error: {error_msg}")  # Log to stdout
+        raise HTTPException(status_code=400, detail=f"OAuth failed: {error_msg}")
 
 @router.get("/files", response_model=List[DriveFileResponse])
 async def list_files(
