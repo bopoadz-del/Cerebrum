@@ -7,6 +7,7 @@ Create Date: 2026-02-20 17:00:00.000000
 """
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import text
 from sqlalchemy.dialects import postgresql
 
 revision = '006'
@@ -17,12 +18,12 @@ depends_on = None
 def upgrade() -> None:
     # Check if table exists
     conn = op.get_bind()
-    result = conn.execute("""
+    result = conn.execute(text("""
         SELECT EXISTS (
             SELECT FROM information_schema.tables 
             WHERE table_name = 'google_drive_tokens'
         )
-    """)
+    """))
     table_exists = result.scalar()
     
     if not table_exists:
