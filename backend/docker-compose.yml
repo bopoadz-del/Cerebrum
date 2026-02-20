@@ -33,7 +33,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: cerebrum-redis
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-}
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis123}
     volumes:
       - redis_data:/data
     ports:
@@ -76,7 +76,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      target: runtime
+      # target: runtime
     container_name: cerebrum-app
     environment:
       # Database
@@ -90,7 +90,8 @@ services:
       # Redis
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis123}@redis:6379
       
       # Security
       SECRET_KEY: ${SECRET_KEY:-development-secret-key-change-in-production}
@@ -133,7 +134,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      target: runtime
+      # target: runtime
     container_name: cerebrum-worker
     environment:
       DATABASE_URL: postgresql+asyncpg://${DB_USER:-cerebrum}:${DB_PASSWORD:-cerebrum_password}@postgres:5432/${DB_NAME:-cerebrum}
@@ -156,7 +157,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      target: runtime
+      # target: runtime
     container_name: cerebrum-beat
     environment:
       DATABASE_URL: postgresql+asyncpg://${DB_USER:-cerebrum}:${DB_PASSWORD:-cerebrum_password}@postgres:5432/${DB_NAME:-cerebrum}

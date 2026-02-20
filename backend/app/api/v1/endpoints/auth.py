@@ -9,7 +9,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -88,6 +88,13 @@ class UserResponse(BaseModel):
     tenant_id: str
     is_active: bool
     mfa_enabled: bool
+    
+    @field_validator('id', 'tenant_id', mode='before')
+    @classmethod
+    def uuid_to_str(cls, v):
+        if v is not None:
+            return str(v)
+        return v
 
 
 class LogoutRequest(BaseModel):
