@@ -37,49 +37,6 @@ class DriveFileResponse(BaseModel):
     is_folder: bool = False
     web_view_link: Optional[str] = None
 
-@router.get("/db-status")
-async def check_db_status(db: Session = Depends(get_db)):
-    """Check database table status"""
-    try:
-        from sqlalchemy import text
-        result = db.execute(text("""
-            SELECT EXISTS (
-                SELECT FROM information_schema.tables 
-                WHERE table_name = 'google_drive_tokens'
-            )
-        """))
-        table_exists = result.scalar()
-        return {"google_drive_tokens_exists": table_exists}
-    except Exception as e:
-        return {"error": str(e)}
-
-@router.post("/db-fix")
-async def fix_db(db: Session = Depends(get_db)):
-    """Create missing tables"""
-    try:
-        from sqlalchemy import text
-        db.execute(text("""
-            CREATE TABLE IF NOT EXISTS google_drive_tokens (
-                id SERIAL PRIMARY KEY,
-                user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                access_token TEXT NOT NULL,
-                refresh_token TEXT NOT NULL,
-                token_type VARCHAR(50) DEFAULT 'Bearer',
-                expires_at TIMESTAMP NOT NULL,
-                google_email VARCHAR(255),
-                is_active BOOLEAN DEFAULT TRUE,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-                last_used_at TIMESTAMP,
-                UNIQUE (user_id)
-            )
-        """))
-        db.commit()
-        return {"status": "table created or already exists"}
-    except Exception as e:
-        db.rollback()
-        return {"error": str(e)}
-
 @router.get("/auth/url", response_model=AuthUrlResponse)
 async def get_auth_url(current_user: User = Depends(get_current_user)):
     """Get Google OAuth URL"""
