@@ -51,11 +51,6 @@ async def get_auth_url(current_user: User = Depends(get_current_user)):
     )
     return AuthUrlResponse(auth_url=auth_url, state=state)
 
-@router.get("/ping")
-async def ping_endpoint():
-    """Ping endpoint with NO auth required"""
-    return {"message": "pong", "no_auth": True}
-
 @router.get("/callback")
 async def oauth_callback(
     code: str,
