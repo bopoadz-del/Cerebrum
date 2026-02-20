@@ -27,17 +27,6 @@ class DriveFileResponse(BaseModel):
     is_folder: bool = False
     web_view_link: Optional[str] = None
 
-@router.get("/callback-test")
-async def callback_test(state: str):
-    """Test UUID parsing"""
-    user_id = state.split(":")[-1] if ":" in state else state
-    from uuid import UUID
-    try:
-        UUID(user_id)
-        return {"valid": True, "user_id": user_id}
-    except ValueError:
-        return {"valid": False, "user_id": user_id, "error": "Invalid UUID"}
-
 @router.get("/auth/url", response_model=AuthUrlResponse)
 async def get_auth_url(current_user: User = Depends(get_current_user)):
     """Get Google OAuth URL"""
