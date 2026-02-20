@@ -62,6 +62,13 @@ async def oauth_callback(
         # Extract user_id from state (format: random:user_id)
         user_id = state.split(":")[-1] if ":" in state else state
         
+        # Validate user_id is a proper UUID
+        from uuid import UUID
+        try:
+            UUID(user_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid user_id format in state: {user_id}")
+        
         # Validate Google OAuth is configured
         if not settings.GOOGLE_CLIENT_ID:
             raise HTTPException(status_code=500, detail="GOOGLE_CLIENT_ID not set")
@@ -79,7 +86,7 @@ async def oauth_callback(
             )
             email = userinfo.json().get("email") if userinfo.status_code == 200 else None
         
-        # Save tokens - user_id should already be a valid UUID string from auth/url
+        # Save tokens - user_id is already validated as UUID
         service.save_tokens(user_id, token_data, email)
         
         return {
