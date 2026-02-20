@@ -25,6 +25,9 @@ try:
     from app.api.v1.endpoints import google_drive
     GOOGLE_DRIVE_AVAILABLE = True
     logger.info("Google Drive endpoints loaded")
+    # Log available routes
+    for route in google_drive.router.routes:
+        logger.info(f"Google Drive route: {route.path}")
 except Exception as e:
     GOOGLE_DRIVE_AVAILABLE = False
     logger.warning(f"Google Drive endpoints not available: {e}")
@@ -47,3 +50,4 @@ if DOCUMENTS_AVAILABLE:
 
 if GOOGLE_DRIVE_AVAILABLE:
     api_v1_router.include_router(google_drive.router, prefix="/connectors/google-drive", tags=["google-drive"])
+    logger.info("Google Drive router mounted at /connectors/google-drive")
