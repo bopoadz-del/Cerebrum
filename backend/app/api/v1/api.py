@@ -39,7 +39,7 @@ api_v1_router.include_router(admin.router, prefix="/admin", tags=["admin"])
 api_v1_router.include_router(dejavu.router, prefix="/dejavu", tags=["dejavu"])
 api_v1_router.include_router(formulas.router, prefix="/formulas", tags=["formulas"])
 api_v1_router.include_router(sessions.router, prefix="/sessions", tags=["sessions"])
-api_v1_router.include_router(connectors.router, prefix="/connectors", tags=["connectors"])
+api_v1_router.include_router(connectors.router, tags=["connectors"])
 
 # Include optional endpoints conditionally
 if DOCUMENTS_AVAILABLE:
