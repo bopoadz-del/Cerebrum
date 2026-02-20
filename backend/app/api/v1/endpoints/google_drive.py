@@ -27,11 +27,6 @@ class DriveFileResponse(BaseModel):
     is_folder: bool = False
     web_view_link: Optional[str] = None
 
-@router.get("/health")
-async def health_check():
-    """Health check for Google Drive integration - NO DB"""
-    return {"status": "ok", "message": "endpoint reachable"}
-
 @router.get("/auth/url", response_model=AuthUrlResponse)
 async def get_auth_url(current_user: User = Depends(get_current_user)):
     """Get Google OAuth URL"""
@@ -63,11 +58,9 @@ async def oauth_callback(
     db: Session = Depends(get_db)
 ):
     """Handle OAuth callback from Google (NO AUTH REQUIRED - called by Google)"""
-    print(f"OAuth callback started: code={code[:10]}..., state={state}")
     try:
         # Extract user_id from state (format: random:user_id)
         user_id = state.split(":")[-1] if ":" in state else state
-        print(f"Extracted user_id: {user_id}")
         
         # Validate Google OAuth is configured
         if not settings.GOOGLE_CLIENT_ID:
@@ -75,10 +68,8 @@ async def oauth_callback(
         if not settings.GOOGLE_CLIENT_SECRET:
             raise HTTPException(status_code=500, detail="GOOGLE_CLIENT_SECRET not set")
         
-        print(f"OAuth configured, exchanging code...")
         service = GoogleDriveService(db)
         token_data = await service.exchange_code(code)
-        print(f"Token exchanged successfully")
         
         # Get user email from Google
         async with httpx.AsyncClient() as client:
@@ -87,28 +78,21 @@ async def oauth_callback(
                 headers={"Authorization": f"Bearer {token_data['access_token']}"}
             )
             email = userinfo.json().get("email") if userinfo.status_code == 200 else None
-            print(f"Got email: {email}")
         
         # Save tokens
         from uuid import UUID
-        print(f"Saving tokens for user {user_id}...")
         service.save_tokens(UUID(user_id), token_data, email)
-        print(f"Tokens saved successfully")
         
-        # Return success
         return {
             "success": True,
             "message": "Google Drive connected successfully",
             "email": email
         }
         
-    except HTTPException as he:
-        print(f"HTTPException: {he.detail}")
+    except HTTPException:
         raise
     except Exception as e:
-        error_msg = str(e) or type(e).__name__
-        print(f"OAuth callback error: {error_msg}")
-        raise HTTPException(status_code=400, detail=f"OAuth failed: {error_msg}")
+        raise HTTPException(status_code=400, detail=f"OAuth failed: {str(e)}")
 
 @router.get("/files", response_model=List[DriveFileResponse])
 async def list_files(
