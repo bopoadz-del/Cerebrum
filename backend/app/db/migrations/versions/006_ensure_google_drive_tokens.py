@@ -15,27 +15,39 @@ branch_labels = None
 depends_on = None
 
 def upgrade() -> None:
-    # Create table only if it doesn't exist
-    op.execute("""
-        CREATE TABLE IF NOT EXISTS google_drive_tokens (
-            id SERIAL PRIMARY KEY,
-            user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-            access_token TEXT NOT NULL,
-            refresh_token TEXT NOT NULL,
-            token_type VARCHAR(50) DEFAULT 'Bearer',
-            expires_at TIMESTAMP NOT NULL,
-            google_email VARCHAR(255),
-            is_active BOOLEAN DEFAULT TRUE,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-            last_used_at TIMESTAMP,
-            UNIQUE (user_id)
+    # Check if table exists
+    conn = op.get_bind()
+    result = conn.execute("""
+        SELECT EXISTS (
+            SELECT FROM information_schema.tables 
+            WHERE table_name = 'google_drive_tokens'
         )
     """)
+    table_exists = result.scalar()
     
-    # Create indexes
-    op.execute("CREATE INDEX IF NOT EXISTS idx_google_drive_tokens_user_id ON google_drive_tokens(user_id)")
-    op.execute("CREATE INDEX IF NOT EXISTS idx_google_drive_tokens_is_active ON google_drive_tokens(is_active)")
+    if not table_exists:
+        print("Creating google_drive_tokens table...")
+        # Create table
+        op.create_table(
+            'google_drive_tokens',
+            sa.Column('id', sa.Integer(), nullable=False),
+            sa.Column('user_id', postgresql.UUID(as_uuid=True), nullable=False),
+            sa.Column('access_token', sa.Text(), nullable=False),
+            sa.Column('refresh_token', sa.Text(), nullable=False),
+            sa.Column('token_type', sa.String(50), nullable=True),
+            sa.Column('expires_at', sa.DateTime(), nullable=False),
+            sa.Column('google_email', sa.String(255), nullable=True),
+            sa.Column('is_active', sa.Boolean(), nullable=True),
+            sa.Column('created_at', sa.DateTime(), nullable=False),
+            sa.Column('updated_at', sa.DateTime(), nullable=False),
+            sa.Column('last_used_at', sa.DateTime(), nullable=True),
+            sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+            sa.PrimaryKeyConstraint('id'),
+            sa.UniqueConstraint('user_id')
+        )
+        print("Table created successfully")
+    else:
+        print("google_drive_tokens table already exists")
 
 def downgrade() -> None:
     op.drop_table('google_drive_tokens')
