@@ -62,12 +62,17 @@ async def oauth_callback(
     """Handle OAuth callback from Google (NO AUTH REQUIRED - called by Google)"""
     try:
         # DEBUG: Log the raw state received from Google
-        print(f"DEBUG: Received state = {state}")
+        print(f"DEBUG: Received raw state = {repr(state)}")
+        
+        # URL decode in case state was encoded
+        import urllib.parse
+        decoded_state = urllib.parse.unquote(state)
+        print(f"DEBUG: URL decoded state = {repr(decoded_state)}")
         
         # Extract user_id from state (format: random:user_id)
-        user_id_raw = state.split(":")[-1] if ":" in state else state
+        user_id_raw = decoded_state.split(":")[-1] if ":" in decoded_state else decoded_state
         
-        print(f"DEBUG: Extracted user_id_raw = {user_id_raw}")
+        print(f"DEBUG: Extracted user_id_raw = {repr(user_id_raw)}")
         
         try:
             user_id = uuid.UUID(user_id_raw)
