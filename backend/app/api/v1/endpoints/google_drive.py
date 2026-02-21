@@ -93,7 +93,7 @@ async def oauth_callback(
             email = userinfo.json().get("email") if userinfo.status_code == 200 else None
         
         # Save tokens with UUID
-        service.save_tokens(user_id, token_data, email)
+        service.save_tokens(user_id, token_data)
         
         return {
             "success": True,
@@ -114,7 +114,7 @@ async def list_files(
 ):
     """List files from Google Drive (requires auth)"""
     service = GoogleDriveService(db)
-    files = await service.list_files(str(current_user.id), folder_id)
+    files = await service.list_files(current_user.id, folder_id)
     return [DriveFileResponse(**f) for f in files]
 
 @router.get("/status")

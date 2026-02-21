@@ -8,6 +8,8 @@ from sqlalchemy.orm import Session
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
+import httpx
+import anyio
 
 from app.core.config import settings
 from app.models.integration import IntegrationToken, IntegrationProvider
@@ -44,21 +46,21 @@ class GoogleDriveService:
         )
         return auth_url
     
-    def exchange_code(self, code: str) -> Dict[str, Any]:
-        import requests
-        response = requests.post(
-            "https://oauth2.googleapis.com/token",
-            data={
-                "code": code,
-                "client_id": self.client_id,
-                "client_secret": self.client_secret,
-                "redirect_uri": self.redirect_uri,
-                "grant_type": "authorization_code"
-            }
-        )
-        response.raise_for_status()
-        return response.json()
-    
+    async def exchange_code(self, code: str) -> Dict[str, Any]:
+          async with httpx.AsyncClient(timeout=30) as client:
+              resp = await client.post(
+                  "https://oauth2.googleapis.com/token",
+                  data={
+                      "code": code,
+                      "client_id": self.client_id,
+                      "client_secret": self.client_secret,
+                      "redirect_uri": self.redirect_uri,
+                      "grant_type": "authorization_code",
+                  },
+                  headers={"Content-Type": "application/x-www-form-urlencoded"},
+              )
+              resp.raise_for_status()
+              return resp.json()
     def save_tokens(self, user_id: uuid.UUID, token_data: Dict[str, Any], org_id: Optional[uuid.UUID] = None):
         existing = self.db.query(IntegrationToken).filter(
             IntegrationToken.user_id == user_id,
@@ -118,16 +120,38 @@ class GoogleDriveService:
                 return None
         return creds
     
-    def list_files(self, user_id: uuid.UUID, page_size: int = 10):
-        creds = self.get_credentials(user_id)
-        if not creds:
-            raise ValueError("Not authenticated")
-        service = build('drive', 'v3', credentials=creds, cache_discovery=False)
-        results = service.files().list(
-            pageSize=page_size,
-            fields="files(id, name, mimeType, modifiedTime, size)",
-            q="trashed=false",
-            orderBy="modifiedTime desc"
-        ).execute()
-        return results.get('files', [])
+    async def list_files(self, user_id: uuid.UUID, folder_id: Optional[str] = None, page_size: int = 50):
+          def _run():
+              creds = self.get_credentials(user_id)
+              if not creds:
+                  raise ValueError("Not authenticated")
 
+              svc = build('drive', 'v3', credentials=creds, cache_discovery=False)
+
+              q = "trashed=false"
+              if folder_id:
+                  q += f" and '{folder_id}' in parents"
+
+              results = svc.files().list(
+                  pageSize=page_size,
+                  fields="files(id, name, mimeType, modifiedTime, size, webViewLink)",
+                  q=q,
+                  orderBy="modifiedTime desc"
+              ).execute()
+
+              out = []
+              for f in results.get("files", []):
+                  mt = f.get("mimeType")
+                  out.append({
+                      "id": f.get("id"),
+                      "name": f.get("name"),
+                      "mime_type": mt,
+                      "size": int(f["size"]) if f.get("size") is not None else None,
+                      "modified_time": f.get("modifiedTime"),
+                      "is_folder": mt == "application/vnd.google-apps.folder",
+                      "web_view_link": f.get("webViewLink"),
+                  })
+              return out
+
+          return await anyio.to_thread.run_sync(_run)
+    
