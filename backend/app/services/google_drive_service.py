@@ -61,56 +61,66 @@ class GoogleDriveService:
               )
               resp.raise_for_status()
               return resp.json()
-    def save_tokens(self, user_id: uuid.UUID, token_data: Dict[str, Any], org_id: Optional[uuid.UUID] = None):
+    def save_tokens(self, user_id: uuid.UUID, token_data: Dict[str, Any]):
+        """Persist OAuth tokens using IntegrationToken model fields."""
+        token_id = token_data.get('token_id') or uuid.uuid4().hex
         existing = self.db.query(IntegrationToken).filter(
             IntegrationToken.user_id == user_id,
-            IntegrationToken.provider == IntegrationProvider.GOOGLE_DRIVE
+            IntegrationToken.service == IntegrationProvider.GOOGLE_DRIVE
         ).first()
-        
-        expires_at = datetime.utcnow() + timedelta(seconds=token_data.get('expires_in', 3600))
-        
+
+        expires_in = int(token_data.get('expires_in', 3600) or 3600)
+        expiry = datetime.utcnow() + timedelta(seconds=expires_in)
+        scopes = token_data.get('scope', '') or ''
+
         if existing:
             existing.access_token = token_data['access_token']
-            existing.refresh_token = token_data.get('refresh_token')
-            existing.token_type = token_data.get('token_type', 'Bearer')
-            existing.expires_at = expires_at
-            existing.scope = token_data.get('scope', '')
+            # refresh_token only comes first time sometimes; don't erase existing
+            existing.refresh_token = token_data.get('refresh_token') or existing.refresh_token
+            existing.scopes = scopes
+            existing.expiry = expiry
+            existing.client_id = self.client_id
+            existing.client_secret = self.client_secret
             existing.is_active = True
+            existing.revoked_at = None
+            existing.rotation_count = (existing.rotation_count or 0) + 1
         else:
             token = IntegrationToken(
+                token_id=token_id,
                 user_id=user_id,
-                org_id=org_id,
-                provider=IntegrationProvider.GOOGLE_DRIVE,
+                service=IntegrationProvider.GOOGLE_DRIVE,
                 access_token=token_data['access_token'],
                 refresh_token=token_data.get('refresh_token'),
-                token_type=token_data.get('token_type', 'Bearer'),
-                expires_at=expires_at,
-                scope=token_data.get('scope', ''),
-                is_active=True
+                token_uri='https://oauth2.googleapis.com/token',
+                client_id=self.client_id,
+                client_secret=self.client_secret,
+                scopes=scopes,
+                expiry=expiry,
+                is_active=True,
             )
             self.db.add(token)
-        
+
         self.db.commit()
-    
+
     def get_credentials(self, user_id: uuid.UUID) -> Optional[Credentials]:
         token = self.db.query(IntegrationToken).filter(
             IntegrationToken.user_id == user_id,
-            IntegrationToken.provider == IntegrationProvider.GOOGLE_DRIVE,
+            IntegrationToken.service == IntegrationProvider.GOOGLE_DRIVE,
             IntegrationToken.is_active == True
         ).first()
-        
+
         if not token:
             return None
-        
+
         creds = Credentials(
             token=token.access_token,
             refresh_token=token.refresh_token,
-            token_uri="https://oauth2.googleapis.com/token",
-            client_id=self.client_id,
-            client_secret=self.client_secret,
+            token_uri=token.token_uri or 'https://oauth2.googleapis.com/token',
+            client_id=token.client_id or self.client_id,
+            client_secret=token.client_secret or self.client_secret,
             scopes=self.SCOPES
         )
-        
+
         if creds.expired and creds.refresh_token:
             try:
                 creds.refresh(Request())
