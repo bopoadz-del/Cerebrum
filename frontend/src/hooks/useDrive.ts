@@ -148,7 +148,7 @@ export function useDrive() {
   const exchangeCodeForToken = async (code: string) => {
     setScanning(true);
     try {
-      const res = await fetch(`${API_URL}/connectors/google-drive/callback?code=${code}&state=web`, {
+      const res = await fetch(`${API_URL}/connectors/google-drive/callback?code=${code}&state=${state}`, {
         headers: getHeaders()
       });
       
@@ -181,7 +181,7 @@ export function useDrive() {
     
     try {
       // Try backend auth endpoint first
-      const res = await fetch(`${API_URL}/connectors/google-drive/auth`, { 
+      const res = await fetch(`${API_URL}/connectors/google-drive/auth/url`, { 
         headers: getHeaders(),
         signal: AbortSignal.timeout(5000)
       });
