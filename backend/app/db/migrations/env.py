@@ -25,6 +25,13 @@ from app.db.base_class import Base
 # this is the Alembic Config object
 config = context.config
 
+# Force Alembic to run against the same DB as the application (Render uses DATABASE_URL)
+import os
+_db_url = os.getenv("DATABASE_URL")
+if _db_url:
+    config.set_main_option("sqlalchemy.url", _db_url)
+
+
 # Interpret the config file for Python logging
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
