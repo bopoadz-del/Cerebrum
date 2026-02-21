@@ -61,13 +61,20 @@ async def oauth_callback(
 ):
     """Handle OAuth callback from Google (NO AUTH REQUIRED - called by Google)"""
     try:
+        # DEBUG: Log the raw state received from Google
+        print(f"DEBUG: Received state = {state}")
+        
         # Extract user_id from state (format: random:user_id)
         user_id_raw = state.split(":")[-1] if ":" in state else state
         
+        print(f"DEBUG: Extracted user_id_raw = {user_id_raw}")
+        
         try:
             user_id = uuid.UUID(user_id_raw)
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid OAuth state (user id)")
+            print(f"DEBUG: Parsed user_id = {user_id}")
+        except ValueError as e:
+            print(f"DEBUG: UUID parse failed: {e}")
+            raise HTTPException(status_code=400, detail=f"Invalid OAuth state (user id): {user_id_raw}")
         
         # Validate Google OAuth is configured
         if not settings.GOOGLE_CLIENT_ID:
