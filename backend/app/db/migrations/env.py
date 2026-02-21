@@ -3,8 +3,6 @@ Alembic Migration Environment
 
 Configures the migration environment for database schema management.
 """
-
-import asyncio
 import os
 import sys
 from logging.config import fileConfig
@@ -15,8 +13,7 @@ sys.path.insert(0, '/app')
 
 from sqlalchemy import pool, text
 from sqlalchemy.engine import Connection
-from sqlalchemy.ext.asyncio import async_engine_from_config
-
+from sqlalchemy import engine_from_config
 from alembic import context
 
 from app.core.config import settings
@@ -93,25 +90,20 @@ def do_run_migrations(connection: Connection) -> None:
         except Exception:
             pass
 
-async def run_async_migrations() -> None:
-    """Run migrations in async mode."""
-    configuration = config.get_section(config.config_ini_section)
+def run_migrations_online() -> None:
+    """Run migrations in 'online' mode using a SYNC engine (psycopg2)."""
+    configuration = config.get_section(config.config_ini_section) or {}
     configuration["sqlalchemy.url"] = os.getenv("DATABASE_URL") or get_url()
-    
-    connectable = async_engine_from_config(
+
+    connectable = engine_from_config(
         configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
 
-    async with connectable.connect() as connection:
-        await connection.run_sync(do_run_migrations)
+    with connectable.connect() as connection:
+        do_run_migrations(connection)
 
-    await connectable.dispose()
-
-
-def run_migrations_online() -> None:
-    """Run migrations in 'online' mode."""
     asyncio.run(run_async_migrations())
 
 
