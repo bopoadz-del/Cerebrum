@@ -45,7 +45,8 @@ async def get_auth_url(current_user: User = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail="Google OAuth not configured")
     
     # Include user_id in state so we can identify them on callback
-    state = f"{secrets.token_urlsafe(16)}:{str(current_user.id)}"
+    nonce = secrets.token_urlsafe(16)
+    state = f"{nonce}:{current_user.id}"
     
     auth_url = (
         "https://accounts.google.com/o/oauth2/v2/auth"
@@ -70,11 +71,12 @@ async def oauth_callback(
     """Handle OAuth callback from Google (NO AUTH REQUIRED - called by Google)"""
     try:
         # Extract user_id from state (format: random:user_id)
-        user_id_raw = state.split(":")[-1] if ":" in state else state
-        
-        # Convert to UUID (handles both UUID strings and arbitrary strings)
-        user_id = string_to_uuid(user_id_raw)
-        
+    user_id_raw = state.split(":")[-1] if ":" in state else state
+
+    try:
+        user_id = uuid.UUID(user_id_raw)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid OAuth state (user id)")
         # Validate Google OAuth is configured
         if not settings.GOOGLE_CLIENT_ID:
             raise HTTPException(status_code=500, detail="GOOGLE_CLIENT_ID not set")
@@ -93,6 +95,10 @@ async def oauth_callback(
             email = userinfo.json().get("email") if userinfo.status_code == 200 else None
         
         # Save tokens with UUID
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=400, detail="OAuth user not found")
+
         service.save_tokens(user_id, token_data)
         
         return {
