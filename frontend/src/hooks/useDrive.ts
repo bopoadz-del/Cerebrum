@@ -141,11 +141,11 @@ export function useDrive() {
     }
     
     // Exchange code for token via backend
-    exchangeCodeForToken(code);
+    exchangeCodeForToken(code, state);
   }, []);
 
   // Exchange OAuth code for access token
-  const exchangeCodeForToken = async (code: string) => {
+  const exchangeCodeForToken = async (code: string, state: string) => {
     setScanning(true);
     try {
       const res = await fetch(`${API_URL}/connectors/google-drive/callback?code=${code}&state=${state}`, {
