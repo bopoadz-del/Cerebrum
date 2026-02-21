@@ -25,6 +25,14 @@ from app.db.base_class import Base
 # this is the Alembic Config object
 config = context.config
 
+# Force Alembic to use DATABASE_URL (Render) so migrations and app hit the same DB
+import os
+_db_url = os.getenv("DATABASE_URL")
+if _db_url:
+    config.set_main_option("sqlalchemy.url", _db_url)  # Force Alembic target DB
+# Force Alembic to use DATABASE_URL
+
+
 # Force Alembic to run against the same DB as the application (Render uses DATABASE_URL)
 import os
 _db_url = os.getenv("DATABASE_URL")
