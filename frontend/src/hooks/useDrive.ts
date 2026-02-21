@@ -191,9 +191,11 @@ export function useDrive() {
       if (res.ok) {
         const data = await res.json();
         authUrl = data.auth_url;
+        console.log('DEBUG: Backend auth URL:', authUrl);
+        console.log('DEBUG: State from backend:', data.state);
       } else {
         // Backend not available - use direct OAuth
-        console.log('Backend auth unavailable, using direct OAuth');
+        console.log('Backend auth unavailable, status:', res.status);
         authUrl = buildGoogleAuthUrl();
       }
       
