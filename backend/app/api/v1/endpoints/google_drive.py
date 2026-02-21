@@ -15,15 +15,6 @@ from app.core.config import settings
 
 router = APIRouter()
 
-def string_to_uuid(user_id_str: str) -> uuid.UUID:
-    """Convert any string to a deterministic UUID."""
-    try:
-        # Try parsing as UUID first
-        return uuid.UUID(user_id_str)
-    except ValueError:
-        # Generate UUID5 from string (deterministic)
-        return uuid.uuid5(uuid.NAMESPACE_DNS, f"user:{user_id_str}")
-
 class AuthUrlResponse(BaseModel):
     auth_url: str
     state: str
@@ -71,12 +62,13 @@ async def oauth_callback(
     """Handle OAuth callback from Google (NO AUTH REQUIRED - called by Google)"""
     try:
         # Extract user_id from state (format: random:user_id)
-    user_id_raw = state.split(":")[-1] if ":" in state else state
-
-    try:
-        user_id = uuid.UUID(user_id_raw)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid OAuth state (user id)")
+        user_id_raw = state.split(":")[-1] if ":" in state else state
+        
+        try:
+            user_id = uuid.UUID(user_id_raw)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid OAuth state (user id)")
+        
         # Validate Google OAuth is configured
         if not settings.GOOGLE_CLIENT_ID:
             raise HTTPException(status_code=500, detail="GOOGLE_CLIENT_ID not set")
@@ -94,11 +86,11 @@ async def oauth_callback(
             )
             email = userinfo.json().get("email") if userinfo.status_code == 200 else None
         
-        # Save tokens with UUID
+        # Verify user exists before saving tokens
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
             raise HTTPException(status_code=400, detail="OAuth user not found")
-
+        
         service.save_tokens(user_id, token_data)
         
         return {
