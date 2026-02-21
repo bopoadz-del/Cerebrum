@@ -30,8 +30,8 @@ echo
 
 echo "[2/4] Running database migrations..."
 cd /app
-export PYTHONPATH=/app:$PYTHONPATH
-alembic -c alembic.ini upgrade head
+export PYTHONPATH=/app/backend:/app:$PYTHONPATH
+python -m alembic -c backend/app/db/migrations/alembic.ini upgrade head
 echo "OK: Migrations completed"
 echo
 
