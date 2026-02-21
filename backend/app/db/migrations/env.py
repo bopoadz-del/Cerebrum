@@ -73,20 +73,7 @@ def do_run_migrations(connection: Connection) -> None:
     lock_id = int(os.getenv('MIGRATION_LOCK_ID', '987654321'))
     try:
         # Hold the lock for the lifetime of this Alembic connection (prevents race on multi-instance deploy)
-        \1
-          # ALEMBIC_DEBUG_DB_IDENTITY
-          try:
-              db = connection.execute(text("select current_database()")).scalar()
-              usr = connection.execute(text("select current_user")).scalar()
-              ip  = connection.execute(text("select inet_server_addr()")).scalar()
-              sp  = connection.execute(text("show search_path")).scalar()
-              n_public = connection.execute(text("""
-                  select count(*) from information_schema.tables
-                  where table_schema='public' and table_type='BASE TABLE'
-              """)).scalar()
-              print(f"[ALEMBIC_DEBUG] db={db} user={usr} server={ip} search_path={sp} public_tables_before={n_public}")
-          except Exception as e:
-              print(f"[ALEMBIC_DEBUG] failed to read identity: {e}")
+        connection.execute(text('SELECT pg_advisory_lock(:id)'), {'id': lock_id})
 
         context.configure(
             connection=connection,
