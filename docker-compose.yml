@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # PostgreSQL Database
   postgres:
@@ -36,16 +34,19 @@ services:
 
   # Backend API
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: cerebrum-backend
     environment:
+      - GOOGLE_CLIENT_ID=382554705937-v3s8kpvl7h0em2aekud73fro8rig0cvu.apps.googleusercontent.com
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GOOGLE_REDIRECT_URI=https://silver-couscous-7v45rj6qg6qvcwqxw-8000.app.github.dev/api/v1/connectors/google-drive/callback
       - DATABASE_URL=postgresql+asyncpg://cerebrum:cerebrum_password@postgres:5432/cerebrum
       - REDIS_URL=redis://redis:6379/0
       - SECRET_KEY=your-secret-key-change-in-production
       - DEBUG=true
       - CORS_ORIGINS=http://localhost:5173,http://localhost:3000
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cerebrum-backend
     ports:
       - "8000:8000"
     volumes:

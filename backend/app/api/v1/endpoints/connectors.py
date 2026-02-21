@@ -1,3 +1,4 @@
+import os
 """
 Connectors API Endpoints
 
@@ -237,7 +238,7 @@ async def get_google_drive_token(
     user_id: str
 ) -> Optional[IntegrationToken]:
     """Get active Google Drive token for user."""
-    result = await db.execute(
+    result = db.execute(
         select(IntegrationToken).where(
             and_(
                 IntegrationToken.user_id == user_id,
@@ -297,6 +298,8 @@ async def get_google_drive_auth(
         )
     
     state = secrets.token_urlsafe(32)
+    
+    state = f"{state}:{current_user.id}"
     
     # Store state in session or database for verification later
     # For now, we'll use a simple cache approach
@@ -480,7 +483,7 @@ async def index_google_drive_files(
             try:
                 # Check if already indexed
                 from sqlalchemy import select
-                result = await db.execute(
+                result = db.execute(
                     select(Document).where(
                         Document.drive_id == file_id,
                         Document.user_id == current_user.id
@@ -553,7 +556,7 @@ async def index_google_drive_files(
                 print(f"Failed to index file {file_id}: {e}")
                 continue
         
-        await db.commit()
+        db.commit()
         
         return ZVecScanResponse(
             files_scanned=scanned_count,
@@ -686,7 +689,7 @@ async def disconnect_google_drive(
     token = await get_google_drive_token(db, str(current_user.id))
     if token:
         token.is_active = False
-        await db.commit()
+        db.commit()
     
     return {
         "success": True,
