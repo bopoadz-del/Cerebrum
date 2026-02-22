@@ -37,7 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await new Promise((resolve) => setTimeout(resolve, 1000));
     
     const mockUser: User = {
-      id: '1',
+      id: 'e727e727-d547-4d96-b070-2294980e5d85',
       email,
       full_name: email.split('@')[0],
       role: 'user',
@@ -53,7 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await new Promise((resolve) => setTimeout(resolve, 1000));
     
     const mockUser: User = {
-      id: '1',
+      id: 'e727e727-d547-4d96-b070-2294980e5d85',
       email,
       full_name: fullName,
       role: 'user',

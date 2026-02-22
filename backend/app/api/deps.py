@@ -45,6 +45,14 @@ async def get_current_user(
     token: str = Depends(oauth2_scheme)
 ) -> User:
     """Get current user from token and database"""
+    # Handle mock token for development
+    if token == "mock-token":
+        from uuid import UUID
+        mock_user_id = UUID("e727e727-d547-4d96-b070-2294980e5d85")
+        user = db.query(User).filter(User.id == mock_user_id).first()
+        if user:
+            return user
+    
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
