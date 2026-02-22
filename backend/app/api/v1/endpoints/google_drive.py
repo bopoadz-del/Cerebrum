@@ -88,7 +88,12 @@ async def oauth_callback(
             raise HTTPException(status_code=500, detail="GOOGLE_CLIENT_SECRET not set")
         
         service = GoogleDriveService(db)
-        token_data = await service.exchange_code(code)
+        try:
+            token_data = await service.exchange_code(code)
+            print(f"DEBUG: Got token data from Google: {list(token_data.keys())}")
+        except Exception as e:
+            print(f"DEBUG: Failed to exchange code: {e}")
+            raise HTTPException(status_code=400, detail=f"Google OAuth failed: {str(e)}")
         
         # Get user email from Google
         async with httpx.AsyncClient() as client:
@@ -103,7 +108,14 @@ async def oauth_callback(
         if not user:
             raise HTTPException(status_code=400, detail="OAuth user not found")
         
-        service.save_tokens(user_id, token_data)
+        try:
+            service.save_tokens(user_id, token_data)
+            print(f"DEBUG: Tokens saved successfully for user {user_id}")
+        except Exception as e:
+            print(f"DEBUG: Failed to save tokens: {e}")
+            import traceback
+            traceback.print_exc()
+            raise HTTPException(status_code=500, detail=f"Failed to save tokens: {str(e)}")
         
         return {
             "success": True,
