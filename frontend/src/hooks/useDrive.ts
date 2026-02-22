@@ -191,8 +191,12 @@ export function useDrive() {
       if (res.ok) {
         const data = await res.json();
         authUrl = data.auth_url;
+        // Extract nonce from state (format: nonce:uuid) for CSRF check
+        const nonce = data.state.split(':')[0];
+        localStorage.setItem('google_oauth_state', nonce);
         console.log('DEBUG: Backend auth URL:', authUrl);
         console.log('DEBUG: State from backend:', data.state);
+        console.log('DEBUG: Stored nonce:', nonce);
       } else {
         // Backend not available - use direct OAuth
         console.log('Backend auth unavailable, status:', res.status);
