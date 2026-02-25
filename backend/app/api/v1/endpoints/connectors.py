@@ -17,6 +17,7 @@ from app.connectors import get_connector_status, list_connectors, get_connector
 from app.api.deps import get_current_user, get_db
 from app.models.integration import IntegrationToken
 from app.models.user import User
+from app.api.deps import get_async_db
 
 router = APIRouter(prefix="/connectors", tags=["Connectors"])
 
@@ -112,7 +113,6 @@ async def list_available_connectors(
 async def get_connector_health(
     connector_name: str,
     current_user = Depends(get_current_user),
-from app.api.deps import get_async_db
 ) -> ConnectorHealthResponse:
     """
     Get health check for a specific connector.
