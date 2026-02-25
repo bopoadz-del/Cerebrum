@@ -298,9 +298,7 @@ async def get_google_drive_auth(
         )
     
     state = secrets.token_urlsafe(32)
-    
-    state = f"{state}:{current_user.id}"
-    
+    state = str(current_user.id)
     # Store state in session or database for verification later
     # For now, we'll use a simple cache approach
     
