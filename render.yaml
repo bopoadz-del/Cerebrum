@@ -44,6 +44,10 @@ services:
         value: "https://cerebrum-api.onrender.com/api/v1/connectors/google-drive/callback"
       - key: FRONTEND_URL
         value: "https://cerebrum-frontend.onrender.com"
+      - key: PUBLIC_BASE_URL
+        value: "https://cerebrum-api.onrender.com"
+      - key: API_BASE_URL
+        value: "https://cerebrum-api.onrender.com"
     healthCheckPath: /health/live
     # Note: initialDelaySeconds not supported in Render Blueprint
     # Migrations run in dockerCommand before app starts
