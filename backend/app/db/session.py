@@ -275,3 +275,10 @@ async def init_db() -> None:
 async def close_db() -> None:
     """Close database connection pool."""
     await db_manager.close()
+
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from app.core.config import settings
+
+engine = create_engine(settings.sync_database_url, pool_pre_ping=True)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
