@@ -43,6 +43,22 @@ def _list_children(drive, folder_id: str, page_size: int = 250) -> List[Dict[str
     return res.get("files", [])
 
 
+def _indexable_drive_file(mime: str, name: str) -> bool:
+    # Minimal demo filter: index documents that likely contain text.
+    # (Your document_parser already handles Google Docs export + PDFs in memory.)
+    if mime in (
+        "application/pdf",
+        "text/plain",
+        "text/markdown",
+        "application/vnd.google-apps.document",
+        "application/vnd.google-apps.presentation",
+        "application/vnd.google-apps.spreadsheet",
+    ):
+        return True
+    lower = (name or "").lower()
+    return lower.endswith((".md", ".txt", ".pdf", ".csv"))
+
+
 def discover_and_upsert_drive_projects(
     db: Session,
     user_id: uuid.UUID,
@@ -50,6 +66,8 @@ def discover_and_upsert_drive_projects(
     min_score: float = 2.0,
     max_root_folders: int = 200,
     max_children_per_folder: int = 250,
+    index_now: bool = True,
+    max_files_per_project: int = 50,
 ) -> Dict[str, Any]:
     """
     Folder-first metadata scan:
@@ -57,6 +75,10 @@ def discover_and_upsert_drive_projects(
       - shallow list children for anchors
       - run detector
       - upsert Project + GoogleDriveProject mapping
+
+    If index_now=True:
+      - select indexable child files (capped)
+      - queue Celery batch indexing using existing process_drive_file_batch()
 
     Returns counts + ids for UI/debug.
     """
@@ -82,6 +104,7 @@ def discover_and_upsert_drive_projects(
     created_projects = 0
     updated_mappings = 0
     created_mappings = 0
+    queued_index_jobs = 0
     mapping_ids: List[str] = []
 
     for folder in root_folders:
@@ -180,6 +203,37 @@ def discover_and_upsert_drive_projects(
 
             updated_mappings += 1
 
+        # --- MAGIC DEMO: queue indexing now ---
+        if index_now:
+            # only immediate child files (not folders), indexable types only, capped
+            file_ids: List[str] = []
+            for c in children:
+                mime = c.get("mimeType") or ""
+                if mime == "application/vnd.google-apps.folder":
+                    continue
+                if not _indexable_drive_file(mime, c.get("name") or ""):
+                    continue
+                fid = c.get("id")
+                if fid:
+                    file_ids.append(fid)
+                if len(file_ids) >= max_files_per_project:
+                    break
+
+            if file_ids:
+                # Update UI status before enqueue
+                mapping.indexing_status = "queued"
+                mapping.indexing_progress = {"indexed": 0, "total": len(file_ids)}
+
+                # Defer import to avoid circular imports at module import time
+                from app.tasks import process_drive_file_batch
+
+                process_drive_file_batch.delay(
+                    file_ids=file_ids,
+                    user_id=str(user_id),
+                    access_token=tok.access_token,
+                )
+                queued_index_jobs += 1
+
         mapping_ids.append(str(mapping.id))
 
     db.commit()
@@ -190,5 +244,6 @@ def discover_and_upsert_drive_projects(
         "created_projects": created_projects,
         "created_mappings": created_mappings,
         "updated_mappings": updated_mappings,
+        "queued_index_jobs": queued_index_jobs,
         "mapping_ids": mapping_ids[:20],
     }
