@@ -112,6 +112,7 @@ async def list_available_connectors(
 async def get_connector_health(
     connector_name: str,
     current_user = Depends(get_current_user),
+from app.api.deps import get_async_db
 ) -> ConnectorHealthResponse:
     """
     Get health check for a specific connector.
@@ -257,7 +258,7 @@ async def get_google_drive_token(
 )
 async def get_google_drive_status(
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ) -> GoogleDriveStatusResponse:
     """Check if Google Drive is connected for the current user."""
     token = await get_google_drive_token(db, str(current_user.id))
@@ -282,7 +283,7 @@ async def get_google_drive_status(
 )
 async def get_google_drive_auth(
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ) -> Dict[str, Any]:
     """Get Google OAuth URL for connecting Drive."""
     from app.core.config import settings
@@ -358,7 +359,7 @@ MOCK_PROJECTS = [
 )
 async def scan_google_drive(
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ) -> GoogleDriveProjectsResponse:
     """Return real Drive projects from DB (google_drive_projects)."""
     from sqlalchemy import select
@@ -395,7 +396,7 @@ async def scan_google_drive(
 )
 async def disconnect_google_drive(
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ) -> Dict[str, Any]:
     """Disconnect Google Drive and revoke tokens."""
     token = await get_google_drive_token(db, str(current_user.id))
@@ -436,7 +437,7 @@ async def trigger_google_drive_project_sync(
 )
 async def list_google_drive_projects(
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ) -> GoogleDriveProjectsResponse:
     """
     Returns detected Drive projects from the google_drive_projects table.

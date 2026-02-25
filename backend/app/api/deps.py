@@ -93,3 +93,16 @@ __all__ = [
     'get_db', 'get_db_session', 'get_current_user', 
     'get_current_user_id', 'get_current_admin_user', 'User'
 ]
+
+# --- Async DB dependency (added to fix async endpoints using await db.execute) ---
+from typing import AsyncGenerator
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
+
+_async_engine = create_async_engine(settings.async_database_url, pool_pre_ping=True)
+AsyncSessionLocal = sessionmaker(bind=_async_engine, class_=AsyncSession, expire_on_commit=False)
+
+async def get_async_db() -> AsyncGenerator[AsyncSession, None]:
+    async with AsyncSessionLocal() as session:
+        yield session
+# --- end async DB dependency ---
