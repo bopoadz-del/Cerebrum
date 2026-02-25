@@ -41,11 +41,12 @@ class StubError:
     error: str
     code: str = "STUB_ERROR"
     details: Optional[Dict[str, Any]] = None
+    success: bool = False
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
         return {
-            "success": False,
+            "success": self.success,
             "error": self.error,
             "code": self.code,
             "details": self.details or {},

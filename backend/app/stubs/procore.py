@@ -57,13 +57,14 @@ class ProcoreStub(BaseStub):
             message="Retrieved 3 projects (stub)",
         )
     
-    def get_project(self, project_id: int) -> StubResponse:
+    def get_project(self, project_id: int) -> Any:
         """Get mock project by ID."""
+        from .base import StubError
         self._log_call("get_project", project_id=project_id)
         project = next((p for p in self._projects if p["id"] == project_id), None)
         if project:
             return self._success_response(data=project)
-        return self._error_response(f"Project {project_id} not found", "NOT_FOUND")
+        return StubError(error=f"Project {project_id} not found", code="NOT_FOUND")
     
     def get_rfis(self, project_id: Optional[int] = None) -> StubResponse:
         """Get mock RFIs."""

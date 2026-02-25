@@ -142,6 +142,30 @@ class User(BaseModel):
         lazy="selectin",
     )
     
+    def __init__(self, **kwargs):
+        """Initialize user with proper defaults."""
+        # Set defaults before calling super to ensure test-time creation works
+        if "is_active" not in kwargs:
+            kwargs["is_active"] = True
+        if "is_verified" not in kwargs:
+            kwargs["is_verified"] = False
+        if "mfa_enabled" not in kwargs:
+            kwargs["mfa_enabled"] = False
+        if "failed_login_attempts" not in kwargs:
+            kwargs["failed_login_attempts"] = 0
+        if "role" not in kwargs:
+            kwargs["role"] = "user"
+        if "timezone" not in kwargs:
+            kwargs["timezone"] = "UTC"
+        if "language" not in kwargs:
+            kwargs["language"] = "en"
+        if "preferences" not in kwargs:
+            kwargs["preferences"] = {}
+        if "tenant_id" not in kwargs:
+            # Generate a default tenant_id if not provided
+            kwargs["tenant_id"] = uuid.uuid4()
+        super().__init__(**kwargs)
+    
     def __repr__(self) -> str:
         return f"<User(id={self.id}, email={self.email}, role={self.role})>"
     
@@ -182,7 +206,9 @@ class User(BaseModel):
     
     def record_failed_login(self, max_attempts: int = 5, lock_duration_minutes: int = 30) -> None:
         """Record failed login attempt."""
-        self.failed_login_attempts += 1
+        # Handle None case for safety
+        current_attempts = self.failed_login_attempts or 0
+        self.failed_login_attempts = current_attempts + 1
         
         if self.failed_login_attempts >= max_attempts:
             self.locked_until = datetime.utcnow() + timedelta(minutes=lock_duration_minutes)
