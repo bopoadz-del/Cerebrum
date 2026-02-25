@@ -360,20 +360,38 @@ async def scan_google_drive(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> GoogleDriveProjectsResponse:
-    """Scan user's Google Drive and discover projects."""
-    # Check if connected
-    token = await get_google_drive_token(db, str(current_user.id))
-    if not token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Google Drive not connected",
+    """
+    Demo: return DB-backed Smart Projects discovered from Drive.
+    (Discovery/indexing is triggered via /google-drive/projects/sync.)
+    """
+    from sqlalchemy import select
+    from app.models.google_drive_project import GoogleDriveProject as GoogleDriveProjectModel
+
+    result = await db.execute(
+        select(GoogleDriveProjectModel)
+        .where(
+            GoogleDriveProjectModel.user_id == current_user.id,
+            GoogleDriveProjectModel.deleted == False,
         )
-    
-    # TODO: Implement actual Drive scanning using Google Drive API
-    # For now, return mock projects
-    return GoogleDriveProjectsResponse(projects=MOCK_PROJECTS)
+        .order_by(GoogleDriveProjectModel.updated_at.desc())
+    )
+    rows = result.scalars().all()
 
+    projects: List[GoogleDriveProject] = []
+    for r in rows:
+        prog = r.indexing_progress or {}
+        total = int(prog.get("total", 0) or 0)
+        projects.append(
+            GoogleDriveProject(
+                id=str(r.project_id),
+                name=r.root_folder_name,
+                file_count=total,
+                status=r.indexing_status,
+                updated_at=r.updated_at.isoformat() if r.updated_at else "",
+            )
+        )
 
+    return GoogleDriveProjectsResponse(projects=projects)
 @router.get(
     "/google-drive/files",
     summary="List Google Drive files",
