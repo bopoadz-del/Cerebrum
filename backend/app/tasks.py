@@ -281,3 +281,30 @@ def health_check() -> Dict[str, Any]:
         "celery": "ok",
         "timestamp": datetime.utcnow().isoformat()
     }
+
+
+@celery_app.task(bind=True, max_retries=2)
+def sync_drive_projects(self, user_id: str) -> Dict[str, Any]:
+    """
+    Discover 'smart' Google Drive projects (folder-first scan) and upsert:
+      - Project
+      - GoogleDriveProject mapping
+
+    This is metadata-only discovery (no ZVec indexing here yet).
+    """
+    import uuid as _uuid
+    from sqlalchemy.orm import Session
+    from app.db.session import SessionLocal
+    from app.services.drive_project_sync import discover_and_upsert_drive_projects
+
+    db: Session = SessionLocal()
+    try:
+        uid = _uuid.UUID(user_id)
+        return discover_and_upsert_drive_projects(db, uid)
+    except Exception as exc:
+        db.rollback()
+        retry_count = getattr(self.request, "retries", 0)
+        countdown = 30 * (2 ** retry_count)
+        raise self.retry(exc=exc, countdown=countdown)
+    finally:
+        db.close()

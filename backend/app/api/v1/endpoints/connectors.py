@@ -695,3 +695,61 @@ async def disconnect_google_drive(
         "success": True,
         "message": "Google Drive disconnected",
     }
+
+
+# =============================================================================
+# Google Drive Smart Projects (DB-backed)
+# =============================================================================
+
+@router.post(
+    "/google-drive/projects/sync",
+    summary="Trigger Smart Project discovery for Google Drive",
+)
+async def trigger_google_drive_project_sync(
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    Enqueue background job to discover Drive-rooted Projects (metadata-only).
+    """
+    from app.tasks import sync_drive_projects
+
+    task = sync_drive_projects.delay(user_id=str(current_user.id))
+    return {"status": "queued", "task_id": task.id}
+
+
+@router.get(
+    "/google-drive/projects",
+    response_model=GoogleDriveProjectsResponse,
+    summary="List Smart Projects discovered from Google Drive",
+)
+async def list_google_drive_projects(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> GoogleDriveProjectsResponse:
+    """
+    Returns detected Drive projects from the google_drive_projects table.
+    """
+    from sqlalchemy import select
+    from app.models.google_drive_project import GoogleDriveProject as GoogleDriveProjectModel
+
+    result = await db.execute(
+        select(GoogleDriveProjectModel).where(
+            GoogleDriveProjectModel.user_id == current_user.id,
+            GoogleDriveProjectModel.deleted == False,
+        ).order_by(GoogleDriveProjectModel.updated_at.desc())
+    )
+    rows = result.scalars().all()
+
+    projects: List[GoogleDriveProject] = []
+    for r in rows:
+        projects.append(
+            GoogleDriveProject(
+                id=str(r.project_id),
+                name=r.root_folder_name,
+                file_count=0,  # will be filled when we add file counting/index pipeline
+                status=r.indexing_status,
+                updated_at=r.updated_at.isoformat() if r.updated_at else "",
+            )
+        )
+
+    return GoogleDriveProjectsResponse(projects=projects)
