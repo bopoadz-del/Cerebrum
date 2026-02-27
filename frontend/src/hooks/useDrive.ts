@@ -1,7 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://cerebrum-api.onrender.com/api/v1';
+const RAW_API_URL = import.meta.env.VITE_API_URL || 'https://cerebrum-api.onrender.com';
+// Ensure URL has /api/v1 prefix
+const API_URL = RAW_API_URL.replace(/\/?$/, '').endsWith('/api/v1') 
+  ? RAW_API_URL 
+  : `${RAW_API_URL.replace(/\/?$/, '')}/api/v1`;
 
 // Google OAuth Configuration
 // These are public client IDs - safe to expose in frontend
