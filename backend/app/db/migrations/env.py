@@ -7,9 +7,9 @@ import os
 import sys
 from logging.config import fileConfig
 
-# Add the parent directory to Python path so 'app' can be imported
-# This is needed when running in Docker at /app
-sys.path.insert(0, '/app')
+# Add the backend parent directory to Python path so 'app' can be imported
+# Dynamically determine the correct base directory for any environment
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
 
 from sqlalchemy import pool, text
 from sqlalchemy.engine import Connection
