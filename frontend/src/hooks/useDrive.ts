@@ -53,7 +53,7 @@ export function useDrive() {
 
   // Build Google OAuth URL directly
   const buildGoogleAuthUrl = (state?: string) => {
-    const nonce = state || Math.random().toString(36).substring(2, 15);
+    const nonce = state || localStorage.getItem("user_id") || "e727e727-d547-4d96-b070-2294980e5d85";
     localStorage.setItem('google_oauth_state', nonce);
     
     const scopes = [
