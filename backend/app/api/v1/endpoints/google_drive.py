@@ -99,7 +99,7 @@ async def oauth_callback(
             email = userinfo.json().get("email") if userinfo.status_code == 200 else None
         
         # Verify user exists before saving tokens
-        user = db.query(User).filter(User.id == user_id).first()
+        user = db.query(User).filter(User.id == user_idtoken = result.fetchone()
         if not user:
             raise HTTPException(status_code=400, detail="OAuth user not found")
         
@@ -133,15 +133,12 @@ async def get_status(
     current_user: User = Depends(get_current_user)
 ):
     """Check Google Drive connection status"""
-    from app.models.integration import IntegrationToken
-    token = db.query(IntegrationToken).filter(
-        IntegrationToken.user_id == current_user.id,
-        IntegrationToken.service == "google_drive",
-        IntegrationToken.is_active == True
-    ).first()
+    from sqlalchemy import text
+    result = db.execute(text("SELECT created_at FROM google_drive_tokens WHERE user_id=:uid LIMIT 1"), {"uid": str(current_user.id)})
+    token = result.fetchone()
     
     return {
         "connected": token is not None,
         "email": None,  # IntegrationToken doesn't store email, could be fetched from Google API
-        "last_used": token.updated_at.isoformat() if token and token.updated_at else None
+        "last_used": token[0].isoformat() if token else None
     }
