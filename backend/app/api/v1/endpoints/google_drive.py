@@ -99,7 +99,7 @@ async def oauth_callback(
             email = userinfo.json().get("email") if userinfo.status_code == 200 else None
         
         # Verify user exists before saving tokens
-        user = db.query(User).filter(User.id == user_idtoken = result.fetchone()
+        user = db.query(User).filter(User.id == user_id).first()
         if not user:
             raise HTTPException(status_code=400, detail="OAuth user not found")
         
