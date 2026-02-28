@@ -81,6 +81,13 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         """
         response = await call_next(request)
         
+        # Skip CSP for OAuth callback (needs inline script for postMessage)
+        if "/google-drive/callback" in request.url.path:
+            pass  # Don't add CSP header for OAuth callback
+        else:
+            # Content Security Policy
+            response.headers["Content-Security-Policy"] = self.csp_policy
+        
         # X-Frame-Options (clickjacking protection)
         response.headers["X-Frame-Options"] = "DENY"
         
@@ -89,9 +96,6 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         
         # X-XSS-Protection (legacy XSS protection)
         response.headers["X-XSS-Protection"] = "1; mode=block"
-        
-        # Content Security Policy
-        response.headers["Content-Security-Policy"] = self.csp_policy
         
         # Referrer Policy
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
