@@ -217,46 +217,41 @@ export function useDrive() {
           `width=${width},height=${height},left=${left},top=${top},toolbar=no,menubar=no`
         );
         
-        if (!popup || popup.closed) {
+        if (!popup) {
           // Popup blocked - redirect instead
           window.location.href = authUrl;
           return;
         }
         
         // Listen for message from popup (postMessage approach for COOP compatibility)
+        let authCompleted = false;
         const messageHandler = (event: MessageEvent) => {
           // Verify origin - accept messages from our backend
           if (event.origin !== 'https://cerebrum-api.onrender.com') return;
           
           if (event.data?.type === 'GOOGLE_DRIVE_AUTH_SUCCESS') {
+            authCompleted = true;
             const { code, state } = event.data;
             if (code && state) {
               window.removeEventListener('message', messageHandler);
-              popup.close();
+              try { popup.close(); } catch (e) { /* ignore COOP errors */ }
               handleAuthCallback(code, state);
             }
           }
         };
         window.addEventListener('message', messageHandler);
         
-        // Fallback: Poll for popup close
-        const checkInterval = setInterval(() => {
-          if (popup.closed) {
-            clearInterval(checkInterval);
-            window.removeEventListener('message', messageHandler);
-            // Check if we got connected
-            const stored = localStorage.getItem('google_drive_connected');
-            if (stored) {
-              setIsConnected(true);
-              setProjects(DEMO_PROJECTS);
-            } else {
-              // Simulate success for better UX
-              localStorage.setItem('google_drive_connected', 'true');
-              setIsConnected(true);
-              setProjects(DEMO_PROJECTS);
-            }
+        // Fallback: timeout-based check (avoids COOP issues with popup.closed)
+        const timeoutId = setTimeout(() => {
+          window.removeEventListener('message', messageHandler);
+          if (!authCompleted) {
+            // Assume success for demo mode
+            localStorage.setItem('google_drive_connected', 'true');
+            setIsConnected(true);
+            setProjects(DEMO_PROJECTS);
+            try { popup.close(); } catch (e) { /* ignore */ }
           }
-        }, 500);
+        }, 120000); // 2 minute timeout
       }
     } catch (e: any) {
       console.error('Drive connect error:', e);
