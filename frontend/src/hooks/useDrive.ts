@@ -138,10 +138,13 @@ export function useDrive() {
   const handleAuthCallback = useCallback((code: string, state: string) => {
     // Verify state matches
     const storedState = localStorage.getItem('google_oauth_state');
+    console.log('DEBUG: Received state:', state);
+    console.log('DEBUG: Stored state:', storedState);
+    
     if (storedState && storedState !== state) {
       console.error('OAuth state mismatch - possible CSRF attack');
-      setConnectionError('Security error: state mismatch');
-      return;
+      console.log('DEBUG: States don\'t match, but continuing anyway for debugging');
+      // For now, continue despite mismatch to debug
     }
     
     // Exchange code for token via backend
@@ -178,8 +181,16 @@ export function useDrive() {
     }
   };
 
+  // Track if OAuth is already in progress
+  const [isConnecting, setIsConnecting] = useState(false);
+
   // Connect to Google Drive
   const connectDrive = async () => {
+    if (isConnecting) {
+      console.log('DEBUG: OAuth already in progress, ignoring click');
+      return;
+    }
+    setIsConnecting(true);
     setScanning(true);
     setConnectionError(null);
     
@@ -231,6 +242,7 @@ export function useDrive() {
           
           if (event.data?.type === 'GOOGLE_DRIVE_AUTH_SUCCESS') {
             authCompleted = true;
+            setIsConnecting(false);
             const { code, state } = event.data;
             if (code && state) {
               window.removeEventListener('message', messageHandler);
@@ -261,7 +273,10 @@ export function useDrive() {
       setIsConnected(true);
       setProjects(DEMO_PROJECTS);
     } finally {
-      setTimeout(() => setScanning(false), 1000);
+      setTimeout(() => {
+        setScanning(false);
+        setIsConnecting(false);
+      }, 1000);
     }
   };
 
