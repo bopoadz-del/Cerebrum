@@ -242,7 +242,7 @@ export function useDrive() {
         window.addEventListener('message', messageHandler);
         
         // Fallback: timeout-based check (avoids COOP issues with popup.closed)
-        const timeoutId = setTimeout(() => {
+        setTimeout(() => {
           window.removeEventListener('message', messageHandler);
           if (!authCompleted) {
             // Assume success for demo mode
