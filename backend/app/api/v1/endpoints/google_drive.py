@@ -261,17 +261,17 @@ async def get_status(
 ):
     """Check Google Drive connection status"""
     try:
-        from sqlalchemy import text
-        result = db.execute(
-            text("SELECT google_email, last_used_at, updated_at FROM google_drive_tokens WHERE user_id=:uid AND is_active=true LIMIT 1"),
-            {"uid": str(current_user.id)}
-        )
-        token = result.fetchone()
+        from app.models.integration import IntegrationToken, IntegrationProvider
+        token = db.query(IntegrationToken).filter(
+            IntegrationToken.user_id == current_user.id,
+            IntegrationToken.service == IntegrationProvider.GOOGLE_DRIVE,
+            IntegrationToken.is_active == True
+        ).first()
         
         return {
             "connected": token is not None,
-            "email": token[0] if token else None,
-            "last_used": token[1].isoformat() if token and token[1] else (token[2].isoformat() if token and token[2] else None)
+            "email": token.account_email if token else None,
+            "last_used": token.expiry.isoformat() if token and token.expiry else None
         }
     except Exception as e:
         # Log error but don't fail - return not connected
