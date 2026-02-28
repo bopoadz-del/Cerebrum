@@ -61,7 +61,7 @@ class GoogleDriveService:
               )
               resp.raise_for_status()
               return resp.json()
-    def save_tokens(self, user_id: uuid.UUID, token_data: Dict[str, Any]):
+    def save_tokens(self, user_id: uuid.UUID, token_data: Dict[str, Any], account_email: str = None):
         """Persist OAuth tokens using IntegrationToken model fields."""
         token_id = token_data.get('token_id') or uuid.uuid4().hex
         existing = self.db.query(IntegrationToken).filter(
@@ -84,6 +84,8 @@ class GoogleDriveService:
             existing.is_active = True
             existing.revoked_at = None
             existing.rotation_count = (existing.rotation_count or 0) + 1
+            if account_email:
+                existing.account_email = account_email
         else:
             token = IntegrationToken(
                 token_id=token_id,
@@ -97,6 +99,7 @@ class GoogleDriveService:
                 scopes=scopes,
                 expiry=expiry,
                 is_active=True,
+                account_email=account_email,
             )
             self.db.add(token)
 

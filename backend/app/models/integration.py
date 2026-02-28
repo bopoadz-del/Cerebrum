@@ -55,6 +55,10 @@ class IntegrationToken(BaseModel):
     is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
     revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     
+    # Account info
+    account_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    account_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    
     def __repr__(self) -> str:
         return f"<IntegrationToken {self.service} user={self.user_id}>"
 

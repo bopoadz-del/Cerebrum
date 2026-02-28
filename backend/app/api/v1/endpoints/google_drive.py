@@ -104,7 +104,7 @@ async def oauth_callback(
         if not user:
             raise HTTPException(status_code=400, detail="OAuth user not found")
         
-        service.save_tokens(user_id, token_data)
+        service.save_tokens(user_id, token_data, account_email=email)
         
         # Return HTML that sends postMessage to parent window (COOP-compatible)
         html_content = f"""
@@ -270,7 +270,7 @@ async def get_status(
         
         return {
             "connected": token is not None,
-            "email": None,  # IntegrationToken doesn't store email
+            "email": token.account_email if token else None,
             "last_used": token.expiry.isoformat() if token and token.expiry else None
         }
     except Exception as e:
