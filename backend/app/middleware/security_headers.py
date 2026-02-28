@@ -117,6 +117,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # X-Permitted-Cross-Domain-Policies
         response.headers["X-Permitted-Cross-Domain-Policies"] = "none"
         
+        # Cross-Origin-Opener-Policy - allow OAuth popups to communicate with parent
+        response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
+        
         return response
 
 
