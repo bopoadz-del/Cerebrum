@@ -172,6 +172,88 @@ async def list_files(
     files = await service.list_files(current_user.id, folder_id)
     return [DriveFileResponse(**f) for f in files]
 
+
+@router.post("/scan")
+async def scan_drive(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Scan Google Drive for all files (requires auth)"""
+    service = GoogleDriveService(db)
+    try:
+        files = await service.list_files(current_user.id, page_size=100)
+        return {
+            "success": True,
+            "files_scanned": len(files),
+            "files": files
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/projects")
+async def get_projects(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get Google Drive folders as projects (requires auth)"""
+    service = GoogleDriveService(db)
+    try:
+        files = await service.list_files(current_user.id, page_size=100)
+        # Filter to only folders and format as projects
+        folders = [f for f in files if f.get("is_folder")]
+        projects = [
+            {
+                "id": f["id"],
+                "name": f["name"],
+                "file_count": 0,  # Would need separate query
+                "status": "active",
+                "updated_at": f.get("modified_time")
+            }
+            for f in folders
+        ]
+        return {
+            "success": True,
+            "projects": projects if projects else []
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/search")
+async def search_files(
+    query: str,
+    folder_id: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Search files in Google Drive (requires auth)"""
+    service = GoogleDriveService(db)
+    try:
+        # Get all files and filter by name
+        all_files = await service.list_files(current_user.id, folder_id, page_size=100)
+        query_lower = query.lower()
+        results = [f for f in all_files if query_lower in f.get("name", "").lower()]
+        
+        return {
+            "success": True,
+            "results": [
+                {
+                    "id": f["id"],
+                    "score": 1.0,
+                    "metadata": {
+                        "name": f["name"],
+                        "project": folder_id or "root",
+                        "mime_type": f.get("mime_type"),
+                        "modified_time": f.get("modified_time")
+                    }
+                }
+                for f in results
+            ]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 @router.get("/status")
 async def get_status(
     db: Session = Depends(get_db),
