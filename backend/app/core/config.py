@@ -156,7 +156,7 @@ class Settings(BaseSettings):
     # Note: CORS_ORIGINS is a comma-separated string in env vars
     # It gets parsed into a list by the cors_origins_list property
     CORS_ORIGINS: str = Field(
-        default="http://localhost:3000",
+        default="http://localhost:3000,https://cerebrum-frontend.onrender.com",
         description="Allowed CORS origins (comma-separated)",
     )
     CORS_ALLOW_CREDENTIALS: bool = Field(default=True, description="Allow CORS credentials")
