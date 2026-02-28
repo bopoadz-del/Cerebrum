@@ -206,6 +206,8 @@ export function useDrive() {
       if (res.ok) {
         const data = await res.json();
         authUrl = data.auth_url;
+        // Store the full state (nonce:user_id) returned by backend
+        localStorage.setItem('google_oauth_state', data.state);
         console.log('DEBUG: Backend auth URL:', authUrl);
         console.log('DEBUG: State from backend:', data.state);
       } else {
