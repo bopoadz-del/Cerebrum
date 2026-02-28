@@ -18,6 +18,24 @@ from app.core.config import settings
 from app.core.logging import get_logger
 from app.core.sentry import capture_exception
 
+
+def add_cors_headers(response: JSONResponse, request: Request) -> JSONResponse:
+    """Add CORS headers to error responses."""
+    origin = request.headers.get("origin", "")
+    allowed_origins = settings.cors_origins_list
+    
+    # Check if origin is allowed
+    if origin in allowed_origins or "*" in allowed_origins:
+        response.headers["Access-Control-Allow-Origin"] = origin
+    elif allowed_origins:
+        response.headers["Access-Control-Allow-Origin"] = allowed_origins[0]
+    
+    response.headers["Access-Control-Allow-Credentials"] = str(settings.CORS_ALLOW_CREDENTIALS).lower()
+    response.headers["Access-Control-Allow-Methods"] = settings.CORS_ALLOW_METHODS or "*"
+    response.headers["Access-Control-Allow-Headers"] = settings.CORS_ALLOW_HEADERS or "*"
+    
+    return response
+
 logger = get_logger(__name__)
 
 
@@ -131,7 +149,7 @@ def setup_exception_handlers(app: FastAPI) -> None:
             path=request.url.path,
         )
         
-        return JSONResponse(
+        response = JSONResponse(
             status_code=exc.status_code,
             content={
                 "error": exc.error_code,
@@ -139,6 +157,7 @@ def setup_exception_handlers(app: FastAPI) -> None:
                 "details": exc.details,
             },
         )
+        return add_cors_headers(response, request)
     
     @app.exception_handler(RequestValidationError)
     async def handle_validation_error(
@@ -161,7 +180,7 @@ def setup_exception_handlers(app: FastAPI) -> None:
                 "type": error["type"],
             })
         
-        return JSONResponse(
+        response = JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             content={
                 "error": "ERR_VALIDATION",
@@ -169,6 +188,7 @@ def setup_exception_handlers(app: FastAPI) -> None:
                 "details": {"errors": errors},
             },
         )
+        return add_cors_headers(response, request)
     
     @app.exception_handler(ValidationError)
     async def handle_pydantic_validation_error(
@@ -182,7 +202,7 @@ def setup_exception_handlers(app: FastAPI) -> None:
             path=request.url.path,
         )
         
-        return JSONResponse(
+        response = JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
             content={
                 "error": "ERR_VALIDATION",
@@ -190,6 +210,7 @@ def setup_exception_handlers(app: FastAPI) -> None:
                 "details": {"errors": exc.errors()},
             },
         )
+        return add_cors_headers(response, request)
     
     @app.exception_handler(SQLAlchemyError)
     async def handle_database_error(
@@ -211,14 +232,14 @@ def setup_exception_handlers(app: FastAPI) -> None:
         if settings.is_development:
             message = str(exc)
         
-        return JSONResponse(
+        response = JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={
-                "error": "ERR_DATABASE", "detail": str(exc),
-                "detail": str(exc),
+                "error": "ERR_DATABASE",
                 "message": message,
             },
         )
+        return add_cors_headers(response, request)
     
     @app.exception_handler(IntegrityError)
     async def handle_integrity_error(
@@ -236,31 +257,33 @@ def setup_exception_handlers(app: FastAPI) -> None:
         error_str = str(exc).lower()
         
         if "unique constraint" in error_str or "duplicate" in error_str:
-            return JSONResponse(
+            response = JSONResponse(
                 status_code=status.HTTP_409_CONFLICT,
                 content={
                     "error": "ERR_DUPLICATE",
                     "message": "Resource already exists",
                 },
             )
+            return add_cors_headers(response, request)
         
         if "foreign key constraint" in error_str:
-            return JSONResponse(
+            response = JSONResponse(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 content={
                     "error": "ERR_REFERENCE",
                     "message": "Referenced resource does not exist",
                 },
             )
+            return add_cors_headers(response, request)
         
-        return JSONResponse(
+        response = JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={
-                "error": "ERR_DATABASE", "detail": str(exc),
-                "detail": str(exc),
+                "error": "ERR_DATABASE",
                 "message": "Database constraint violation",
             },
         )
+        return add_cors_headers(response, request)
     
     @app.exception_handler(Exception)
     async def handle_generic_exception(
@@ -283,10 +306,11 @@ def setup_exception_handlers(app: FastAPI) -> None:
         if settings.is_development:
             message = str(exc)
         
-        return JSONResponse(
+        response = JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={
                 "error": "ERR_INTERNAL",
                 "message": message,
             },
         )
+        return add_cors_headers(response, request)
