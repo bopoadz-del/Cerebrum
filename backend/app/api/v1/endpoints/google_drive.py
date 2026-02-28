@@ -270,16 +270,18 @@ async def get_status(
         
         return {
             "connected": token is not None,
-            "email": token.account_email if token else None,
+            "email": None,  # IntegrationToken doesn't store email
             "last_used": token.expiry.isoformat() if token and token.expiry else None
         }
     except Exception as e:
         # Log error but don't fail - return not connected
         import logging
+        import traceback
         logging.getLogger(__name__).error(f"Error checking Google Drive status: {e}")
+        logging.getLogger(__name__).error(traceback.format_exc())
         return {
             "connected": False,
             "email": None,
             "last_used": None,
-            "error": "Database error"
+            "error": str(e)
         }
