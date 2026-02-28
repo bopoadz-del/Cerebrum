@@ -5,6 +5,7 @@ from typing import Optional, List, Dict, Any
 import secrets
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 import httpx
@@ -105,16 +106,60 @@ async def oauth_callback(
         
         service.save_tokens(user_id, token_data)
         
-        return {
-            "success": True,
-            "message": "Google Drive connected successfully",
-            "email": email
-        }
+        # Return HTML that sends postMessage to parent window (COOP-compatible)
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Google Drive Connected</title>
+            <script>
+                // Send auth success message to parent window
+                if (window.opener) {{
+                    window.opener.postMessage({{
+                        type: 'GOOGLE_DRIVE_AUTH_SUCCESS',
+                        code: '{code}',
+                        state: '{state}'
+                    }}, 'https://cerebrum-frontend.onrender.com');
+                }}
+                // Close popup after short delay
+                setTimeout(() => window.close(), 500);
+            </script>
+        </head>
+        <body>
+            <h2>Google Drive Connected!</h2>
+            <p>You can close this window.</p>
+        </body>
+        </html>
+        """
+        return HTMLResponse(content=html_content)
         
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"OAuth failed: {str(e)}")
+        # Return error HTML for popup
+        error_html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Authentication Failed</title>
+            <script>
+                if (window.opener) {{
+                    window.opener.postMessage({{
+                        type: 'GOOGLE_DRIVE_AUTH_ERROR',
+                        error: '{str(e)}'
+                    }}, 'https://cerebrum-frontend.onrender.com');
+                }}
+                setTimeout(() => window.close(), 3000);
+            </script>
+        </head>
+        <body>
+            <h2>Authentication Failed</h2>
+            <p>{str(e)}</p>
+            <p>This window will close automatically.</p>
+        </body>
+        </html>
+        """
+        return HTMLResponse(content=error_html, status_code=400)
 
 @router.get("/files", response_model=List[DriveFileResponse])
 async def list_files(

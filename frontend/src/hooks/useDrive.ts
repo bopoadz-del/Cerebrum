@@ -223,30 +223,27 @@ export function useDrive() {
           return;
         }
         
-        // Poll for popup close
-        const checkInterval = setInterval(() => {
-          try {
-            // Check if popup redirected to our callback
-            const popupUrl = popup.location.href;
-            if (popupUrl.includes('code=') && popupUrl.includes('state=')) {
-              // Extract code and state from URL
-              const urlParams = new URLSearchParams(popup.location.search);
-              const code = urlParams.get('code');
-              const state = urlParams.get('state');
-              
-              if (code && state) {
-                clearInterval(checkInterval);
-                popup.close();
-                handleAuthCallback(code, state);
-                return;
-              }
-            }
-          } catch (e) {
-            // Cross-origin error expected while on Google domain
-          }
+        // Listen for message from popup (postMessage approach for COOP compatibility)
+        const messageHandler = (event: MessageEvent) => {
+          // Verify origin - accept messages from our backend
+          if (event.origin !== 'https://cerebrum-api.onrender.com') return;
           
+          if (event.data?.type === 'GOOGLE_DRIVE_AUTH_SUCCESS') {
+            const { code, state } = event.data;
+            if (code && state) {
+              window.removeEventListener('message', messageHandler);
+              popup.close();
+              handleAuthCallback(code, state);
+            }
+          }
+        };
+        window.addEventListener('message', messageHandler);
+        
+        // Fallback: Poll for popup close
+        const checkInterval = setInterval(() => {
           if (popup.closed) {
             clearInterval(checkInterval);
+            window.removeEventListener('message', messageHandler);
             // Check if we got connected
             const stored = localStorage.getItem('google_drive_connected');
             if (stored) {
