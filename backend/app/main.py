@@ -173,13 +173,7 @@ def create_application() -> FastAPI:
     # Security headers
     app.add_middleware(SecurityHeadersMiddleware)
     
-    # Trusted Host Middleware (OWASP security)
-    app.add_middleware(
-        TrustedHostMiddleware,
-        allowed_hosts=["*.onrender.com", "localhost", "127.0.0.1"]
-    )
-    
-    # CORS - dynamic Render domains
+    # CORS - dynamic Render domains (must be first to ensure headers are always added)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins_list,
@@ -187,6 +181,12 @@ def create_application() -> FastAPI:
         allow_methods=settings.cors_methods_list,
         allow_headers=settings.cors_headers_list,
         expose_headers=["X-Request-ID"],
+    )
+    
+    # Trusted Host Middleware (OWASP security)
+    app.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=["*.onrender.com", "localhost", "127.0.0.1"]
     )
     
     # Setup exception handlers
