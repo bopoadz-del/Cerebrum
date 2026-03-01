@@ -257,6 +257,27 @@ async def search_files(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+@router.get("/projects/{project_id}/files")
+async def get_project_files(
+    project_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get files within a specific Google Drive folder/project"""
+    service = GoogleDriveService(db)
+    try:
+        # project_id is the Google Drive folder ID
+        files = await service.list_files(current_user.id, folder_id=project_id, page_size=100)
+        # Filter out sub-folders, return only files
+        files_only = [f for f in files if not f.get("is_folder")]
+        return {
+            "success": True,
+            "files": files_only
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/status")
 async def get_status(
     db: AsyncSession = Depends(get_db),
