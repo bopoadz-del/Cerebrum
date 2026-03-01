@@ -53,7 +53,8 @@ function DesktopLayout() {
     connectDrive, 
     disconnectDrive,
     scanDrive,
-    refreshProjects 
+    refreshProjects,
+    getProjectFiles
   } = useDrive();
 
   // Update selected project to use real data from Drive
@@ -104,6 +105,7 @@ function DesktopLayout() {
         onScanDrive={scanDrive}
         onRefreshProjects={refreshProjects}
         onOpenSettings={() => setShowSettings(true)}
+        getProjectFiles={getProjectFiles}
       />
 
       {/* Center Panel - Chat */}
