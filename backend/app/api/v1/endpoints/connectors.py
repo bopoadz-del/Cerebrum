@@ -813,7 +813,22 @@ async def debug_google_drive(
     import traceback
     
     try:
-        # Check google_drive_projects count
+        # Check if table exists
+        table_check = await db.execute(
+            text("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'google_drive_projects')")
+        )
+        table_exists = table_check.scalar()
+        
+        if not table_exists:
+            return {"error": "google_drive_projects table does not exist"}
+        
+        # Check all projects (no user filter)
+        result_all = await db.execute(
+            text("SELECT COUNT(*) FROM google_drive_projects")
+        )
+        total_projects = result_all.scalar()
+        
+        # Check projects for this user
         result = await db.execute(
             text("SELECT COUNT(*) FROM google_drive_projects WHERE user_id = :user_id::UUID"),
             {"user_id": str(current_user.id)}
@@ -827,19 +842,20 @@ async def debug_google_drive(
         )
         token_count = result2.scalar()
         
-        # Get sample projects
+        # Get ALL projects (for debugging)
         result3 = await db.execute(
-            text("SELECT project_id, root_folder_name, deleted FROM google_drive_projects WHERE user_id = :user_id::UUID LIMIT 5"),
-            {"user_id": str(current_user.id)}
+            text("SELECT user_id, project_id, root_folder_name, deleted FROM google_drive_projects LIMIT 5")
         )
         rows = result3.fetchall()
-        projects = [{"project_id": str(r[0]), "root_folder_name": r[1], "deleted": r[2]} for r in rows]
+        all_projects = [{"user_id": str(r[0]), "project_id": str(r[1]), "root_folder_name": r[2], "deleted": r[3]} for r in rows]
         
         return {
+            "table_exists": table_exists,
             "user_id": str(current_user.id),
-            "project_count": project_count,
+            "total_projects_in_db": total_projects,
+            "project_count_for_user": project_count,
             "token_count": token_count,
-            "sample_projects": projects,
+            "sample_projects": all_projects,
         }
     except Exception as e:
         return {
