@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth, STORAGE_KEYS } from '@/context/AuthContext';
 
 const RAW_API_URL = import.meta.env.VITE_API_URL || 'https://cerebrum-api.onrender.com';
 // Ensure URL has /api/v1 prefix
@@ -11,6 +11,13 @@ const API_URL = RAW_API_URL.replace(/\/?$/, '').endsWith('/api/v1')
 // These are public client IDs - safe to expose in frontend
 const GOOGLE_CLIENT_ID = '382554705937-v3s8kpvl7h0em2aekud73fro8rig0cvu.apps.googleusercontent.com';
 const GOOGLE_REDIRECT_URI = `https://cerebrum-api.onrender.com/api/v1/connectors/google-drive/callback`;
+
+// Storage keys - versioned for compatibility across deployments
+const DRIVE_STORAGE_KEYS = {
+  CONNECTED: 'cerebrum_gdrive_connected_v1',
+  OAUTH_STATE: 'cerebrum_gdrive_oauth_state_v1',
+  LAST_CONNECTED_AT: 'cerebrum_gdrive_last_connected_v1',
+} as const;
 
 export interface Project {
   id: string;
@@ -39,7 +46,7 @@ const DEMO_PROJECTS: Project[] = [
 ];
 
 export function useDrive() {
-  const { user } = useAuth();
+  const { user, refreshAuthToken } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [scanning, setScanning] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
@@ -47,8 +54,8 @@ export function useDrive() {
   const [backendAvailable, setBackendAvailable] = useState<boolean | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
 
-  // Get auth token from localStorage
-  const getAuthToken = () => localStorage.getItem('auth_token') || '';
+  // Get auth token from localStorage using the same key as AuthContext
+  const getAuthToken = () => localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN) || '';
 
   const getHeaders = () => ({
     'Authorization': `Bearer ${getAuthToken()}`,
@@ -57,8 +64,8 @@ export function useDrive() {
 
   // Build Google OAuth URL directly
   const buildGoogleAuthUrl = (state?: string) => {
-    const nonce = state || localStorage.getItem("user_id") || "e727e727-d547-4d96-b070-2294980e5d85";
-    localStorage.setItem('google_oauth_state', nonce);
+    const nonce = state || user?.id || "e727e727-d547-4d96-b070-2294980e5d85";
+    localStorage.setItem(DRIVE_STORAGE_KEYS.OAUTH_STATE, nonce);
     
     const scopes = [
       'https://www.googleapis.com/auth/drive.readonly',
@@ -95,17 +102,41 @@ export function useDrive() {
         setBackendAvailable(true);
         
         if (data.connected) {
+          // Store connection timestamp
+          localStorage.setItem(DRIVE_STORAGE_KEYS.CONNECTED, 'true');
+          localStorage.setItem(DRIVE_STORAGE_KEYS.LAST_CONNECTED_AT, String(Date.now()));
           refreshProjects();
+        } else {
+          // Backend says not connected - clear local storage
+          localStorage.removeItem(DRIVE_STORAGE_KEYS.CONNECTED);
+          localStorage.removeItem(DRIVE_STORAGE_KEYS.LAST_CONNECTED_AT);
         }
       } else if (res.status === 404) {
         // Endpoints not deployed
         setBackendAvailable(false);
         setConnectionError('Backend not deployed - using demo mode');
-        // Try to check if we have a stored connection
-        const storedConnected = localStorage.getItem('google_drive_connected');
-        if (storedConnected) {
-          setIsConnected(true);
-          setProjects(DEMO_PROJECTS);
+        // Try to check if we have a stored connection (fallback only)
+        const storedConnected = localStorage.getItem(DRIVE_STORAGE_KEYS.CONNECTED);
+        const lastConnected = localStorage.getItem(DRIVE_STORAGE_KEYS.LAST_CONNECTED_AT);
+        // Only use cached state if connected within last 24 hours
+        if (storedConnected && lastConnected) {
+          const lastConnectedMs = parseInt(lastConnected, 10);
+          const oneDayMs = 24 * 60 * 60 * 1000;
+          if (Date.now() - lastConnectedMs < oneDayMs) {
+            setIsConnected(true);
+            setProjects(DEMO_PROJECTS);
+          }
+        }
+      } else if (res.status === 401) {
+        // Token expired - try refresh
+        const refreshed = await refreshAuthToken();
+        if (refreshed) {
+          // Retry the check
+          await checkConnection();
+          return;
+        } else {
+          setConnectionError('Session expired - please login again');
+          setIsConnected(false);
         }
       } else {
         setBackendAvailable(false);
@@ -116,21 +147,30 @@ export function useDrive() {
       setBackendAvailable(false);
       setConnectionError('Cannot reach backend - check internet or try again later');
       
-      // Check for stored connection
-      const storedConnected = localStorage.getItem('google_drive_connected');
-      if (storedConnected) {
-        setIsConnected(true);
-        setProjects(DEMO_PROJECTS);
+      // Check for stored connection (fallback only)
+      const storedConnected = localStorage.getItem(DRIVE_STORAGE_KEYS.CONNECTED);
+      const lastConnected = localStorage.getItem(DRIVE_STORAGE_KEYS.LAST_CONNECTED_AT);
+      if (storedConnected && lastConnected) {
+        const lastConnectedMs = parseInt(lastConnected, 10);
+        const oneDayMs = 24 * 60 * 60 * 1000;
+        if (Date.now() - lastConnectedMs < oneDayMs) {
+          setIsConnected(true);
+          setProjects(DEMO_PROJECTS);
+        }
       }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [refreshAuthToken]);
 
   // Check connection on mount
   useEffect(() => {
     if (user) {
       checkConnection();
+    } else {
+      // Clear connection state when user logs out
+      setIsConnected(false);
+      setProjects([]);
     }
   }, [user, checkConnection]);
 
@@ -139,7 +179,7 @@ export function useDrive() {
   // We just need to verify the callback succeeded and update state.
   const handleAuthCallback = useCallback((_code: string, state: string) => {
     // Verify state matches (CSRF protection)
-    const storedState = localStorage.getItem('google_oauth_state');
+    const storedState = localStorage.getItem(DRIVE_STORAGE_KEYS.OAUTH_STATE);
     console.log('DEBUG: Received state:', state);
     console.log('DEBUG: Stored state:', storedState);
     
@@ -150,7 +190,8 @@ export function useDrive() {
     
     // Tokens were already saved by the callback endpoint.
     // Just update local state and refresh projects.
-    localStorage.setItem('google_drive_connected', 'true');
+    localStorage.setItem(DRIVE_STORAGE_KEYS.CONNECTED, 'true');
+    localStorage.setItem(DRIVE_STORAGE_KEYS.LAST_CONNECTED_AT, String(Date.now()));
     setIsConnected(true);
     setBackendAvailable(true);
     scanDrive();
@@ -182,9 +223,21 @@ export function useDrive() {
         const data = await res.json();
         authUrl = data.auth_url;
         // Store the full state (nonce:user_id) returned by backend
-        localStorage.setItem('google_oauth_state', data.state);
+        localStorage.setItem(DRIVE_STORAGE_KEYS.OAUTH_STATE, data.state);
         console.log('DEBUG: Backend auth URL:', authUrl);
         console.log('DEBUG: State from backend:', data.state);
+      } else if (res.status === 401) {
+        // Token expired - try refresh
+        const refreshed = await refreshAuthToken();
+        if (refreshed) {
+          // Retry connection
+          setIsConnecting(false);
+          setScanning(false);
+          await connectDrive();
+          return;
+        } else {
+          throw new Error('Session expired - please login again');
+        }
       } else {
         // Backend not available - use direct OAuth
         console.log('Backend auth unavailable, status:', res.status);
@@ -235,7 +288,8 @@ export function useDrive() {
           window.removeEventListener('message', messageHandler);
           if (!authCompleted) {
             // Assume success for demo mode
-            localStorage.setItem('google_drive_connected', 'true');
+            localStorage.setItem(DRIVE_STORAGE_KEYS.CONNECTED, 'true');
+            localStorage.setItem(DRIVE_STORAGE_KEYS.LAST_CONNECTED_AT, String(Date.now()));
             setIsConnected(true);
             setProjects(DEMO_PROJECTS);
             try { popup.close(); } catch (e) { /* ignore */ }
@@ -244,9 +298,10 @@ export function useDrive() {
       }
     } catch (e: any) {
       console.error('Drive connect error:', e);
-      setConnectionError('Connection failed - using demo mode');
+      setConnectionError(e.message || 'Connection failed - using demo mode');
       // Fallback to demo
-      localStorage.setItem('google_drive_connected', 'true');
+      localStorage.setItem(DRIVE_STORAGE_KEYS.CONNECTED, 'true');
+      localStorage.setItem(DRIVE_STORAGE_KEYS.LAST_CONNECTED_AT, String(Date.now()));
       setIsConnected(true);
       setProjects(DEMO_PROJECTS);
     } finally {
@@ -275,6 +330,16 @@ export function useDrive() {
         }
         setIsConnected(true);
         setBackendAvailable(true);
+        // Update last connected timestamp
+        localStorage.setItem(DRIVE_STORAGE_KEYS.LAST_CONNECTED_AT, String(Date.now()));
+      } else if (res.status === 401) {
+        // Token expired - try refresh
+        const refreshed = await refreshAuthToken();
+        if (refreshed) {
+          // Retry scan
+          await scanDrive();
+          return;
+        }
       } else {
         // Backend unavailable - use demo
         setProjects(DEMO_PROJECTS);
@@ -303,11 +368,21 @@ export function useDrive() {
           setProjects(data.projects);
         }
         setIsConnected(true);
+        // Update last connected timestamp
+        localStorage.setItem(DRIVE_STORAGE_KEYS.LAST_CONNECTED_AT, String(Date.now()));
+      } else if (res.status === 401) {
+        // Token expired - try refresh
+        const refreshed = await refreshAuthToken();
+        if (refreshed) {
+          // Retry refresh
+          await refreshProjects();
+          return;
+        }
       }
     } catch (e) {
       // Ignore errors - keep existing projects
     }
-  }, []);
+  }, [refreshAuthToken]);
 
   // Disconnect Drive
   const disconnectDrive = async () => {
@@ -320,8 +395,9 @@ export function useDrive() {
       // Ignore errors
     }
     
-    localStorage.removeItem('google_drive_connected');
-    localStorage.removeItem('google_oauth_state');
+    localStorage.removeItem(DRIVE_STORAGE_KEYS.CONNECTED);
+    localStorage.removeItem(DRIVE_STORAGE_KEYS.OAUTH_STATE);
+    localStorage.removeItem(DRIVE_STORAGE_KEYS.LAST_CONNECTED_AT);
     setIsConnected(false);
     setProjects([]);
     setConnectionError(null);
@@ -343,6 +419,14 @@ export function useDrive() {
       );
       
       if (!res.ok) {
+        if (res.status === 401) {
+          // Token expired - try refresh
+          const refreshed = await refreshAuthToken();
+          if (refreshed) {
+            // Retry search
+            return searchDrive(query, project);
+          }
+        }
         // Return demo results
         return {
           query,
@@ -377,6 +461,14 @@ export function useDrive() {
       });
       
       if (!res.ok) {
+        if (res.status === 401) {
+          // Token expired - try refresh
+          const refreshed = await refreshAuthToken();
+          if (refreshed) {
+            // Retry indexing
+            return indexDriveFiles();
+          }
+        }
         return { 
           files_scanned: 0, 
           indexed: 0, 
