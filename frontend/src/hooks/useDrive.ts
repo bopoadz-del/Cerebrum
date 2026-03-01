@@ -345,23 +345,18 @@ export function useDrive() {
         setTimeout(() => {
           window.removeEventListener('message', messageHandler);
           if (!authCompleted) {
-            // Assume success for demo mode
-            localStorage.setItem(DRIVE_STORAGE_KEYS.CONNECTED, 'true');
-            localStorage.setItem(DRIVE_STORAGE_KEYS.LAST_CONNECTED_AT, String(Date.now()));
-            setIsConnected(true);
-            setProjects(DEMO_PROJECTS);
+            // Timeout - authentication took too long
+            setIsConnecting(false);
+            setScanning(false);
+            setConnectionError('Authentication timed out. Please try again.');
             try { popup.close(); } catch (e) { /* ignore */ }
           }
         }, 120000); // 2 minute timeout
       }
     } catch (e: any) {
       console.error('Drive connect error:', e);
-      setConnectionError(e.message || 'Connection failed - using demo mode');
-      // Fallback to demo
-      localStorage.setItem(DRIVE_STORAGE_KEYS.CONNECTED, 'true');
-      localStorage.setItem(DRIVE_STORAGE_KEYS.LAST_CONNECTED_AT, String(Date.now()));
-      setIsConnected(true);
-      setProjects(DEMO_PROJECTS);
+      setConnectionError(e.message || 'Connection failed');
+      setIsConnected(false);
     } finally {
       setTimeout(() => {
         setScanning(false);
@@ -372,22 +367,33 @@ export function useDrive() {
 
   // Scan Drive for projects
   const scanDrive = async () => {
+    console.log('[Drive] Starting scan...');
     setScanning(true);
     
     try {
       const res = await fetch(`${API_URL}/connectors/google-drive/scan`, {
         method: 'POST',
         headers: getHeaders(),
-        signal: AbortSignal.timeout(10000)
+        signal: AbortSignal.timeout(30000) // 30 second timeout for real scan
       });
+      
+      console.log('[Drive] Scan response:', { status: res.status, ok: res.ok });
       
       if (res.ok) {
         const data = await res.json();
-        if (data.projects) {
-          setProjects(data.projects);
+        console.log('[Drive] Scan data:', data);
+        
+        // Handle the real scan response
+        if (data.status === 'success' && data.mapping_ids) {
+          // Fetch the actual projects after scan
+          await refreshProjects();
+        } else if (data.message === 'Google Drive not connected') {
+          setConnectionError('Google Drive not connected');
+          setIsConnected(false);
+        } else {
+          setConnectionError(data.message || 'Scan failed');
         }
-        setIsConnected(true);
-        setBackendAvailable(true);
+        
         // Update last connected timestamp
         localStorage.setItem(DRIVE_STORAGE_KEYS.LAST_CONNECTED_AT, String(Date.now()));
       } else if (res.status === 401) {
@@ -399,14 +405,13 @@ export function useDrive() {
           return;
         }
       } else {
-        // Backend unavailable - use demo
-        setProjects(DEMO_PROJECTS);
-        setIsConnected(true);
+        const error = await res.json().catch(() => ({ detail: 'Scan failed' }));
+        console.error('[Drive] Scan error:', error);
+        setConnectionError(error.detail || 'Scan failed');
       }
-    } catch (e) {
-      console.log('Scan failed, using demo data');
-      setProjects(DEMO_PROJECTS);
-      setIsConnected(true);
+    } catch (e: any) {
+      console.error('[Drive] Scan failed:', e);
+      setConnectionError(`Scan failed: ${e.message}`);
     } finally {
       setScanning(false);
     }
