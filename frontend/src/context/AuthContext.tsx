@@ -1,5 +1,10 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 
+const API_URL = import.meta.env.VITE_API_URL || 'https://cerebrum-api.onrender.com';
+const API_BASE = API_URL.replace(/\/?$/, '').endsWith('/api/v1') 
+  ? API_URL 
+  : `${API_URL.replace(/\/?$/, '')}/api/v1`;
+
 interface User {
   id: string;
   email: string;
@@ -32,40 +37,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(false);
   }, []);
 
-  const login = async (email: string, _password: string) => {
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+  const login = async (email: string, password: string) => {
+    const response = await fetch(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Login failed' }));
+      throw new Error(error.detail || 'Login failed');
+    }
+
+    const data = await response.json();
     
-    const mockUser: User = {
-      id: 'e727e727-d547-4d96-b070-2294980e5d85',
-      email,
-      full_name: email.split('@')[0],
-      role: 'user',
-    };
+    // Fetch user profile
+    const userResponse = await fetch(`${API_BASE}/auth/me`, {
+      headers: {
+        'Authorization': `Bearer ${data.access_token}`,
+      },
+    });
+
+    if (!userResponse.ok) {
+      throw new Error('Failed to fetch user profile');
+    }
+
+    const userData = await userResponse.json();
     
-    localStorage.setItem('auth_token', 'mock-token');
-    localStorage.setItem('user', JSON.stringify(mockUser));
-    setUser(mockUser);
+    localStorage.setItem('auth_token', data.access_token);
+    localStorage.setItem('refresh_token', data.refresh_token);
+    localStorage.setItem('user', JSON.stringify(userData));
+    setUser(userData);
   };
 
-  const register = async (email: string, _password: string, fullName: string) => {
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    
-    const mockUser: User = {
-      id: 'e727e727-d547-4d96-b070-2294980e5d85',
-      email,
-      full_name: fullName,
-      role: 'user',
-    };
-    
-    localStorage.setItem('auth_token', 'mock-token');
-    localStorage.setItem('user', JSON.stringify(mockUser));
-    setUser(mockUser);
+  const register = async (email: string, password: string, fullName: string) => {
+    const response = await fetch(`${API_BASE}/auth/register`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password, full_name: fullName }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Registration failed' }));
+      throw new Error(error.detail || 'Registration failed');
+    }
+
+    // After registration, log the user in
+    await login(email, password);
   };
 
   const logout = () => {
     localStorage.removeItem('auth_token');
+    localStorage.removeItem('refresh_token');
     localStorage.removeItem('user');
     setUser(null);
   };
