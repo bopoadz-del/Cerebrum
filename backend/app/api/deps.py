@@ -1,12 +1,23 @@
-from typing import Generator, Optional
+from typing import Generator, Optional, AsyncGenerator
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
 
 from app.core.config import settings
 from app.db.session import db_manager
 from app.models.user import User  # Export User for type hints
+
+# --- Async DB dependency ---
+_async_engine = create_async_engine(settings.async_database_url, pool_pre_ping=True)
+AsyncSessionLocal = sessionmaker(bind=_async_engine, class_=AsyncSession, expire_on_commit=False)
+
+async def get_async_db() -> AsyncGenerator[AsyncSession, None]:
+    async with AsyncSessionLocal() as session:
+        yield session
+# --- end async DB dependency ---
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
 
@@ -125,18 +136,6 @@ async def get_current_admin_user(
 # Re-export User for convenience
 __all__ = [
     'get_db', 'get_db_session', 'get_current_user', 
-    'get_current_user_id', 'get_current_admin_user', 'User'
+    'get_current_user_id', 'get_current_admin_user', 'User',
+    'get_async_db', 'get_current_user_async'
 ]
-
-# --- Async DB dependency (added to fix async endpoints using await db.execute) ---
-from typing import AsyncGenerator
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
-
-_async_engine = create_async_engine(settings.async_database_url, pool_pre_ping=True)
-AsyncSessionLocal = sessionmaker(bind=_async_engine, class_=AsyncSession, expire_on_commit=False)
-
-async def get_async_db() -> AsyncGenerator[AsyncSession, None]:
-    async with AsyncSessionLocal() as session:
-        yield session
-# --- end async DB dependency ---
