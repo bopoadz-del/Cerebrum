@@ -134,52 +134,27 @@ export function useDrive() {
     }
   }, [user, checkConnection]);
 
-  // Handle OAuth callback from popup/redirect
+  // Handle OAuth callback from popup (via postMessage)
+  // Note: The callback endpoint is called by Google's redirect, not by us.
+  // We just need to verify the callback succeeded and update state.
   const handleAuthCallback = useCallback((code: string, state: string) => {
-    // Verify state matches
+    // Verify state matches (CSRF protection)
     const storedState = localStorage.getItem('google_oauth_state');
     console.log('DEBUG: Received state:', state);
     console.log('DEBUG: Stored state:', storedState);
     
     if (storedState && storedState !== state) {
       console.error('OAuth state mismatch - possible CSRF attack');
-      console.log('DEBUG: States don\'t match, but continuing anyway for debugging');
-      // For now, continue despite mismatch to debug
+      return;
     }
     
-    // Exchange code for token via backend
-    exchangeCodeForToken(code, state);
+    // Tokens were already saved by the callback endpoint.
+    // Just update local state and refresh projects.
+    localStorage.setItem('google_drive_connected', 'true');
+    setIsConnected(true);
+    setBackendAvailable(true);
+    scanDrive();
   }, []);
-
-  // Exchange OAuth code for access token
-  const exchangeCodeForToken = async (code: string, state: string) => {
-    setScanning(true);
-    try {
-      const res = await fetch(`${API_URL}/connectors/google-drive/callback?code=${code}&state=${state}`, {
-        headers: getHeaders()
-      });
-      
-      if (res.ok) {
-        localStorage.setItem('google_drive_connected', 'true');
-        setIsConnected(true);
-        setBackendAvailable(true);
-        scanDrive();
-      } else {
-        // Backend callback failed - simulate success for demo
-        console.log('Backend callback failed, using demo mode');
-        localStorage.setItem('google_drive_connected', 'true');
-        setIsConnected(true);
-        setProjects(DEMO_PROJECTS);
-      }
-    } catch (e) {
-      console.log('Token exchange failed, using demo mode');
-      localStorage.setItem('google_drive_connected', 'true');
-      setIsConnected(true);
-      setProjects(DEMO_PROJECTS);
-    } finally {
-      setScanning(false);
-    }
-  };
 
   // Track if OAuth is already in progress
   const [isConnecting, setIsConnecting] = useState(false);

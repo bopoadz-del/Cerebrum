@@ -328,18 +328,75 @@ async def get_google_drive_auth(
 async def google_drive_callback(
     code: str,
     state: str,
-    db: AsyncSession = Depends(get_async_db),
 ):
     """Handle OAuth callback from Google (called by Google, no auth required)."""
     from fastapi.responses import HTMLResponse
     from app.core.config import settings
+    from app.db.session import db_manager
+    from app.models.integration import IntegrationToken, IntegrationProvider
+    from app.models.user import User
+    from sqlalchemy import select
+    from datetime import datetime, timedelta
     import httpx
     import urllib.parse
     import json
+    import uuid
+    
+    # HTML response helper
+    def make_response(success: bool, message: str, code_val: str = "", state_val: str = ""):
+        code_js = json.dumps(code_val)
+        state_js = json.dumps(state_val)
+        error_js = json.dumps(message)
+        if success:
+            return HTMLResponse(content=f"""
+            <!DOCTYPE html>
+            <html>
+            <head><title>Google Drive Connected</title>
+            <script>
+                if (window.opener) {{
+                    window.opener.postMessage({{
+                        type: 'GOOGLE_DRIVE_AUTH_SUCCESS',
+                        code: {code_js},
+                        state: {state_js}
+                    }}, 'https://cerebrum-frontend.onrender.com');
+                }}
+                setTimeout(() => window.close(), 500);
+            </script></head>
+            <body><h2>Google Drive Connected!</h2><p>You can close this window.</p></body>
+            </html>
+            """)
+        else:
+            return HTMLResponse(content=f"""
+            <!DOCTYPE html>
+            <html>
+            <head><title>Authentication Failed</title>
+            <script>
+                if (window.opener) {{
+                    window.opener.postMessage({{
+                        type: 'GOOGLE_DRIVE_AUTH_ERROR',
+                        error: {error_js}
+                    }}, 'https://cerebrum-frontend.onrender.com');
+                }}
+                setTimeout(() => window.close(), 3000);
+            </script></head>
+            <body><h2>Authentication Failed</h2><p>{message}</p></body>
+            </html>
+            """, status_code=400)
     
     try:
         # URL decode state in case it was encoded
         decoded_state = urllib.parse.unquote(state)
+        
+        # Extract user_id from state (format: nonce:user_id)
+        if ":" in decoded_state:
+            user_id_str = decoded_state.split(":")[-1]
+        else:
+            user_id_str = decoded_state
+        
+        try:
+            user_id = uuid.UUID(user_id_str)
+        except ValueError:
+            return make_response(False, f"Invalid user ID in state: {user_id_str}")
         
         # Exchange code for tokens
         async with httpx.AsyncClient(timeout=30) as client:
@@ -358,66 +415,81 @@ async def google_drive_callback(
             token_data = resp.json()
         
         # Get user email from Google
-        async with httpx.AsyncClient() as client:
-            userinfo = await client.get(
-                "https://www.googleapis.com/oauth2/v2/userinfo",
-                headers={"Authorization": f"Bearer {token_data['access_token']}"}
-            )
-            email = userinfo.json().get("email") if userinfo.status_code == 200 else None
+        email = None
+        try:
+            async with httpx.AsyncClient() as client:
+                userinfo = await client.get(
+                    "https://www.googleapis.com/oauth2/v2/userinfo",
+                    headers={"Authorization": f"Bearer {token_data['access_token']}"}
+                )
+                if userinfo.status_code == 200:
+                    email = userinfo.json().get("email")
+        except Exception:
+            pass  # Email is optional
         
-        # Properly escape values for JavaScript using JSON encoding
-        code_js = json.dumps(code)
-        state_js = json.dumps(state)
+        # Save tokens to database using sync session
+        try:
+            db_manager.initialize()
+            from sqlalchemy.orm import sessionmaker
+            Session = sessionmaker(bind=db_manager.engine)
+            db = Session()
+            
+            # Verify user exists
+            user = db.query(User).filter(User.id == user_id).first()
+            if not user:
+                db.close()
+                return make_response(False, "User not found")
+            
+            # Check for existing token
+            existing = db.query(IntegrationToken).filter(
+                IntegrationToken.user_id == user_id,
+                IntegrationToken.service == IntegrationProvider.GOOGLE_DRIVE
+            ).first()
+            
+            expires_in = int(token_data.get('expires_in', 3600) or 3600)
+            expiry = datetime.utcnow() + timedelta(seconds=expires_in)
+            scopes = token_data.get('scope', '') or ''
+            
+            if existing:
+                existing.access_token = token_data['access_token']
+                existing.refresh_token = token_data.get('refresh_token') or existing.refresh_token
+                existing.scopes = scopes
+                existing.expiry = expiry
+                existing.client_id = settings.GOOGLE_CLIENT_ID
+                existing.client_secret = settings.GOOGLE_CLIENT_SECRET
+                existing.is_active = True
+                existing.revoked_at = None
+                existing.rotation_count = (existing.rotation_count or 0) + 1
+                if email:
+                    existing.account_email = email
+            else:
+                token = IntegrationToken(
+                    token_id=uuid.uuid4().hex,
+                    user_id=user_id,
+                    service=IntegrationProvider.GOOGLE_DRIVE,
+                    access_token=token_data['access_token'],
+                    refresh_token=token_data.get('refresh_token'),
+                    token_uri='https://oauth2.googleapis.com/token',
+                    client_id=settings.GOOGLE_CLIENT_ID,
+                    client_secret=settings.GOOGLE_CLIENT_SECRET,
+                    scopes=scopes,
+                    expiry=expiry,
+                    is_active=True,
+                    account_email=email,
+                )
+                db.add(token)
+            
+            db.commit()
+            db.close()
+            
+        except Exception as db_err:
+            return make_response(False, f"Database error: {str(db_err)}")
         
-        # Return success HTML that sends postMessage to parent window
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Google Drive Connected</title>
-            <script>
-                if (window.opener) {{
-                    window.opener.postMessage({{
-                        type: 'GOOGLE_DRIVE_AUTH_SUCCESS',
-                        code: {code_js},
-                        state: {state_js}
-                    }}, 'https://cerebrum-frontend.onrender.com');
-                }}
-                setTimeout(() => window.close(), 500);
-            </script>
-        </head>
-        <body>
-            <h2>Google Drive Connected!</h2>
-            <p>You can close this window.</p>
-        </body>
-        </html>
-        """
-        return HTMLResponse(content=html_content)
+        # Return success HTML
+        return make_response(True, "Success", code, state)
         
     except Exception as e:
-        error_js = json.dumps(str(e))
-        error_html = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Authentication Failed</title>
-            <script>
-                if (window.opener) {{
-                    window.opener.postMessage({{
-                        type: 'GOOGLE_DRIVE_AUTH_ERROR',
-                        error: {error_js}
-                    }}, 'https://cerebrum-frontend.onrender.com');
-                }}
-                setTimeout(() => window.close(), 3000);
-            </script>
-        </head>
-        <body>
-            <h2>Authentication Failed</h2>
-            <p>{str(e)}</p>
-        </body>
-        </html>
-        """
-        return HTMLResponse(content=error_html, status_code=400)
+        return make_response(False, str(e))
 
 
 # Also need the /auth/url endpoint that the frontend expects
