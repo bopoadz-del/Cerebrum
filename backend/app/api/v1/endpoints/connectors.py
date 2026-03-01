@@ -618,16 +618,35 @@ async def search_google_drive(
 
 @router.post("/google-drive/index")
 async def index_google_drive(
+    project_id: Optional[str] = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
 ) -> Dict[str, Any]:
-    """Trigger indexing of Google Drive files (placeholder)."""
-    # TODO: Implement actual indexing
-    return {
-        "files_scanned": 0,
-        "indexed": 0,
-        "message": "Indexing queued - implementation pending",
-    }
+    """Trigger indexing of Google Drive files using ZVec."""
+    import uuid
+    from app.db.session import db_manager
+    from app.services.drive_project_sync import discover_and_upsert_drive_projects
+    
+    db_manager.initialize()
+    from sqlalchemy.orm import sessionmaker
+    SessionLocal = sessionmaker(bind=db_manager._sync_engine)
+    sync_db = SessionLocal()
+    
+    try:
+        # Run discovery and indexing
+        result = discover_and_upsert_drive_projects(
+            sync_db,
+            uuid.UUID(str(current_user.id)),
+            min_score=1.0,
+            max_root_folders=50,
+            index_now=True,  # This triggers ZVec indexing
+            max_files_per_project=100,
+        )
+        sync_db.close()
+        return result
+    except Exception as e:
+        sync_db.close()
+        raise HTTPException(status_code=500, detail=f"Indexing failed: {str(e)}")
 
 
 @router.get("/google-drive/files")
@@ -654,6 +673,52 @@ async def list_google_drive_files(
     except Exception as e:
         sync_db.close()
         raise HTTPException(status_code=500, detail=f"Failed to list files: {str(e)}")
+
+
+@router.get("/google-drive/projects/{project_id}/files")
+async def list_project_files(
+    project_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db),
+) -> List[Dict[str, Any]]:
+    """List files within a specific Google Drive project (folder)."""
+    import uuid
+    from sqlalchemy import select
+    from app.models.google_drive_project import GoogleDriveProject
+    from app.db.session import db_manager
+    from app.services.google_drive_service import GoogleDriveService
+    
+    # Get the project to find its root folder
+    result = await db.execute(
+        select(GoogleDriveProject).where(
+            GoogleDriveProject.project_id == project_id,
+            GoogleDriveProject.user_id == current_user.id,
+        )
+    )
+    project = result.scalar_one_or_none()
+    
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # List files from the project's root folder
+    db_manager.initialize()
+    from sqlalchemy.orm import sessionmaker
+    SessionLocal = sessionmaker(bind=db_manager._sync_engine)
+    sync_db = SessionLocal()
+    
+    try:
+        svc = GoogleDriveService(sync_db)
+        files = await svc.list_files(
+            uuid.UUID(str(current_user.id)), 
+            project.root_folder_id
+        )
+        sync_db.close()
+        return files
+    except Exception as e:
+        sync_db.close()
+        raise HTTPException(status_code=500, detail=f"Failed to list files: {str(e)}")
+
+
 @router.post(
     "/google-drive/disconnect",
     summary="Disconnect Google Drive",
