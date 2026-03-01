@@ -801,3 +801,40 @@ async def list_google_drive_projects(
         )
 
     return GoogleDriveProjectsResponse(projects=projects)
+
+
+@router.get("/google-drive/debug")
+async def debug_google_drive(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db),
+) -> Dict[str, Any]:
+    """Debug endpoint to check database state."""
+    from sqlalchemy import text
+    
+    # Check google_drive_projects count
+    result = await db.execute(
+        text("SELECT COUNT(*) FROM google_drive_projects WHERE user_id = :user_id::UUID"),
+        {"user_id": str(current_user.id)}
+    )
+    project_count = result.scalar()
+    
+    # Check integration_tokens
+    result2 = await db.execute(
+        text("SELECT COUNT(*) FROM integration_tokens WHERE user_id = :user_id::UUID AND service = 'google_drive'"),
+        {"user_id": str(current_user.id)}
+    )
+    token_count = result2.scalar()
+    
+    # Get sample projects
+    result3 = await db.execute(
+        text("SELECT project_id, root_folder_name, deleted FROM google_drive_projects WHERE user_id = :user_id::UUID LIMIT 5"),
+        {"user_id": str(current_user.id)}
+    )
+    projects = [dict(row) for row in result3.mappings()]
+    
+    return {
+        "user_id": str(current_user.id),
+        "project_count": project_count,
+        "token_count": token_count,
+        "sample_projects": projects,
+    }
