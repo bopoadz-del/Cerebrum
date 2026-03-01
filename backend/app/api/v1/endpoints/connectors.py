@@ -263,15 +263,29 @@ async def get_google_drive_status(
 ) -> GoogleDriveStatusResponse:
     """Check if Google Drive is connected for the current user."""
     import logging
+    from sqlalchemy import text
+    from datetime import datetime, timezone
+    
     logger = logging.getLogger(__name__)
     
     try:
         user_id = str(current_user.id)
         logger.info(f"Checking Drive status for user {user_id}")
         
-        token = await get_google_drive_token(db, user_id)
+        # Use raw SQL for reliability
+        result = await db.execute(
+            text("""
+                SELECT account_email, is_active, expiry, updated_at, scopes
+                FROM integration_tokens 
+                WHERE user_id = :user_id::UUID 
+                AND service = 'google_drive'
+                AND is_active = true
+                LIMIT 1
+            """).bindparams(user_id=user_id)
+        )
+        row = result.fetchone()
         
-        if not token:
+        if not row:
             logger.info(f"No Drive token found for user {user_id}")
             return GoogleDriveStatusResponse(
                 connected=False,
@@ -279,22 +293,24 @@ async def get_google_drive_status(
                 last_sync="",
             )
         
-        # Check if token is expired
-        from datetime import datetime, timezone
-        is_expired = False
-        if token.expiry:
-            # Handle both naive and aware datetimes
-            expiry = token.expiry
-            if expiry.tzinfo is None:
-                expiry = expiry.replace(tzinfo=timezone.utc)
-            is_expired = expiry < datetime.now(timezone.utc)
+        account_email, is_active, expiry, updated_at, scopes = row
         
-        logger.info(f"Drive token found for user {user_id}, expired={is_expired}")
+        # Check if token is expired
+        is_expired = False
+        if expiry:
+            try:
+                if expiry.tzinfo is None:
+                    expiry = expiry.replace(tzinfo=timezone.utc)
+                is_expired = expiry < datetime.now(timezone.utc)
+            except:
+                pass
+        
+        logger.info(f"Drive token found for user {user_id}, expired={is_expired}, active={is_active}")
         
         return GoogleDriveStatusResponse(
-            connected=True and not is_expired,
-            email=token.account_email or current_user.email or "",
-            last_sync=token.updated_at.isoformat() if token.updated_at else "",
+            connected=is_active and not is_expired,
+            email=account_email or current_user.email or "",
+            last_sync=updated_at.isoformat() if updated_at else "",
         )
     except Exception as e:
         # Log error and return not connected
@@ -859,6 +875,7 @@ async def debug_google_drive(
     from sqlalchemy import text
     import traceback
     import uuid
+    from datetime import datetime, timezone
     
     try:
         user_id = uuid.UUID(str(current_user.id))
@@ -884,11 +901,51 @@ async def debug_google_drive(
         )
         project_count = result.scalar()
         
-        # Check integration_tokens
-        result2 = await db.execute(
-            text("SELECT COUNT(*) FROM integration_tokens WHERE user_id = :user_id AND service = 'google_drive'").bindparams(user_id=user_id)
+        # Check integration_tokens table exists
+        token_table_check = await db.execute(
+            text("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'integration_tokens')")
         )
-        token_count = result2.scalar()
+        token_table_exists = token_table_check.scalar()
+        
+        token_details = []
+        token_count = 0
+        
+        if token_table_exists:
+            # Check integration_tokens count
+            result2 = await db.execute(
+                text("SELECT COUNT(*) FROM integration_tokens WHERE user_id = :user_id AND service = 'google_drive'").bindparams(user_id=user_id)
+            )
+            token_count = result2.scalar()
+            
+            # Get token details (without sensitive data)
+            result_tokens = await db.execute(
+                text("""
+                    SELECT token_id, service, is_active, expiry, account_email, scopes, updated_at
+                    FROM integration_tokens 
+                    WHERE user_id = :user_id
+                """).bindparams(user_id=user_id)
+            )
+            for row in result_tokens.fetchall():
+                token_id, service, is_active, expiry, account_email, scopes, updated_at = row
+                # Check if expired
+                is_expired = False
+                if expiry:
+                    try:
+                        if expiry.tzinfo is None:
+                            expiry = expiry.replace(tzinfo=timezone.utc)
+                        is_expired = expiry < datetime.now(timezone.utc)
+                    except:
+                        pass
+                token_details.append({
+                    "token_id": token_id,
+                    "service": service,
+                    "is_active": is_active,
+                    "is_expired": is_expired,
+                    "expiry": expiry.isoformat() if expiry else None,
+                    "account_email": account_email,
+                    "scopes_preview": scopes[:50] + "..." if scopes and len(scopes) > 50 else scopes,
+                    "updated_at": updated_at.isoformat() if updated_at else None,
+                })
         
         # Get ALL projects (for debugging)
         result3 = await db.execute(
@@ -899,10 +956,12 @@ async def debug_google_drive(
         
         return {
             "table_exists": table_exists,
+            "token_table_exists": token_table_exists,
             "user_id": str(current_user.id),
             "total_projects_in_db": total_projects,
             "project_count_for_user": project_count,
             "token_count": token_count,
+            "token_details": token_details,
             "sample_projects": all_projects,
         }
     except Exception as e:
