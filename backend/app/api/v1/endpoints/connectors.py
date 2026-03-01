@@ -261,20 +261,30 @@ async def get_google_drive_status(
     db: AsyncSession = Depends(get_async_db),
 ) -> GoogleDriveStatusResponse:
     """Check if Google Drive is connected for the current user."""
-    token = await get_google_drive_token(db, str(current_user.id))
-    
-    if not token:
+    try:
+        token = await get_google_drive_token(db, str(current_user.id))
+        
+        if not token:
+            return GoogleDriveStatusResponse(
+                connected=False,
+                email="",
+                last_sync="",
+            )
+        
+        return GoogleDriveStatusResponse(
+            connected=True,
+            email=token.account_email or current_user.email,
+            last_sync=token.updated_at.isoformat() if token.updated_at else "",
+        )
+    except Exception as e:
+        # Log error and return not connected
+        import logging
+        logging.getLogger(__name__).error(f"Error in get_google_drive_status: {e}")
         return GoogleDriveStatusResponse(
             connected=False,
             email="",
             last_sync="",
         )
-    
-    return GoogleDriveStatusResponse(
-        connected=True,
-        email=current_user.email,
-        last_sync=token.updated_at.isoformat() if token.updated_at else "",
-    )
 
 
 @router.get(
