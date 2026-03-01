@@ -142,9 +142,44 @@ function DesktopLayout() {
 
 function MobileLayout() {
   const [activeTab, setActiveTab] = useState<'projects' | 'chat' | 'outcomes' | 'settings'>('chat');
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>('1');
-  const [selectedChatId, setSelectedChatId] = useState<string | null>('c1');
-  const [isGoogleDriveConnected, setIsGoogleDriveConnected] = useState(false);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
+  
+  // Use Drive integration hook (same as desktop)
+  const { 
+    projects, 
+    scanning, 
+    isConnected, 
+    loading,
+    backendAvailable,
+    connectionError,
+    connectDrive, 
+    disconnectDrive,
+    scanDrive,
+    refreshProjects,
+    getProjectFiles
+  } = useDrive();
+
+  // Update selected project when projects load
+  useEffect(() => {
+    if (projects.length > 0 && !selectedProjectId) {
+      setSelectedProjectId(projects[0].id);
+    }
+  }, [projects, selectedProjectId]);
+
+  const selectedProject = projects.find(p => p.id === selectedProjectId);
+
+  // Show loading state while checking Drive connection
+  if (loading) {
+    return (
+      <div className="flex h-screen bg-white items-center justify-center">
+        <div className="flex items-center gap-3 text-gray-500">
+          <Loader2 className="w-6 h-6 animate-spin" />
+          <span>Checking Google Drive...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-screen bg-white">
@@ -152,6 +187,7 @@ function MobileLayout() {
       <div className="flex-1 overflow-hidden">
         {activeTab === 'projects' && (
           <MobileProjects
+            projects={projects}
             selectedProjectId={selectedProjectId}
             selectedChatId={selectedChatId}
             onSelectProject={(id) => {
@@ -159,14 +195,21 @@ function MobileLayout() {
               setActiveTab('chat');
             }}
             onSelectChat={setSelectedChatId}
-            isGoogleDriveConnected={isGoogleDriveConnected}
-            onConnectGoogleDrive={() => setIsGoogleDriveConnected(!isGoogleDriveConnected)}
+            isDriveConnected={isConnected}
+            isScanning={scanning}
+            isDemoMode={!backendAvailable}
+            connectionError={connectionError}
+            onConnectDrive={connectDrive}
+            onDisconnectDrive={disconnectDrive}
+            onScanDrive={scanDrive}
+            onRefreshProjects={refreshProjects}
+            getProjectFiles={getProjectFiles}
           />
         )}
         {activeTab === 'chat' && (
           <MobileChat
-            projectName="Q4 Financial Analysis"
-            chatTitle="Revenue breakdown"
+            projectName={selectedProject?.name || 'Select a project'}
+            chatTitle="New Chat"
           />
         )}
         {activeTab === 'outcomes' && <MobileOutcomes />}
