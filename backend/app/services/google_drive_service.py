@@ -106,28 +106,48 @@ class GoogleDriveService:
         self.db.commit()
 
     def get_credentials(self, user_id: uuid.UUID) -> Optional[Credentials]:
-        token = self.db.query(IntegrationToken).filter(
-            IntegrationToken.user_id == user_id,
-            IntegrationToken.service == IntegrationProvider.GOOGLE_DRIVE,
-            IntegrationToken.is_active == True
-        ).first()
+        # Use raw query to avoid column mismatch during migrations
+        from sqlalchemy import text
+        result = self.db.execute(
+            text("""
+                SELECT access_token, refresh_token, expiry, scopes, token_uri, client_id, client_secret
+                FROM integration_tokens 
+                WHERE user_id = :user_id 
+                AND service = 'google_drive' 
+                AND is_active = true
+                LIMIT 1
+            """),
+            {"user_id": str(user_id)}
+        )
+        row = result.fetchone()
 
-        if not token:
+        if not row:
             return None
 
+        access_token, refresh_token, expiry, scopes, token_uri, client_id, client_secret = row
+
         creds = Credentials(
-            token=token.access_token,
-            refresh_token=token.refresh_token,
-            token_uri=token.token_uri or 'https://oauth2.googleapis.com/token',
-            client_id=token.client_id or self.client_id,
-            client_secret=token.client_secret or self.client_secret,
+            token=access_token,
+            refresh_token=refresh_token,
+            token_uri=token_uri or 'https://oauth2.googleapis.com/token',
+            client_id=client_id or self.client_id,
+            client_secret=client_secret or self.client_secret,
             scopes=self.SCOPES
         )
 
         if creds.expired and creds.refresh_token:
             try:
                 creds.refresh(Request())
-                token.access_token = creds.token
+                # Update token in DB using raw SQL
+                self.db.execute(
+                    text("""
+                        UPDATE integration_tokens 
+                        SET access_token = :access_token
+                        WHERE user_id = :user_id 
+                        AND service = 'google_drive'
+                    """),
+                    {"access_token": creds.token, "user_id": str(user_id)}
+                )
                 self.db.commit()
             except Exception:
                 return None
