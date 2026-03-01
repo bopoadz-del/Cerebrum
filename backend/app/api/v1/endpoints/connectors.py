@@ -239,10 +239,11 @@ async def get_google_drive_token(
     user_id: str
 ) -> Optional[IntegrationToken]:
     """Get active Google Drive token for user."""
+    import uuid
     result = await db.execute(
         select(IntegrationToken).where(
             and_(
-                IntegrationToken.user_id == user_id,
+                IntegrationToken.user_id == uuid.UUID(user_id),
                 IntegrationToken.service == "google_drive",
                 IntegrationToken.is_active == True
             )
