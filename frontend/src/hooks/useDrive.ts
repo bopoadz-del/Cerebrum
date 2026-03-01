@@ -137,7 +137,7 @@ export function useDrive() {
   // Handle OAuth callback from popup (via postMessage)
   // Note: The callback endpoint is called by Google's redirect, not by us.
   // We just need to verify the callback succeeded and update state.
-  const handleAuthCallback = useCallback((code: string, state: string) => {
+  const handleAuthCallback = useCallback((_code: string, state: string) => {
     // Verify state matches (CSRF protection)
     const storedState = localStorage.getItem('google_oauth_state');
     console.log('DEBUG: Received state:', state);
