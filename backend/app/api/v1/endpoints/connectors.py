@@ -270,7 +270,7 @@ async def get_google_drive_status(
     
     try:
         user_id = str(current_user.id)
-        logger.info(f"Checking Drive status for user {user_id}")
+        logger.info(f"Checking Drive status for user_id={user_id}, email={current_user.email}")
         
         # Use raw SQL for reliability
         result = await db.execute(
@@ -284,6 +284,17 @@ async def get_google_drive_status(
             """).bindparams(user_id=user_id)
         )
         row = result.fetchone()
+        
+        # Also check all tokens for this user (for debugging)
+        all_tokens = await db.execute(
+            text("""
+                SELECT service, is_active, account_email
+                FROM integration_tokens 
+                WHERE user_id = :user_id::UUID
+            """).bindparams(user_id=user_id)
+        )
+        token_list = [{"service": r[0], "active": r[1], "email": r[2]} for r in all_tokens.fetchall()]
+        logger.info(f"All tokens for user {user_id}: {token_list}")
         
         if not row:
             logger.info(f"No Drive token found for user {user_id}")
@@ -474,6 +485,10 @@ async def google_drive_callback(
         
         # Save tokens to database using sync session
         try:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"Saving Google Drive token for user {user_id}")
+            
             db_manager.initialize()
             from sqlalchemy.orm import sessionmaker
             Session = sessionmaker(bind=db_manager._sync_engine)
@@ -482,6 +497,7 @@ async def google_drive_callback(
             # Verify user exists
             user = db.query(User).filter(User.id == user_id).first()
             if not user:
+                logger.error(f"User {user_id} not found")
                 db.close()
                 return make_response(False, "User not found")
             
@@ -496,6 +512,7 @@ async def google_drive_callback(
             scopes = token_data.get('scope', '') or ''
             
             if existing:
+                logger.info(f"Updating existing token for user {user_id}")
                 existing.access_token = token_data['access_token']
                 existing.refresh_token = token_data.get('refresh_token') or existing.refresh_token
                 existing.scopes = scopes
@@ -508,6 +525,7 @@ async def google_drive_callback(
                 if email:
                     existing.account_email = email
             else:
+                logger.info(f"Creating new token for user {user_id}")
                 token = IntegrationToken(
                     token_id=uuid.uuid4().hex,
                     user_id=user_id,
@@ -525,9 +543,11 @@ async def google_drive_callback(
                 db.add(token)
             
             db.commit()
+            logger.info(f"Token saved successfully for user {user_id}")
             db.close()
             
         except Exception as db_err:
+            logger.error(f"Database error saving token: {db_err}", exc_info=True)
             return make_response(False, f"Database error: {str(db_err)}")
         
         # Return success HTML
