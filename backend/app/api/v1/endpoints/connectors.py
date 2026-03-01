@@ -239,7 +239,7 @@ async def get_google_drive_token(
     user_id: str
 ) -> Optional[IntegrationToken]:
     """Get active Google Drive token for user."""
-    result = db.execute(
+    result = await db.execute(
         select(IntegrationToken).where(
             and_(
                 IntegrationToken.user_id == user_id,
