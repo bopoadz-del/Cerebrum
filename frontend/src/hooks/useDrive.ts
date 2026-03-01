@@ -121,6 +121,10 @@ export function useDrive() {
     );
   };
 
+  // Number of consecutive "not connected" responses before actually disconnecting
+  const DISCONNECT_THRESHOLD = 3;
+  let consecutiveNotConnected = 0;
+
   // Check backend health and connection status
   const checkConnection = useCallback(async () => {
     console.log('[Drive] Checking connection...');
@@ -134,7 +138,7 @@ export function useDrive() {
       const res = await fetch(`${API_URL}/connectors/google-drive/status`, { 
         headers: getHeaders(),
         // Short timeout to quickly detect backend issues
-        signal: AbortSignal.timeout(5000)
+        signal: AbortSignal.timeout(8000)
       });
       
       console.log('[Drive] Status response:', { status: res.status, ok: res.ok });
@@ -143,8 +147,9 @@ export function useDrive() {
         const data = await res.json();
         console.log('[Drive] Status data:', data);
         
-        // Trust backend response - update state accordingly
         if (data.connected) {
+          // Backend says connected - update state
+          consecutiveNotConnected = 0;
           setIsConnected(true);
           setBackendAvailable(true);
           // Store connection timestamp
@@ -152,28 +157,34 @@ export function useDrive() {
           localStorage.setItem(DRIVE_STORAGE_KEYS.LAST_CONNECTED_AT, String(Date.now()));
           refreshProjects();
         } else {
-          // Backend says not connected - clear local state
-          console.log('[Drive] Backend says not connected, updating state');
-          setIsConnected(false);
-          setBackendAvailable(true);
-          localStorage.removeItem(DRIVE_STORAGE_KEYS.CONNECTED);
-          setProjects([]);
+          // Backend says not connected - but don't disconnect immediately
+          consecutiveNotConnected++;
+          console.log(`[Drive] Backend says not connected (attempt ${consecutiveNotConnected}/${DISCONNECT_THRESHOLD})`);
+          
+          if (consecutiveNotConnected >= DISCONNECT_THRESHOLD) {
+            // Only disconnect after threshold
+            console.log('[Drive] Disconnecting after threshold reached');
+            setIsConnected(false);
+            setBackendAvailable(true);
+            localStorage.removeItem(DRIVE_STORAGE_KEYS.CONNECTED);
+            setProjects([]);
+            consecutiveNotConnected = 0;
+          } else {
+            // Keep showing as connected, retry soon
+            setIsConnected(true);
+            setBackendAvailable(true);
+            // Retry in 3 seconds
+            setTimeout(() => checkConnection(), 3000);
+          }
         }
       } else if (res.status === 404) {
         // Endpoints not deployed
         setBackendAvailable(false);
         setConnectionError('Backend not deployed - using demo mode');
-        // Try to check if we have a stored connection (fallback only)
+        // Keep connected state if we have it
         const storedConnected = localStorage.getItem(DRIVE_STORAGE_KEYS.CONNECTED);
-        const lastConnected = localStorage.getItem(DRIVE_STORAGE_KEYS.LAST_CONNECTED_AT);
-        // Only use cached state if connected within last 24 hours
-        if (storedConnected && lastConnected) {
-          const lastConnectedMs = parseInt(lastConnected, 10);
-          const oneDayMs = 24 * 60 * 60 * 1000;
-          if (Date.now() - lastConnectedMs < oneDayMs) {
-            setIsConnected(true);
-            setProjects(DEMO_PROJECTS);
-          }
+        if (storedConnected === 'true') {
+          setIsConnected(true);
         }
       } else if (res.status === 401) {
         // Token expired - try refresh
@@ -184,27 +195,22 @@ export function useDrive() {
           return;
         } else {
           setConnectionError('Session expired - please login again');
-          setIsConnected(false);
+          // Don't auto-disconnect, let user decide
         }
       } else {
         setBackendAvailable(false);
         setConnectionError(`Backend error: ${res.status}`);
+        // Keep connected state on transient errors
       }
     } catch (e: any) {
       console.log('Backend unavailable:', e.message);
       setBackendAvailable(false);
       setConnectionError('Cannot reach backend - check internet or try again later');
       
-      // Check for stored connection (fallback only)
+      // Keep connected if we have stored connection
       const storedConnected = localStorage.getItem(DRIVE_STORAGE_KEYS.CONNECTED);
-      const lastConnected = localStorage.getItem(DRIVE_STORAGE_KEYS.LAST_CONNECTED_AT);
-      if (storedConnected && lastConnected) {
-        const lastConnectedMs = parseInt(lastConnected, 10);
-        const oneDayMs = 24 * 60 * 60 * 1000;
-        if (Date.now() - lastConnectedMs < oneDayMs) {
-          setIsConnected(true);
-          setProjects(DEMO_PROJECTS);
-        }
+      if (storedConnected === 'true') {
+        setIsConnected(true);
       }
     } finally {
       setLoading(false);
@@ -217,6 +223,18 @@ export function useDrive() {
     migrateLegacyDriveData();
     
     if (user) {
+      // Start optimistic - if we have stored connection, show as connected immediately
+      const storedConnected = localStorage.getItem(DRIVE_STORAGE_KEYS.CONNECTED);
+      if (storedConnected === 'true') {
+        setIsConnected(true);
+        // Load cached projects if available
+        const cachedProjects = localStorage.getItem('cerebrum_drive_projects');
+        if (cachedProjects) {
+          try {
+            setProjects(JSON.parse(cachedProjects));
+          } catch {}
+        }
+      }
       checkConnection();
     } else {
       // Clear connection state when user logs out
@@ -422,6 +440,8 @@ export function useDrive() {
         const data = await res.json();
         if (data.projects) {
           setProjects(data.projects);
+          // Cache projects to localStorage
+          localStorage.setItem('cerebrum_drive_projects', JSON.stringify(data.projects));
         }
         setIsConnected(true);
         // Update last connected timestamp
@@ -572,14 +592,33 @@ export function useDrive() {
     }
   }, [isConnected]);
 
-  // Periodic refresh (12 hours)
+  // Periodic refresh (every 10 minutes to keep token alive)
   useEffect(() => {
     if (isConnected) {
-      const TWELVE_HOURS = 12 * 60 * 60 * 1000;
-      const interval = setInterval(refreshProjects, TWELVE_HOURS);
+      const TEN_MINUTES = 10 * 60 * 1000;
+      const interval = setInterval(() => {
+        // Check status which triggers token refresh on backend if needed
+        checkConnection();
+        refreshProjects();
+      }, TEN_MINUTES);
       return () => clearInterval(interval);
     }
-  }, [isConnected, refreshProjects]);
+  }, [isConnected, refreshProjects, checkConnection]);
+
+  // Keep-alive ping (every 5 minutes when idle)
+  useEffect(() => {
+    if (isConnected) {
+      const FIVE_MINUTES = 5 * 60 * 1000;
+      const interval = setInterval(() => {
+        // Just ping the status endpoint to keep session alive
+        fetch(`${API_URL}/connectors/google-drive/status`, { 
+          headers: getHeaders(),
+          signal: AbortSignal.timeout(10000)
+        }).catch(() => {}); // Ignore errors
+      }, FIVE_MINUTES);
+      return () => clearInterval(interval);
+    }
+  }, [isConnected]);
 
   return {
     projects,

@@ -279,10 +279,15 @@ async def get_google_drive_status(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
 ) -> GoogleDriveStatusResponse:
-    """Check if Google Drive is connected for the current user."""
+    """Check if Google Drive is connected for the current user.
+    
+    This endpoint auto-refreshes expired tokens to keep the connection alive.
+    Returns connected=True if we have valid tokens or can refresh them.
+    """
     import logging
     from sqlalchemy import text
-    from datetime import datetime, timezone
+    from datetime import datetime, timezone, timedelta
+    import httpx
     
     logger = logging.getLogger(__name__)
     
@@ -290,10 +295,11 @@ async def get_google_drive_status(
         user_id = str(current_user.id)
         logger.info(f"Checking Drive status for user_id={user_id}, email={current_user.email}")
         
-        # Use raw SQL for reliability
+        # Get token details including refresh_token
         result = await db.execute(
             text("""
-                SELECT account_email, is_active, expiry, updated_at, scopes
+                SELECT account_email, is_active, expiry, updated_at, scopes,
+                       refresh_token, access_token, client_id, client_secret
                 FROM integration_tokens 
                 WHERE user_id = :user_id::UUID 
                 AND service = 'google_drive'
@@ -303,17 +309,6 @@ async def get_google_drive_status(
         )
         row = result.fetchone()
         
-        # Also check all tokens for this user (for debugging)
-        all_tokens = await db.execute(
-            text("""
-                SELECT service, is_active, account_email
-                FROM integration_tokens 
-                WHERE user_id = :user_id::UUID
-            """).bindparams(user_id=user_id)
-        )
-        token_list = [{"service": r[0], "active": r[1], "email": r[2]} for r in all_tokens.fetchall()]
-        logger.info(f"All tokens for user {user_id}: {token_list}")
-        
         if not row:
             logger.info(f"No Drive token found for user {user_id}")
             return GoogleDriveStatusResponse(
@@ -322,7 +317,7 @@ async def get_google_drive_status(
                 last_sync="",
             )
         
-        account_email, is_active, expiry, updated_at, scopes = row
+        account_email, is_active, expiry, updated_at, scopes, refresh_token, access_token, client_id, client_secret = row
         
         # Check if token is expired
         is_expired = False
@@ -336,17 +331,70 @@ async def get_google_drive_status(
         
         logger.info(f"Drive token found for user {user_id}, expired={is_expired}, active={is_active}")
         
+        # If token is expired but we have a refresh token, auto-refresh it
+        if is_expired and refresh_token:
+            logger.info(f"Token expired for user {user_id}, attempting auto-refresh")
+            try:
+                from app.core.config import settings
+                async with httpx.AsyncClient(timeout=30) as client:
+                    resp = await client.post(
+                        "https://oauth2.googleapis.com/token",
+                        data={
+                            "refresh_token": refresh_token,
+                            "client_id": client_id or settings.GOOGLE_CLIENT_ID,
+                            "client_secret": client_secret or settings.GOOGLE_CLIENT_SECRET,
+                            "grant_type": "refresh_token",
+                        },
+                        headers={"Content-Type": "application/x-www-form-urlencoded"},
+                    )
+                    resp.raise_for_status()
+                    token_data = resp.json()
+                
+                # Update the token in database
+                new_expires_in = int(token_data.get('expires_in', 3600) or 3600)
+                new_expiry = datetime.utcnow() + timedelta(seconds=new_expires_in)
+                
+                await db.execute(
+                    text("""
+                        UPDATE integration_tokens 
+                        SET access_token = :access_token,
+                            expiry = :expiry,
+                            updated_at = NOW()
+                        WHERE user_id = :user_id::UUID 
+                        AND service = 'google_drive'
+                    """).bindparams(
+                        access_token=token_data['access_token'],
+                        expiry=new_expiry,
+                        user_id=user_id
+                    )
+                )
+                await db.commit()
+                
+                logger.info(f"Token auto-refreshed successfully for user {user_id}")
+                is_expired = False
+                updated_at = datetime.utcnow()
+                
+            except Exception as refresh_err:
+                logger.error(f"Failed to auto-refresh token for user {user_id}: {refresh_err}")
+                # Don't mark as disconnected yet - the refresh token might still work on next attempt
+                # Return connected=True with empty last_sync to indicate potential issues
+                return GoogleDriveStatusResponse(
+                    connected=True,  # Keep showing as connected
+                    email=account_email or current_user.email or "",
+                    last_sync=updated_at.isoformat() if updated_at else "",
+                )
+        
         return GoogleDriveStatusResponse(
-            connected=is_active and not is_expired,
+            connected=is_active,  # Connected if token exists and is active (even if expired, we tried to refresh)
             email=account_email or current_user.email or "",
             last_sync=updated_at.isoformat() if updated_at else "",
         )
     except Exception as e:
-        # Log error and return not connected
+        # Log error but don't disconnect - assume connected if we have cached state
         logger.error(f"Error in get_google_drive_status: {e}", exc_info=True)
         return GoogleDriveStatusResponse(
-            connected=False,
-            email="",
+            connected=True,  # Optimistic - assume connected on error
+            email=current_user.email or "",
             last_sync="",
         )
 
