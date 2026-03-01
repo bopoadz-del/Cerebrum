@@ -128,6 +128,7 @@ def discover_and_upsert_drive_projects(
     created_mappings = 0
     queued_index_jobs = 0
     mapping_ids: List[str] = []
+    project_ids: List[str] = []
 
     for folder in root_folders:
         folder_id = folder.get("id")
@@ -195,6 +196,7 @@ def discover_and_upsert_drive_projects(
 
             created_projects += 1
             created_mappings += 1
+            project_ids.append(str(proj.id))
         else:
             mapping.root_folder_name = folder_name
             mapping.score = float(dp.score)
@@ -224,6 +226,7 @@ def discover_and_upsert_drive_projects(
                 proj.meta = meta
 
             updated_mappings += 1
+            project_ids.append(str(mapping.project_id))
 
         # --- MAGIC DEMO: queue indexing now ---
         if index_now:
@@ -268,4 +271,5 @@ def discover_and_upsert_drive_projects(
         "updated_mappings": updated_mappings,
         "queued_index_jobs": queued_index_jobs,
         "mapping_ids": mapping_ids[:20],
+        "project_ids": project_ids[:20],
     }
