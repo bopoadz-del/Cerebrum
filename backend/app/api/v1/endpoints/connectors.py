@@ -636,9 +636,24 @@ async def list_google_drive_files(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
 ) -> List[Dict[str, Any]]:
-    """List files from Google Drive (placeholder - returns empty list)."""
-    # TODO: Implement actual file listing
-    return []
+    """List files from Google Drive for a specific folder."""
+    import uuid
+    from app.db.session import db_manager
+    from app.services.google_drive_service import GoogleDriveService
+    
+    db_manager.initialize()
+    from sqlalchemy.orm import sessionmaker
+    SessionLocal = sessionmaker(bind=db_manager._sync_engine)
+    sync_db = SessionLocal()
+    
+    try:
+        svc = GoogleDriveService(sync_db)
+        files = await svc.list_files(uuid.UUID(str(current_user.id)), folder_id)
+        sync_db.close()
+        return files
+    except Exception as e:
+        sync_db.close()
+        raise HTTPException(status_code=500, detail=f"Failed to list files: {str(e)}")
 @router.post(
     "/google-drive/disconnect",
     summary="Disconnect Google Drive",
