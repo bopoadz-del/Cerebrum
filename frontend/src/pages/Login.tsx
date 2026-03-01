@@ -61,8 +61,9 @@ export default function Login() {
         setSuccess('Account created successfully!');
         setTimeout(() => navigate('/'), 500);
       }
-    } catch (err) {
-      setError(isLogin ? 'Invalid credentials' : 'Registration failed');
+    } catch (err: any) {
+      console.error('Login/Register error:', err);
+      setError(err.message || (isLogin ? 'Invalid credentials' : 'Registration failed'));
     } finally {
       setIsLoading(false);
     }
