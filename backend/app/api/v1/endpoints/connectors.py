@@ -442,7 +442,7 @@ async def google_drive_callback(
         try:
             db_manager.initialize()
             from sqlalchemy.orm import sessionmaker
-            Session = sessionmaker(bind=db_manager.engine)
+            Session = sessionmaker(bind=db_manager._sync_engine)
             db = Session()
             
             # Verify user exists
