@@ -75,13 +75,6 @@ export interface SearchResult {
   };
 }
 
-// Demo projects for when backend is unavailable
-const DEMO_PROJECTS: Project[] = [
-  { id: 'demo_1', name: 'Q4 Financial Analysis', file_count: 12, status: 'active' },
-  { id: 'demo_2', name: 'Construction Project A', file_count: 45, status: 'active' },
-  { id: 'demo_3', name: 'Marketing Campaign', file_count: 8, status: 'draft' },
-];
-
 export function useDrive() {
   const { user, refreshAuthToken } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
