@@ -82,14 +82,36 @@ def discover_and_upsert_drive_projects(
 
     Returns counts + ids for UI/debug.
     """
-    tok: Optional[IntegrationToken] = db.query(IntegrationToken).filter(
-        IntegrationToken.user_id == user_id,
-        IntegrationToken.service == IntegrationProvider.GOOGLE_DRIVE,
-        IntegrationToken.is_active == True,
-    ).first()
-
-    if not tok:
+    # Use raw query to avoid column mismatch issues during migrations
+    from sqlalchemy import text
+    result = db.execute(
+        text("""
+            SELECT access_token, refresh_token, expiry, scopes, token_uri, client_id, client_secret
+            FROM integration_tokens 
+            WHERE user_id = :user_id 
+            AND service = 'google_drive' 
+            AND is_active = true
+            LIMIT 1
+        """),
+        {"user_id": str(user_id)}
+    )
+    row = result.fetchone()
+    
+    if not row:
         return {"status": "error", "message": "Google Drive not connected", "detected": 0, "updated": 0}
+    
+    # Create a simple object to hold token data
+    class SimpleToken:
+        pass
+    
+    tok = SimpleToken()
+    tok.access_token = row[0]
+    tok.refresh_token = row[1]
+    tok.expiry = row[2]
+    tok.scopes = row[3]
+    tok.token_uri = row[4] or "https://oauth2.googleapis.com/token"
+    tok.client_id = row[5]
+    tok.client_secret = row[6]
 
     svc = GoogleDriveService(db)
     creds = svc.get_credentials(user_id)
