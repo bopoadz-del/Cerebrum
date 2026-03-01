@@ -466,6 +466,29 @@ export function useDrive() {
     setConnectionError(null);
   };
 
+  // Get files for a project
+  const getProjectFiles = useCallback(async (projectId: string) => {
+    try {
+      const res = await fetch(`${API_URL}/connectors/google-drive/projects/${projectId}/files`, {
+        headers: getHeaders(),
+        signal: AbortSignal.timeout(10000)
+      });
+      
+      if (res.ok) {
+        return await res.json();
+      } else if (res.status === 401) {
+        const refreshed = await refreshAuthToken();
+        if (refreshed) {
+          return getProjectFiles(projectId);
+        }
+      }
+      return [];
+    } catch (e) {
+      console.error('[Drive] Failed to get project files:', e);
+      return [];
+    }
+  }, [refreshAuthToken]);
+
   // ZVec Semantic Search
   const searchDrive = async (query: string, project?: string): Promise<{query: string, results: SearchResult[], count: number}> => {
     try {
@@ -577,6 +600,7 @@ export function useDrive() {
     scanDrive,
     refreshProjects,
     searchDrive,
-    indexDriveFiles
+    indexDriveFiles,
+    getProjectFiles
   };
 }
