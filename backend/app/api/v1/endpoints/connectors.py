@@ -237,19 +237,37 @@ class ZVecScanResponse(BaseModel):
 async def get_google_drive_token(
     db: AsyncSession,
     user_id: str
-) -> Optional[IntegrationToken]:
-    """Get active Google Drive token for user."""
-    import uuid
+) -> Optional[Dict[str, Any]]:
+    """Get active Google Drive token for user using raw SQL to avoid column mismatch."""
+    from sqlalchemy import text
+    
     result = await db.execute(
-        select(IntegrationToken).where(
-            and_(
-                IntegrationToken.user_id == uuid.UUID(user_id),
-                IntegrationToken.service == "google_drive",
-                IntegrationToken.is_active == True
-            )
-        )
+        text("""
+            SELECT access_token, refresh_token, expiry, scopes, token_uri, 
+                   client_id, client_secret, account_email, is_active, updated_at
+            FROM integration_tokens 
+            WHERE user_id = :user_id::UUID 
+            AND service = 'google_drive'
+            AND is_active = true
+            LIMIT 1
+        """).bindparams(user_id=user_id)
     )
-    return result.scalar_one_or_none()
+    row = result.fetchone()
+    if not row:
+        return None
+    
+    return {
+        'access_token': row[0],
+        'refresh_token': row[1],
+        'expiry': row[2],
+        'scopes': row[3],
+        'token_uri': row[4],
+        'client_id': row[5],
+        'client_secret': row[6],
+        'account_email': row[7],
+        'is_active': row[8],
+        'updated_at': row[9],
+    }
 
 
 @router.get(
@@ -823,10 +841,20 @@ async def disconnect_google_drive(
     db: AsyncSession = Depends(get_async_db),
 ) -> Dict[str, Any]:
     """Disconnect Google Drive and revoke tokens."""
-    token = await get_google_drive_token(db, str(current_user.id))
-    if token:
-        token.is_active = False
-        db.commit()
+    from sqlalchemy import text
+    
+    user_id = str(current_user.id)
+    # Use raw SQL to deactivate token
+    await db.execute(
+        text("""
+            UPDATE integration_tokens 
+            SET is_active = false, revoked_at = NOW()
+            WHERE user_id = :user_id::UUID 
+            AND service = 'google_drive'
+            AND is_active = true
+        """).bindparams(user_id=user_id)
+    )
+    await db.commit()
     
     return {
         "success": True,
