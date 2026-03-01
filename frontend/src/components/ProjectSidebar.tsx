@@ -5,7 +5,7 @@ import {
   ChevronDown,
   Folder,
   FolderOpen,
-  MessageSquare,
+
   Cloud,
   CloudOff,
   Settings,
@@ -21,20 +21,20 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
 
-interface Chat {
-  id: string;
-  title: string;
-  timestamp: Date;
-}
-
 interface Project {
   id: string;
   name: string;
   file_count: number;
   status: string;
   updated_at?: string;
-  chats?: Chat[];
-  isExpanded?: boolean;
+}
+
+interface DriveFile {
+  id: string;
+  name: string;
+  mime_type: string;
+  is_folder: boolean;
+  modified_time?: string;
 }
 
 interface ProjectSidebarProps {
@@ -53,14 +53,18 @@ interface ProjectSidebarProps {
   onScanDrive: () => void;
   onRefreshProjects: () => void;
   onOpenSettings: () => void;
+  getProjectFiles?: (projectId: string) => Promise<DriveFile[]>;
 }
 
-// Mock chats for each project
-const getMockChats = (projectName: string): Chat[] => [
-  { id: 'c1', title: `${projectName} - Analysis`, timestamp: new Date() },
-  { id: 'c2', title: `${projectName} - Review`, timestamp: new Date(Date.now() - 86400000) },
-  { id: 'c3', title: `${projectName} - Summary`, timestamp: new Date(Date.now() - 172800000) },
-];
+// Drive file icon based on mime type
+const getFileIcon = (mimeType: string, isFolder: boolean) => {
+  if (isFolder) return <Folder className="w-3.5 h-3.5 flex-shrink-0 text-blue-500" />;
+  if (mimeType.includes('pdf')) return <span className="text-red-500 text-xs">PDF</span>;
+  if (mimeType.includes('document') || mimeType.includes('word')) return <span className="text-blue-500 text-xs">DOC</span>;
+  if (mimeType.includes('spreadsheet') || mimeType.includes('excel')) return <span className="text-green-500 text-xs">XLS</span>;
+  if (mimeType.includes('presentation') || mimeType.includes('powerpoint')) return <span className="text-orange-500 text-xs">PPT</span>;
+  return <span className="text-gray-400 text-xs">FILE</span>;
+};
 
 export function ProjectSidebar({
   projects,
@@ -78,9 +82,26 @@ export function ProjectSidebar({
   onScanDrive,
   onRefreshProjects,
   onOpenSettings,
+  getProjectFiles,
 }: ProjectSidebarProps) {
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set(['1']));
+  const [projectFiles, setProjectFiles] = useState<Record<string, DriveFile[]>>({});
+  const [loadingFiles, setLoadingFiles] = useState<Record<string, boolean>>({});
   const { user, logout } = useAuth();
+
+  const loadProjectFiles = async (projectId: string) => {
+    if (!getProjectFiles || projectFiles[projectId]) return;
+    
+    setLoadingFiles(prev => ({ ...prev, [projectId]: true }));
+    try {
+      const files = await getProjectFiles(projectId);
+      setProjectFiles(prev => ({ ...prev, [projectId]: files }));
+    } catch (e) {
+      console.error('Failed to load project files:', e);
+    } finally {
+      setLoadingFiles(prev => ({ ...prev, [projectId]: false }));
+    }
+  };
 
   const toggleProject = (projectId: string) => {
     setExpandedProjects((prev) => {
@@ -89,26 +110,15 @@ export function ProjectSidebar({
         next.delete(projectId);
       } else {
         next.add(projectId);
+        // Load files when expanding
+        loadProjectFiles(projectId);
       }
       return next;
     });
     onSelectProject(projectId);
   };
 
-  const formatChatDate = (date: Date) => {
-    const now = new Date();
-    const chatDate = new Date(date);
-    const diffMs = now.getTime() - chatDate.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(chatDate);
-  };
 
   return (
     <div className="w-[280px] h-screen bg-gray-50 border-r border-gray-200 flex flex-col">
@@ -190,7 +200,6 @@ export function ProjectSidebar({
             ) : (
               projects.map((project) => {
                 const isExpanded = expandedProjects.has(project.id);
-                const chats = project.chats || getMockChats(project.name);
                 
                 return (
                   <div key={project.id}>
@@ -218,7 +227,7 @@ export function ProjectSidebar({
                       <span className="ml-auto text-xs text-gray-400">{project.file_count} files</span>
                     </button>
 
-                    {/* Chat History (appears under selected project) */}
+                    {/* Files in Project (appears under selected project) */}
                     <AnimatePresence>
                       {isExpanded && selectedProjectId === project.id && (
                         <motion.div
@@ -229,26 +238,32 @@ export function ProjectSidebar({
                           className="overflow-hidden"
                         >
                           <div className="pl-8 pr-2 py-1 space-y-0.5">
-                            {chats.map((chat) => (
-                              <button
-                                key={chat.id}
-                                onClick={() => onSelectChat(chat.id)}
-                                className={cn(
-                                  'w-full flex items-center justify-between px-2 py-1.5 rounded-md text-left transition-colors',
-                                  selectedChatId === chat.id
-                                    ? 'bg-indigo-100 text-indigo-700'
-                                    : 'hover:bg-gray-100 text-gray-600'
-                                )}
-                              >
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <MessageSquare className="w-3.5 h-3.5 flex-shrink-0" />
-                                  <span className="text-sm truncate">{chat.title}</span>
-                                </div>
-                                <span className="text-xs text-gray-400 flex-shrink-0">
-                                  {formatChatDate(chat.timestamp)}
-                                </span>
-                              </button>
-                            ))}
+                            {loadingFiles[project.id] ? (
+                              <div className="flex items-center gap-2 px-2 py-1.5 text-gray-400">
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                <span className="text-xs">Loading files...</span>
+                              </div>
+                            ) : projectFiles[project.id]?.length > 0 ? (
+                              projectFiles[project.id].map((file) => (
+                                <button
+                                  key={file.id}
+                                  onClick={() => file.is_folder ? onSelectChat(file.id) : onSelectChat(file.id)}
+                                  className={cn(
+                                    'w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition-colors',
+                                    selectedChatId === file.id
+                                      ? 'bg-indigo-100 text-indigo-700'
+                                      : 'hover:bg-gray-100 text-gray-600'
+                                  )}
+                                >
+                                  {getFileIcon(file.mime_type, file.is_folder)}
+                                  <span className="text-sm truncate flex-1">{file.name}</span>
+                                </button>
+                              ))
+                            ) : (
+                              <div className="px-2 py-1.5 text-xs text-gray-400">
+                                No files found
+                              </div>
+                            )}
                           </div>
                         </motion.div>
                       )}
