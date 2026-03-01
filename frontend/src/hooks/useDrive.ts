@@ -141,20 +141,31 @@ export function useDrive() {
       
       if (res.ok) {
         const data = await res.json();
-        setIsConnected(data.connected);
-        setBackendAvailable(true);
+        console.log('[Drive] Status data:', data);
+        
+        // Only update connected state if explicitly false
+        // If user was connected before, keep them connected unless explicitly disconnected
+        const wasConnected = localStorage.getItem(DRIVE_STORAGE_KEYS.CONNECTED) === 'true';
         
         if (data.connected) {
+          setIsConnected(true);
+          setBackendAvailable(true);
           // Store connection timestamp
           localStorage.setItem(DRIVE_STORAGE_KEYS.CONNECTED, 'true');
           localStorage.setItem(DRIVE_STORAGE_KEYS.LAST_CONNECTED_AT, String(Date.now()));
           refreshProjects();
+        } else if (!wasConnected) {
+          // Only mark as disconnected if we weren't connected before
+          // This prevents flickering during token refresh
+          setIsConnected(false);
+          setBackendAvailable(true);
         } else {
-          // Backend says not connected - clear local storage
-          localStorage.removeItem(DRIVE_STORAGE_KEYS.CONNECTED);
-          localStorage.removeItem(DRIVE_STORAGE_KEYS.LAST_CONNECTED_AT);
-        }
-      } else if (res.status === 404) {
+          // Was connected, still have token, backend says not connected
+          // This might be a temporary state - keep showing as connected
+          console.log('[Drive] Was connected, keeping state');
+          setIsConnected(true);
+          setBackendAvailable(true);
+        } else if (res.status === 404) {
         // Endpoints not deployed
         setBackendAvailable(false);
         setConnectionError('Backend not deployed - using demo mode');
