@@ -3,6 +3,8 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
 
 from app.core.config import settings
 from app.db.session import db_manager
@@ -15,15 +17,12 @@ AsyncSessionLocal = None
 def _get_async_engine():
     global _async_engine
     if _async_engine is None:
-        from sqlalchemy.ext.asyncio import create_async_engine
         _async_engine = create_async_engine(settings.async_database_url, pool_pre_ping=True, pool_size=5, max_overflow=0)
     return _async_engine
 
 def _get_async_session_local():
     global AsyncSessionLocal
     if AsyncSessionLocal is None:
-        from sqlalchemy.ext.asyncio import AsyncSession
-        from sqlalchemy.orm import sessionmaker
         AsyncSessionLocal = sessionmaker(bind=_get_async_engine(), class_=AsyncSession, expire_on_commit=False)
     return AsyncSessionLocal
 
