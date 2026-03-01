@@ -47,5 +47,6 @@ api_v1_router.include_router(connectors.router, tags=["connectors"])
 if DOCUMENTS_AVAILABLE:
     api_v1_router.include_router(documents.router, prefix="/documents", tags=["documents"])
 
-if GOOGLE_DRIVE_AVAILABLE:
-    api_v1_router.include_router(google_drive.router, prefix="/connectors/google-drive", tags=["google-drive"])
+# Google Drive endpoints are already included via connectors.router
+# The connectors.py module provides /connectors/google-drive/* endpoints
+# DO NOT include google_drive.router separately - it would cause route conflicts

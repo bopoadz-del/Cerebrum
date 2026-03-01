@@ -323,8 +323,131 @@ async def get_google_drive_auth(
     }
 
 
-# Note: OAuth callback is handled in google_drive.py (no auth required for Google redirect)
-# DO NOT add a callback endpoint here - it will conflict with google_drive.py
+# OAuth callback endpoint (must be here since google_drive.py router is disabled)
+@router.get("/google-drive/callback")
+async def google_drive_callback(
+    code: str,
+    state: str,
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Handle OAuth callback from Google (called by Google, no auth required)."""
+    from fastapi.responses import HTMLResponse
+    from app.core.config import settings
+    import httpx
+    import urllib.parse
+    
+    try:
+        # URL decode state in case it was encoded
+        decoded_state = urllib.parse.unquote(state)
+        
+        # Exchange code for tokens
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                "https://oauth2.googleapis.com/token",
+                data={
+                    "code": code,
+                    "client_id": settings.GOOGLE_CLIENT_ID,
+                    "client_secret": settings.GOOGLE_CLIENT_SECRET,
+                    "redirect_uri": settings.GOOGLE_REDIRECT_URI,
+                    "grant_type": "authorization_code",
+                },
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+            resp.raise_for_status()
+            token_data = resp.json()
+        
+        # Get user email from Google
+        async with httpx.AsyncClient() as client:
+            userinfo = await client.get(
+                "https://www.googleapis.com/oauth2/v2/userinfo",
+                headers={"Authorization": f"Bearer {token_data['access_token']}"}
+            )
+            email = userinfo.json().get("email") if userinfo.status_code == 200 else None
+        
+        # Return success HTML that sends postMessage to parent window
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Google Drive Connected</title>
+            <script>
+                if (window.opener) {{
+                    window.opener.postMessage({{
+                        type: 'GOOGLE_DRIVE_AUTH_SUCCESS',
+                        code: '{code}',
+                        state: '{state}'
+                    }}, 'https://cerebrum-frontend.onrender.com');
+                }}
+                setTimeout(() => window.close(), 500);
+            </script>
+        </head>
+        <body>
+            <h2>Google Drive Connected!</h2>
+            <p>You can close this window.</p>
+        </body>
+        </html>
+        """
+        return HTMLResponse(content=html_content)
+        
+    except Exception as e:
+        error_html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Authentication Failed</title>
+            <script>
+                if (window.opener) {{
+                    window.opener.postMessage({{
+                        type: 'GOOGLE_DRIVE_AUTH_ERROR',
+                        error: '{str(e)}'
+                    }}, 'https://cerebrum-frontend.onrender.com');
+                }}
+                setTimeout(() => window.close(), 3000);
+            </script>
+        </head>
+        <body>
+            <h2>Authentication Failed</h2>
+            <p>{str(e)}</p>
+        </body>
+        </html>
+        """
+        return HTMLResponse(content=error_html, status_code=400)
+
+
+# Also need the /auth/url endpoint that the frontend expects
+@router.get("/google-drive/auth/url")
+async def get_google_drive_auth_url(
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Get Google OAuth URL with proper state."""
+    from app.core.config import settings
+    import secrets
+    
+    client_id = settings.GOOGLE_CLIENT_ID
+    if not client_id or client_id == "your_client_id_here":
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Google OAuth not configured",
+        )
+    
+    # Create state with user_id for verification
+    nonce = secrets.token_urlsafe(16)
+    state = f"{nonce}:{current_user.id}"
+    
+    auth_url = (
+        "https://accounts.google.com/o/oauth2/v2/auth"
+        f"?client_id={client_id}"
+        f"&redirect_uri={settings.GOOGLE_REDIRECT_URI}"
+        "&response_type=code"
+        "&scope=https://www.googleapis.com/auth/drive.readonly"
+        "+https://www.googleapis.com/auth/drive.file"
+        "+https://www.googleapis.com/auth/drive.metadata.readonly"
+        f"&state={state}"
+        "&access_type=offline"
+        "&prompt=consent"
+    )
+    
+    return {"auth_url": auth_url, "state": state}
 
 # Mock projects for now - will be replaced with actual Drive scanning
 MOCK_PROJECTS = [
@@ -390,6 +513,47 @@ async def scan_google_drive(
         )
 
     return GoogleDriveProjectsResponse(projects=projects)
+
+
+@router.post("/google-drive/search")
+async def search_google_drive(
+    query: str,
+    project: Optional[str] = None,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db),
+) -> Dict[str, Any]:
+    """Search files in Google Drive (placeholder - returns empty results)."""
+    # TODO: Implement actual Google Drive search with indexing
+    return {
+        "query": query,
+        "results": [],
+        "count": 0,
+    }
+
+
+@router.post("/google-drive/index")
+async def index_google_drive(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db),
+) -> Dict[str, Any]:
+    """Trigger indexing of Google Drive files (placeholder)."""
+    # TODO: Implement actual indexing
+    return {
+        "files_scanned": 0,
+        "indexed": 0,
+        "message": "Indexing queued - implementation pending",
+    }
+
+
+@router.get("/google-drive/files")
+async def list_google_drive_files(
+    folder_id: Optional[str] = None,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db),
+) -> List[Dict[str, Any]]:
+    """List files from Google Drive (placeholder - returns empty list)."""
+    # TODO: Implement actual file listing
+    return []
 @router.post(
     "/google-drive/disconnect",
     summary="Disconnect Google Drive",
