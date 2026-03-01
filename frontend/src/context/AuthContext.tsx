@@ -243,20 +243,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, refreshAuthToken]);
 
   const login = async (email: string, password: string) => {
-    const response = await fetch(`${API_BASE}/auth/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email, password }),
-    });
+    console.log('[Auth] Login attempt:', { apiUrl: API_BASE, email });
+    
+    try {
+      const response = await fetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Login failed' }));
-      throw new Error(error.detail || 'Login failed');
-    }
+      console.log('[Auth] Login response:', { status: response.status, ok: response.ok });
 
-    const data: TokenResponse = await response.json();
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Login failed' }));
+        console.error('[Auth] Login failed:', error);
+        throw new Error(error.detail || 'Login failed');
+      }
+
+      const data: TokenResponse = await response.json();
     
     // Fetch user profile
     const userResponse = await fetch(`${API_BASE}/auth/me`, {
@@ -280,7 +286,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       String(Date.now() + data.expires_in * 1000)
     );
     
-    setUser(userData);
+      setUser(userData);
+      console.log('[Auth] Login successful:', { userId: userData.id });
+    } catch (error: any) {
+      console.error('[Auth] Login error:', error);
+      throw error;
+    }
   };
 
   const register = async (email: string, password: string, fullName: string) => {
