@@ -774,16 +774,17 @@ async def list_google_drive_projects(
     import uuid
     from sqlalchemy import text
     
-    # Use raw query to avoid type issues
+    user_id = uuid.UUID(str(current_user.id))
+    
+    # Use raw query with proper bindparams
     result = await db.execute(
         text("""
             SELECT project_id, root_folder_name, indexing_status, updated_at
             FROM google_drive_projects
-            WHERE user_id = :user_id::UUID
+            WHERE user_id = :user_id
             AND deleted = false
             ORDER BY updated_at DESC
-        """),
-        {"user_id": str(current_user.id)}
+        """).bindparams(user_id=user_id)
     )
     rows = result.fetchall()
 
@@ -811,8 +812,11 @@ async def debug_google_drive(
     """Debug endpoint to check database state."""
     from sqlalchemy import text
     import traceback
+    import uuid
     
     try:
+        user_id = uuid.UUID(str(current_user.id))
+        
         # Check if table exists
         table_check = await db.execute(
             text("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'google_drive_projects')")
@@ -828,17 +832,15 @@ async def debug_google_drive(
         )
         total_projects = result_all.scalar()
         
-        # Check projects for this user
+        # Check projects for this user - use bindparam properly
         result = await db.execute(
-            text("SELECT COUNT(*) FROM google_drive_projects WHERE user_id = :user_id::UUID"),
-            {"user_id": str(current_user.id)}
+            text("SELECT COUNT(*) FROM google_drive_projects WHERE user_id = :user_id").bindparams(user_id=user_id)
         )
         project_count = result.scalar()
         
         # Check integration_tokens
         result2 = await db.execute(
-            text("SELECT COUNT(*) FROM integration_tokens WHERE user_id = :user_id::UUID AND service = 'google_drive'"),
-            {"user_id": str(current_user.id)}
+            text("SELECT COUNT(*) FROM integration_tokens WHERE user_id = :user_id AND service = 'google_drive'").bindparams(user_id=user_id)
         )
         token_count = result2.scalar()
         
