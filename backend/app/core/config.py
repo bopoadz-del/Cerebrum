@@ -81,11 +81,11 @@ class Settings(BaseSettings):
         description="Pepper for password hashing",
     )
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(
-        default=15,
+        default=1440,  # 24 hours
         description="Access token expiration in minutes",
     )
     REFRESH_TOKEN_EXPIRE_DAYS: int = Field(
-        default=7,
+        default=365,  # 1 year - effectively "never" expires for most users
         description="Refresh token expiration in days",
     )
     JWT_ALGORITHM: str = Field(default="HS256", description="JWT algorithm")
