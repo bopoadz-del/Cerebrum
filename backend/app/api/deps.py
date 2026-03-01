@@ -77,6 +77,40 @@ async def get_current_user(
         raise credentials_exception
     return user
 
+async def get_current_user_async(
+    db: AsyncSession = Depends(get_async_db),
+    token: str = Depends(oauth2_scheme)
+) -> User:
+    """Get current user from token and database (async version)"""
+    from sqlalchemy import select
+    
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+    
+    # Handle UUID user IDs
+    from uuid import UUID
+    try:
+        user_uuid = UUID(user_id)
+        result = await db.execute(select(User).where(User.id == user_uuid))
+    except ValueError:
+        result = await db.execute(select(User).where(User.id == user_id))
+    
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise credentials_exception
+    return user
+
+
 async def get_current_admin_user(
     current_user: User = Depends(get_current_user)
 ) -> User:

@@ -14,7 +14,7 @@ from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.connectors import get_connector_status, list_connectors, get_connector
-from app.api.deps import get_current_user, get_db
+from app.api.deps import get_current_user, get_current_user_async, get_db
 from app.models.integration import IntegrationToken
 from app.models.user import User
 from app.api.deps import get_async_db
@@ -569,7 +569,7 @@ MOCK_PROJECTS = [
     summary="Scan Google Drive for projects",
 )
 async def scan_google_drive(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_async),
     db: AsyncSession = Depends(get_async_db),
 ) -> Dict[str, Any]:
     """Scan Google Drive, detect projects, and return them."""
