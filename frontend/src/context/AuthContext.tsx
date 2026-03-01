@@ -246,10 +246,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, refreshAuthToken]);
 
   const login = async (email: string, password: string) => {
-    console.log('[Auth] Login attempt:', { apiUrl: API_BASE, email });
+    const loginUrl = `${API_BASE}/auth/login`;
+    console.log('[Auth] ========================================');
+    console.log('[Auth] Login attempt:');
+    console.log('[Auth] URL:', loginUrl);
+    console.log('[Auth] Email:', email);
+    console.log('[Auth] Password length:', password?.length || 0);
     
     try {
-      const response = await fetch(`${API_BASE}/auth/login`, {
+      console.log('[Auth] Making fetch request...');
+      const response = await fetch(loginUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -257,7 +263,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ email, password }),
       });
 
-      console.log('[Auth] Login response:', { status: response.status, ok: response.ok });
+      console.log('[Auth] Got response:', { status: response.status, ok: response.ok });
 
       if (!response.ok) {
         const error = await response.json().catch(() => ({ detail: 'Login failed' }));
