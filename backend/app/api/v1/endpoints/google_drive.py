@@ -262,11 +262,23 @@ async def get_status(
     """Check Google Drive connection status"""
     try:
         from app.models.integration import IntegrationToken, IntegrationProvider
+        import uuid
+        
+        # Debug logging
+        print(f"DEBUG: Getting status for user_id={current_user.id}, type={type(current_user.id)}")
+        
+        # Ensure user_id is UUID type
+        user_id = current_user.id
+        if isinstance(user_id, str):
+            user_id = uuid.UUID(user_id)
+        
         token = db.query(IntegrationToken).filter(
-            IntegrationToken.user_id == current_user.id,
+            IntegrationToken.user_id == user_id,
             IntegrationToken.service == IntegrationProvider.GOOGLE_DRIVE,
             IntegrationToken.is_active == True
         ).first()
+        
+        print(f"DEBUG: Found token={token is not None}")
         
         return {
             "connected": token is not None,
@@ -279,9 +291,14 @@ async def get_status(
         import traceback
         logging.getLogger(__name__).error(f"Error checking Google Drive status: {e}")
         logging.getLogger(__name__).error(traceback.format_exc())
-        return {
-            "connected": False,
-            "email": None,
-            "last_used": None,
-            "error": str(e)
-        }
+        # Return 200 with error info instead of raising
+        from fastapi.responses import JSONResponse
+        return JSONResponse(
+            status_code=200,
+            content={
+                "connected": False,
+                "email": None,
+                "last_used": None,
+                "error": str(e)
+            }
+        )
