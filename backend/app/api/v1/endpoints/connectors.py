@@ -262,25 +262,43 @@ async def get_google_drive_status(
     db: AsyncSession = Depends(get_async_db),
 ) -> GoogleDriveStatusResponse:
     """Check if Google Drive is connected for the current user."""
+    import logging
+    logger = logging.getLogger(__name__)
+    
     try:
-        token = await get_google_drive_token(db, str(current_user.id))
+        user_id = str(current_user.id)
+        logger.info(f"Checking Drive status for user {user_id}")
+        
+        token = await get_google_drive_token(db, user_id)
         
         if not token:
+            logger.info(f"No Drive token found for user {user_id}")
             return GoogleDriveStatusResponse(
                 connected=False,
                 email="",
                 last_sync="",
             )
         
+        # Check if token is expired
+        from datetime import datetime, timezone
+        is_expired = False
+        if token.expiry:
+            # Handle both naive and aware datetimes
+            expiry = token.expiry
+            if expiry.tzinfo is None:
+                expiry = expiry.replace(tzinfo=timezone.utc)
+            is_expired = expiry < datetime.now(timezone.utc)
+        
+        logger.info(f"Drive token found for user {user_id}, expired={is_expired}")
+        
         return GoogleDriveStatusResponse(
-            connected=True,
-            email=token.account_email or current_user.email,
+            connected=True and not is_expired,
+            email=token.account_email or current_user.email or "",
             last_sync=token.updated_at.isoformat() if token.updated_at else "",
         )
     except Exception as e:
         # Log error and return not connected
-        import logging
-        logging.getLogger(__name__).error(f"Error in get_google_drive_status: {e}")
+        logger.error(f"Error in get_google_drive_status: {e}", exc_info=True)
         return GoogleDriveStatusResponse(
             connected=False,
             email="",
@@ -686,14 +704,15 @@ async def list_project_files(
     Accepts either the mapping id (id column) or project_id (project_id column).
     """
     import uuid
+    import logging
     from sqlalchemy import text
     from app.db.session import db_manager
     from app.services.google_drive_service import GoogleDriveService
     
+    logger = logging.getLogger(__name__)
     user_id = uuid.UUID(str(current_user.id))
     
     # Try looking up by project_id first, then by id (mapping id)
-    # The scan returns mapping.id in mapping_ids, but projects list returns project_id
     result = await db.execute(
         text("""
             SELECT root_folder_id, root_folder_name 
@@ -722,6 +741,7 @@ async def list_project_files(
         raise HTTPException(status_code=404, detail="Project not found")
     
     root_folder_id, root_folder_name = row
+    logger.info(f"Listing files for project {project_id}, folder {root_folder_id}, user {user_id}")
     
     # List files from the project's root folder
     db_manager.initialize()
@@ -734,8 +754,14 @@ async def list_project_files(
         files = await svc.list_files(user_id, root_folder_id)
         sync_db.close()
         return files
+    except ValueError as e:
+        # Not authenticated error
+        sync_db.close()
+        logger.error(f"Authentication error listing files: {e}")
+        raise HTTPException(status_code=401, detail="Google Drive not authenticated. Please reconnect.")
     except Exception as e:
         sync_db.close()
+        logger.error(f"Error listing files: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to list files: {str(e)}")
 
 

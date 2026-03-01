@@ -154,9 +154,13 @@ class GoogleDriveService:
         return creds
     
     async def list_files(self, user_id: uuid.UUID, folder_id: Optional[str] = None, page_size: int = 50):
+          import logging
+          logger = logging.getLogger(__name__)
+          
           def _run():
               creds = self.get_credentials(user_id)
               if not creds:
+                  logger.error(f"No credentials found for user {user_id}")
                   raise ValueError("Not authenticated")
 
               svc = build('drive', 'v3', credentials=creds, cache_discovery=False)
@@ -165,12 +169,20 @@ class GoogleDriveService:
               if folder_id:
                   q += f" and '{folder_id}' in parents"
 
-              results = svc.files().list(
-                  pageSize=page_size,
-                  fields="files(id, name, mimeType, modifiedTime, size, webViewLink)",
-                  q=q,
-                  orderBy="modifiedTime desc"
-              ).execute()
+              try:
+                  results = svc.files().list(
+                      pageSize=page_size,
+                      fields="files(id, name, mimeType, modifiedTime, size, webViewLink)",
+                      q=q,
+                      orderBy="modifiedTime desc"
+                  ).execute()
+              except Exception as e:
+                  logger.error(f"Google Drive API error: {e}")
+                  # Check if it's an auth error
+                  error_str = str(e).lower()
+                  if 'unauthorized' in error_str or 'invalid' in error_str or 'expired' in error_str:
+                      raise ValueError(f"Google Drive authentication expired: {e}")
+                  raise
 
               out = []
               for f in results.get("files", []):
