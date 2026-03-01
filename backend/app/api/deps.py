@@ -3,20 +3,37 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from sqlalchemy.orm import Session
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
 
 from app.core.config import settings
 from app.db.session import db_manager
 from app.models.user import User  # Export User for type hints
 
-# --- Async DB dependency ---
-_async_engine = create_async_engine(settings.async_database_url, pool_pre_ping=True)
-AsyncSessionLocal = sessionmaker(bind=_async_engine, class_=AsyncSession, expire_on_commit=False)
+# --- Async DB dependency (lazy initialization) ---
+_async_engine = None
+AsyncSessionLocal = None
+
+def _get_async_engine():
+    global _async_engine
+    if _async_engine is None:
+        from sqlalchemy.ext.asyncio import create_async_engine
+        _async_engine = create_async_engine(settings.async_database_url, pool_pre_ping=True, pool_size=5, max_overflow=0)
+    return _async_engine
+
+def _get_async_session_local():
+    global AsyncSessionLocal
+    if AsyncSessionLocal is None:
+        from sqlalchemy.ext.asyncio import AsyncSession
+        from sqlalchemy.orm import sessionmaker
+        AsyncSessionLocal = sessionmaker(bind=_get_async_engine(), class_=AsyncSession, expire_on_commit=False)
+    return AsyncSessionLocal
 
 async def get_async_db() -> AsyncGenerator[AsyncSession, None]:
-    async with AsyncSessionLocal() as session:
-        yield session
+    session_local = _get_async_session_local()
+    async with session_local() as session:
+        try:
+            yield session
+        finally:
+            await session.close()
 # --- end async DB dependency ---
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")

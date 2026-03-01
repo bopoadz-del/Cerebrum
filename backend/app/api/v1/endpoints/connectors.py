@@ -543,34 +543,47 @@ async def get_google_drive_auth_url(
     current_user: User = Depends(get_current_user),
 ) -> Dict[str, Any]:
     """Get Google OAuth URL with proper state."""
-    from app.core.config import settings
-    import secrets
+    import logging
+    logger = logging.getLogger(__name__)
     
-    client_id = settings.GOOGLE_CLIENT_ID
-    if not client_id or client_id == "your_client_id_here":
+    try:
+        from app.core.config import settings
+        import secrets
+        
+        client_id = settings.GOOGLE_CLIENT_ID
+        if not client_id or client_id == "your_client_id_here":
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Google OAuth not configured",
+            )
+        
+        # Create state with user_id for verification
+        nonce = secrets.token_urlsafe(16)
+        state = f"{nonce}:{current_user.id}"
+        
+        auth_url = (
+            "https://accounts.google.com/o/oauth2/v2/auth"
+            f"?client_id={client_id}"
+            f"&redirect_uri={settings.GOOGLE_REDIRECT_URI}"
+            "&response_type=code"
+            "&scope=https://www.googleapis.com/auth/drive.readonly"
+            "+https://www.googleapis.com/auth/drive.file"
+            "+https://www.googleapis.com/auth/drive.metadata.readonly"
+            f"&state={state}"
+            "&access_type=offline"
+            "&prompt=consent"
+        )
+        
+        logger.info(f"Generated auth URL for user {current_user.id}")
+        return {"auth_url": auth_url, "state": state}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error generating auth URL: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Google OAuth not configured",
+            detail=f"Failed to generate auth URL: {str(e)}",
         )
-    
-    # Create state with user_id for verification
-    nonce = secrets.token_urlsafe(16)
-    state = f"{nonce}:{current_user.id}"
-    
-    auth_url = (
-        "https://accounts.google.com/o/oauth2/v2/auth"
-        f"?client_id={client_id}"
-        f"&redirect_uri={settings.GOOGLE_REDIRECT_URI}"
-        "&response_type=code"
-        "&scope=https://www.googleapis.com/auth/drive.readonly"
-        "+https://www.googleapis.com/auth/drive.file"
-        "+https://www.googleapis.com/auth/drive.metadata.readonly"
-        f"&state={state}"
-        "&access_type=offline"
-        "&prompt=consent"
-    )
-    
-    return {"auth_url": auth_url, "state": state}
 
 # Mock projects for now - will be replaced with actual Drive scanning
 MOCK_PROJECTS = [
