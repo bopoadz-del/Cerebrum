@@ -19,6 +19,43 @@ const DRIVE_STORAGE_KEYS = {
   LAST_CONNECTED_AT: 'cerebrum_gdrive_last_connected_v1',
 } as const;
 
+// Legacy keys for migration
+const DRIVE_LEGACY_KEYS = {
+  CONNECTED: 'google_drive_connected',
+  OAUTH_STATE: 'google_oauth_state',
+} as const;
+
+// Migrate legacy storage data to new keys
+function migrateLegacyDriveData(): { connected: boolean } {
+  let connected = localStorage.getItem(DRIVE_STORAGE_KEYS.CONNECTED);
+  let oauthState = localStorage.getItem(DRIVE_STORAGE_KEYS.OAUTH_STATE);
+  
+  // Check for legacy keys if new keys not found
+  if (!connected) {
+    connected = localStorage.getItem(DRIVE_LEGACY_KEYS.CONNECTED);
+    if (connected) {
+      localStorage.setItem(DRIVE_STORAGE_KEYS.CONNECTED, connected);
+      console.log('[Drive] Migrated legacy connection state');
+    }
+  }
+  
+  if (!oauthState) {
+    oauthState = localStorage.getItem(DRIVE_LEGACY_KEYS.OAUTH_STATE);
+    if (oauthState) {
+      localStorage.setItem(DRIVE_STORAGE_KEYS.OAUTH_STATE, oauthState);
+      console.log('[Drive] Migrated legacy OAuth state');
+    }
+  }
+  
+  // Clean up legacy keys after migration
+  if (connected && localStorage.getItem(DRIVE_LEGACY_KEYS.CONNECTED)) {
+    localStorage.removeItem(DRIVE_LEGACY_KEYS.CONNECTED);
+    localStorage.removeItem(DRIVE_LEGACY_KEYS.OAUTH_STATE);
+  }
+  
+  return { connected: connected === 'true' };
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -165,6 +202,9 @@ export function useDrive() {
 
   // Check connection on mount
   useEffect(() => {
+    // Migrate legacy data first
+    migrateLegacyDriveData();
+    
     if (user) {
       checkConnection();
     } else {

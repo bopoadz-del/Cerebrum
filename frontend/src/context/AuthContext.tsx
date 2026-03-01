@@ -13,6 +13,13 @@ const STORAGE_KEYS = {
   TOKEN_EXPIRES_AT: 'cerebrum_token_expires_v1',
 } as const;
 
+// Legacy keys for migration
+const LEGACY_KEYS = {
+  AUTH_TOKEN: 'auth_token',
+  REFRESH_TOKEN: 'refresh_token',
+  USER: 'user',
+} as const;
+
 interface User {
   id: string;
   email: string;
@@ -39,6 +46,56 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Migrate legacy storage data to new keys
+function migrateLegacyData(): { token: string | null; refreshToken: string | null; user: User | null } {
+  let token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+  let refreshToken = localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+  let userStr = localStorage.getItem(STORAGE_KEYS.USER);
+  
+  // Check for legacy keys if new keys not found
+  if (!token) {
+    token = localStorage.getItem(LEGACY_KEYS.AUTH_TOKEN);
+    if (token) {
+      localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
+      console.log('[Auth] Migrated legacy auth token');
+    }
+  }
+  
+  if (!refreshToken) {
+    refreshToken = localStorage.getItem(LEGACY_KEYS.REFRESH_TOKEN);
+    if (refreshToken) {
+      localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
+      console.log('[Auth] Migrated legacy refresh token');
+    }
+  }
+  
+  if (!userStr) {
+    userStr = localStorage.getItem(LEGACY_KEYS.USER);
+    if (userStr) {
+      localStorage.setItem(STORAGE_KEYS.USER, userStr);
+      console.log('[Auth] Migrated legacy user data');
+    }
+  }
+  
+  // Clean up legacy keys after migration
+  if (token && localStorage.getItem(LEGACY_KEYS.AUTH_TOKEN)) {
+    localStorage.removeItem(LEGACY_KEYS.AUTH_TOKEN);
+    localStorage.removeItem(LEGACY_KEYS.REFRESH_TOKEN);
+    localStorage.removeItem(LEGACY_KEYS.USER);
+  }
+  
+  let user: User | null = null;
+  if (userStr) {
+    try {
+      user = JSON.parse(userStr);
+    } catch {
+      console.error('[Auth] Failed to parse user data');
+    }
+  }
+  
+  return { token, refreshToken, user };
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -49,6 +106,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
     localStorage.removeItem(STORAGE_KEYS.USER);
     localStorage.removeItem(STORAGE_KEYS.TOKEN_EXPIRES_AT);
+    // Also clear legacy keys
+    localStorage.removeItem(LEGACY_KEYS.AUTH_TOKEN);
+    localStorage.removeItem(LEGACY_KEYS.REFRESH_TOKEN);
+    localStorage.removeItem(LEGACY_KEYS.USER);
     setUser(null);
   }, []);
 
@@ -109,11 +170,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Check auth status on mount
   useEffect(() => {
     const initAuth = async () => {
-      const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
-      const storedUser = localStorage.getItem(STORAGE_KEYS.USER);
+      // First, try to migrate any legacy data
+      const { token, user: migratedUser } = migrateLegacyData();
       const expiresAt = localStorage.getItem(STORAGE_KEYS.TOKEN_EXPIRES_AT);
       
-      if (token && storedUser) {
+      if (token && migratedUser) {
         // Check if token is expired or about to expire (within 5 minutes)
         const expiresAtMs = expiresAt ? parseInt(expiresAt, 10) : 0;
         const isExpired = Date.now() >= expiresAtMs - 5 * 60 * 1000;
@@ -145,14 +206,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // Token still valid, verify with backend
           const isValid = await validateToken(token);
           if (isValid) {
-            setUser(JSON.parse(storedUser));
+            setUser(migratedUser);
           } else {
             // Token invalid, try refresh
             const refreshed = await refreshAuthToken();
             if (!refreshed) {
               clearAuthData();
             } else {
-              setUser(JSON.parse(storedUser));
+              setUser(migratedUser);
             }
           }
         }
