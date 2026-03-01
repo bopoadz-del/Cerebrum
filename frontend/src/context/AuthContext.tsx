@@ -263,29 +263,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const data: TokenResponse = await response.json();
-    
-    // Fetch user profile
-    const userResponse = await fetch(`${API_BASE}/auth/me`, {
-      headers: {
-        'Authorization': `Bearer ${data.access_token}`,
-      },
-    });
+      
+      // Fetch user profile
+      const userResponse = await fetch(`${API_BASE}/auth/me`, {
+        headers: {
+          'Authorization': `Bearer ${data.access_token}`,
+        },
+      });
 
-    if (!userResponse.ok) {
-      throw new Error('Failed to fetch user profile');
-    }
+      if (!userResponse.ok) {
+        throw new Error('Failed to fetch user profile');
+      }
 
-    const userData = await userResponse.json();
-    
-    // Store all auth data
-    localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, data.access_token);
-    localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, data.refresh_token);
-    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userData));
-    localStorage.setItem(
-      STORAGE_KEYS.TOKEN_EXPIRES_AT, 
-      String(Date.now() + data.expires_in * 1000)
-    );
-    
+      const userData = await userResponse.json();
+      
+      // Store all auth data
+      localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, data.access_token);
+      localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, data.refresh_token);
+      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userData));
+      localStorage.setItem(
+        STORAGE_KEYS.TOKEN_EXPIRES_AT, 
+        String(Date.now() + data.expires_in * 1000)
+      );
+      
       setUser(userData);
       console.log('[Auth] Login successful:', { userId: userData.id });
     } catch (error: any) {
