@@ -681,7 +681,10 @@ async def list_project_files(
     current_user: User = Depends(get_current_user_async),
     db: AsyncSession = Depends(get_async_db),
 ) -> List[Dict[str, Any]]:
-    """List files within a specific Google Drive project (folder)."""
+    """List files within a specific Google Drive project (folder).
+    
+    Accepts either the mapping id (id column) or project_id (project_id column).
+    """
     import uuid
     from sqlalchemy import text
     from app.db.session import db_manager
@@ -689,7 +692,8 @@ async def list_project_files(
     
     user_id = uuid.UUID(str(current_user.id))
     
-    # Get the project to find its root folder - use raw SQL
+    # Try looking up by project_id first, then by id (mapping id)
+    # The scan returns mapping.id in mapping_ids, but projects list returns project_id
     result = await db.execute(
         text("""
             SELECT root_folder_id, root_folder_name 
@@ -700,6 +704,19 @@ async def list_project_files(
         """).bindparams(project_id=project_id, user_id=user_id)
     )
     row = result.fetchone()
+    
+    # If not found by project_id, try by id (mapping id)
+    if not row:
+        result = await db.execute(
+            text("""
+                SELECT root_folder_id, root_folder_name 
+                FROM google_drive_projects 
+                WHERE id = :project_id::UUID 
+                AND user_id = :user_id
+                LIMIT 1
+            """).bindparams(project_id=project_id, user_id=user_id)
+        )
+        row = result.fetchone()
     
     if not row:
         raise HTTPException(status_code=404, detail="Project not found")
