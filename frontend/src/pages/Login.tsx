@@ -45,10 +45,14 @@ export default function Login() {
     setError('');
     setSuccess('');
     setIsLoading(true);
+    
+    console.log('[Login] Form submitted:', { isLogin, email: formData.email });
 
     try {
       if (isLogin) {
+        console.log('[Login] Calling login function...');
         await login(formData.email, formData.password);
+        console.log('[Login] Login succeeded!');
         setSuccess('Login successful!');
         setTimeout(() => navigate('/'), 500);
       } else {
@@ -62,8 +66,12 @@ export default function Login() {
         setTimeout(() => navigate('/'), 500);
       }
     } catch (err: any) {
-      console.error('Login/Register error:', err);
-      setError(err.message || (isLogin ? 'Invalid credentials' : 'Registration failed'));
+      console.error('[Login] ERROR:', err);
+      console.error('[Login] Error message:', err.message);
+      console.error('[Login] Error stack:', err.stack);
+      const errorMsg = err.message || (isLogin ? 'Invalid credentials' : 'Registration failed');
+      console.log('[Login] Setting error message:', errorMsg);
+      setError(errorMsg);
     } finally {
       setIsLoading(false);
     }
