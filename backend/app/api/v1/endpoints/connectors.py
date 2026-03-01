@@ -771,26 +771,32 @@ async def list_google_drive_projects(
     """
     Returns detected Drive projects from the google_drive_projects table.
     """
-    from sqlalchemy import select
-    from app.models.google_drive_project import GoogleDriveProject as GoogleDriveProjectModel
-
+    import uuid
+    from sqlalchemy import text
+    
+    # Use raw query to avoid type issues
     result = await db.execute(
-        select(GoogleDriveProjectModel).where(
-            GoogleDriveProjectModel.user_id == current_user.id,
-            GoogleDriveProjectModel.deleted == False,
-        ).order_by(GoogleDriveProjectModel.updated_at.desc())
+        text("""
+            SELECT project_id, root_folder_name, indexing_status, updated_at
+            FROM google_drive_projects
+            WHERE user_id = :user_id::UUID
+            AND deleted = false
+            ORDER BY updated_at DESC
+        """),
+        {"user_id": str(current_user.id)}
     )
-    rows = result.scalars().all()
+    rows = result.fetchall()
 
     projects: List[GoogleDriveProject] = []
-    for r in rows:
+    for row in rows:
+        project_id, root_folder_name, indexing_status, updated_at = row
         projects.append(
             GoogleDriveProject(
-                id=str(r.project_id),
-                name=r.root_folder_name,
-                file_count=0,  # will be filled when we add file counting/index pipeline
-                status=r.indexing_status,
-                updated_at=r.updated_at.isoformat() if r.updated_at else "",
+                id=str(project_id),
+                name=root_folder_name,
+                file_count=0,
+                status=indexing_status or "idle",
+                updated_at=updated_at.isoformat() if updated_at else "",
             )
         )
 
