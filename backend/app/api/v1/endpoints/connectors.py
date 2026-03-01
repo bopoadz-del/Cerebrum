@@ -678,27 +678,33 @@ async def list_google_drive_files(
 @router.get("/google-drive/projects/{project_id}/files")
 async def list_project_files(
     project_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_async),
     db: AsyncSession = Depends(get_async_db),
 ) -> List[Dict[str, Any]]:
     """List files within a specific Google Drive project (folder)."""
     import uuid
-    from sqlalchemy import select
-    from app.models.google_drive_project import GoogleDriveProject
+    from sqlalchemy import text
     from app.db.session import db_manager
     from app.services.google_drive_service import GoogleDriveService
     
-    # Get the project to find its root folder
-    result = await db.execute(
-        select(GoogleDriveProject).where(
-            GoogleDriveProject.project_id == project_id,
-            GoogleDriveProject.user_id == current_user.id,
-        )
-    )
-    project = result.scalar_one_or_none()
+    user_id = uuid.UUID(str(current_user.id))
     
-    if not project:
+    # Get the project to find its root folder - use raw SQL
+    result = await db.execute(
+        text("""
+            SELECT root_folder_id, root_folder_name 
+            FROM google_drive_projects 
+            WHERE project_id = :project_id::UUID 
+            AND user_id = :user_id
+            LIMIT 1
+        """).bindparams(project_id=project_id, user_id=user_id)
+    )
+    row = result.fetchone()
+    
+    if not row:
         raise HTTPException(status_code=404, detail="Project not found")
+    
+    root_folder_id, root_folder_name = row
     
     # List files from the project's root folder
     db_manager.initialize()
@@ -708,10 +714,7 @@ async def list_project_files(
     
     try:
         svc = GoogleDriveService(sync_db)
-        files = await svc.list_files(
-            uuid.UUID(str(current_user.id)), 
-            project.root_folder_id
-        )
+        files = await svc.list_files(user_id, root_folder_id)
         sync_db.close()
         return files
     except Exception as e:
