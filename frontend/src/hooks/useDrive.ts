@@ -165,7 +165,8 @@ export function useDrive() {
           console.log('[Drive] Was connected, keeping state');
           setIsConnected(true);
           setBackendAvailable(true);
-        } else if (res.status === 404) {
+        }
+      } else if (res.status === 404) {
         // Endpoints not deployed
         setBackendAvailable(false);
         setConnectionError('Backend not deployed - using demo mode');
