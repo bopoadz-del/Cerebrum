@@ -7,7 +7,8 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 import httpx
 
 from app.api.deps import get_current_user, User, get_db
@@ -58,7 +59,7 @@ async def get_auth_url(current_user: User = Depends(get_current_user)):
 async def oauth_callback(
     code: str,
     state: str,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Handle OAuth callback from Google (NO AUTH REQUIRED - called by Google)"""
     try:
@@ -164,7 +165,7 @@ async def oauth_callback(
 @router.get("/files", response_model=List[DriveFileResponse])
 async def list_files(
     folder_id: Optional[str] = None,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """List files from Google Drive (requires auth)"""
@@ -175,7 +176,7 @@ async def list_files(
 
 @router.post("/scan")
 async def scan_drive(
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Scan Google Drive for all files (requires auth)"""
@@ -193,7 +194,7 @@ async def scan_drive(
 
 @router.get("/projects")
 async def get_projects(
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Get Google Drive folders as projects (requires auth)"""
@@ -224,7 +225,7 @@ async def get_projects(
 async def search_files(
     query: str,
     folder_id: Optional[str] = None,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Search files in Google Drive (requires auth)"""
@@ -256,7 +257,7 @@ async def search_files(
 
 @router.get("/status")
 async def get_status(
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Check Google Drive connection status"""
@@ -264,21 +265,19 @@ async def get_status(
         from app.models.integration import IntegrationToken, IntegrationProvider
         import uuid
         
-        # Debug logging
-        print(f"DEBUG: Getting status for user_id={current_user.id}, type={type(current_user.id)}")
-        
         # Ensure user_id is UUID type
         user_id = current_user.id
         if isinstance(user_id, str):
             user_id = uuid.UUID(user_id)
         
-        token = db.query(IntegrationToken).filter(
+        # Use async query
+        stmt = select(IntegrationToken).where(
             IntegrationToken.user_id == user_id,
             IntegrationToken.service == IntegrationProvider.GOOGLE_DRIVE,
             IntegrationToken.is_active == True
-        ).first()
-        
-        print(f"DEBUG: Found token={token is not None}")
+        )
+        result = await db.execute(stmt)
+        token = result.scalar_one_or_none()
         
         return {
             "connected": token is not None,
