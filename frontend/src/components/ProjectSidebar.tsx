@@ -16,6 +16,9 @@ import {
   User,
   Loader2,
   RefreshCw,
+  Brain,
+  Database,
+  FileText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -27,6 +30,9 @@ interface Project {
   file_count: number;
   status: string;
   updated_at?: string;
+  indexed?: number;
+  total?: number;
+  percent?: number;
 }
 
 interface DriveFile {
@@ -35,6 +41,26 @@ interface DriveFile {
   mime_type: string;
   is_folder: boolean;
   modified_time?: string;
+}
+
+interface IndexingStatus {
+  projects: Array<{
+    project_id: string;
+    name: string;
+    status: string;
+    progress: { indexed: number; total: number };
+    indexed: number;
+    total: number;
+    percent: number;
+  }>;
+  summary: {
+    total_projects: number;
+    total_indexed: number;
+    total_files: number;
+    overall_percent: number;
+    zvec_ready: boolean;
+    zvec_count: number;
+  };
 }
 
 interface ProjectSidebarProps {
@@ -48,6 +74,8 @@ interface ProjectSidebarProps {
   isScanning: boolean;
   isDemoMode?: boolean;
   connectionError?: string | null;
+  indexingStatus?: IndexingStatus | null;
+  scanResults?: { detected: number; queued: number; zvecReady: boolean } | null;
   onConnectDrive: () => void;
   onDisconnectDrive?: () => void;
   onScanDrive: () => void;
@@ -77,6 +105,8 @@ export function ProjectSidebar({
   isScanning,
   isDemoMode,
   connectionError,
+  indexingStatus,
+  scanResults,
   onConnectDrive,
   onDisconnectDrive,
   onScanDrive,
@@ -172,6 +202,49 @@ export function ProjectSidebar({
             </div>
           </div>
 
+          {/* ZVec Indexing Status Panel */}
+          {(isScanning || indexingStatus || scanResults) && (
+            <div className="mx-2 mb-3 p-3 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-100">
+              <div className="flex items-center gap-2 mb-2">
+                <Brain className="w-4 h-4 text-indigo-600" />
+                <span className="font-medium text-sm text-indigo-900">ZVec AI Indexing</span>
+                {isScanning && <Loader2 className="w-3 h-3 text-indigo-600 animate-spin" />}
+              </div>
+              
+              {/* Scan Results */}
+              {scanResults && (
+                <div className="text-xs text-indigo-700 mb-2 space-y-0.5">
+                  <p>Detected {scanResults.detected} projects</p>
+                  <p>Queued {scanResults.queued} files for indexing</p>
+                  <p className="text-indigo-500">
+                    ZVec AI: {scanResults.zvecReady ? 'Ready ✓' : 'Initializing...'}
+                  </p>
+                </div>
+              )}
+              
+              {/* Overall Progress */}
+              {indexingStatus?.summary && (
+                <div className="mt-2">
+                  <div className="flex justify-between text-xs text-indigo-600 mb-1">
+                    <span>Overall Progress</span>
+                    <span>{indexingStatus.summary.overall_percent}%</span>
+                  </div>
+                  <div className="h-1.5 bg-indigo-100 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-indigo-500 rounded-full transition-all duration-500"
+                      style={{ width: `${indexingStatus.summary.overall_percent}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-xs text-gray-500 mt-1.5">
+                    <span><Database className="w-3 h-3 inline mr-0.5" />{indexingStatus.summary.total_indexed}</span>
+                    <span><FileText className="w-3 h-3 inline mr-0.5" />{indexingStatus.summary.total_files}</span>
+                    <span>ZVec: {indexingStatus.summary.zvec_count}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Project Tree */}
           <div className="space-y-0.5">
             {!isDriveConnected ? (
@@ -200,6 +273,8 @@ export function ProjectSidebar({
             ) : (
               projects.map((project) => {
                 const isExpanded = expandedProjects.has(project.id);
+                const isIndexing = project.status === 'queued' || project.status === 'running';
+                const isDone = project.status === 'done' || (project.percent !== undefined && project.percent >= 100);
                 
                 return (
                   <div key={project.id}>
@@ -223,8 +298,29 @@ export function ProjectSidebar({
                       ) : (
                         <Folder className="w-4 h-4 flex-shrink-0" />
                       )}
-                      <span className="text-sm font-medium truncate">{project.name}</span>
-                      <span className="ml-auto text-xs text-gray-400">{project.file_count} files</span>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm font-medium truncate block">{project.name}</span>
+                        {/* Indexing progress bar */}
+                        {project.total !== undefined && project.total > 0 && (
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <div className="flex-1 h-1 bg-gray-200 rounded-full overflow-hidden">
+                              <div 
+                                className={cn(
+                                  "h-full rounded-full transition-all duration-300",
+                                  isDone ? "bg-emerald-500" : "bg-indigo-500"
+                                )}
+                                style={{ width: `${project.percent || 0}%` }}
+                              />
+                            </div>
+                            <span className="text-xs text-gray-400">
+                              {isIndexing && <Loader2 className="w-3 h-3 inline animate-spin mr-0.5" />}
+                              {project.indexed}/{project.total}
+                            </span>
+                            {isDone && <Check className="w-3 h-3 text-emerald-500" />}
+                          </div>
+                        )}
+                      </div>
+                      <span className="ml-2 text-xs text-gray-400">{project.file_count}</span>
                     </button>
 
                     {/* Files in Project (appears under selected project) */}

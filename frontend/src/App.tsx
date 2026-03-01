@@ -50,6 +50,8 @@ function DesktopLayout() {
     loading,
     backendAvailable,
     connectionError,
+    indexingStatus,
+    scanResults,
     connectDrive, 
     disconnectDrive,
     scanDrive,
@@ -100,6 +102,8 @@ function DesktopLayout() {
         isScanning={scanning}
         isDemoMode={!backendAvailable}
         connectionError={connectionError}
+        indexingStatus={indexingStatus}
+        scanResults={scanResults}
         onConnectDrive={connectDrive}
         onDisconnectDrive={disconnectDrive}
         onScanDrive={scanDrive}

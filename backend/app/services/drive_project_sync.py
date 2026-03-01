@@ -59,6 +59,93 @@ def _indexable_drive_file(mime: str, name: str) -> bool:
     return lower.endswith((".md", ".txt", ".pdf", ".csv"))
 
 
+def _index_files_sync(
+    db: Session,
+    file_ids: List[str],
+    file_info_map: Dict[str, Dict],
+    user_id: uuid.UUID,
+    access_token: str
+) -> int:
+    """
+    Synchronously index files into ZVec.
+    Returns number of successfully indexed files.
+    """
+    from app.services.zvec_service import get_zvec_service
+    from app.services.document_parser import extract_text_from_drive_file
+    from app.models.document import Document
+    import asyncio
+    
+    zvec = get_zvec_service()
+    indexed_count = 0
+    
+    # Process each file
+    for file_id in file_ids:
+        file_info = file_info_map.get(file_id, {})
+        file_name = file_info.get('name', 'Unknown')
+        mime_type = file_info.get('mimeType', 'application/pdf')
+        
+        try:
+            # Check if already indexed
+            existing = db.query(Document).filter(
+                Document.drive_id == file_id
+            ).first()
+            
+            if existing and existing.status == "indexed":
+                indexed_count += 1
+                continue
+            
+            # Extract text via Drive API (async function in sync context)
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                text = loop.run_until_complete(
+                    extract_text_from_drive_file(file_id, access_token, mime_type)
+                )
+            finally:
+                loop.close()
+            
+            if not text or len(text) < 50:
+                continue
+            
+            # Index in ZVec
+            doc_id = f"drive_{file_id}"
+            metadata = {
+                'drive_id': file_id,
+                'name': file_name,
+                'mime_type': mime_type,
+                'user_id': str(user_id),
+                'content_preview': text[:500]
+            }
+            
+            success = zvec.add_document(doc_id, text, metadata)
+            
+            if success:
+                # Save to database
+                if existing:
+                    existing.content = text[:2000]
+                    existing.status = "indexed"
+                    existing.updated_at = datetime.utcnow()
+                else:
+                    doc = Document(
+                        drive_id=file_id,
+                        filename=file_name,
+                        content=text[:2000],
+                        mime_type=mime_type,
+                        status="indexed",
+                        user_id=str(user_id)
+                    )
+                    db.add(doc)
+                
+                db.commit()
+                indexed_count += 1
+                
+        except Exception as e:
+            print(f"Failed to index file {file_id}: {e}")
+            continue
+    
+    return indexed_count
+
+
 def discover_and_upsert_drive_projects(
     db: Session,
     user_id: uuid.UUID,
@@ -228,10 +315,11 @@ def discover_and_upsert_drive_projects(
             updated_mappings += 1
             project_ids.append(str(mapping.project_id))
 
-        # --- MAGIC DEMO: queue indexing now ---
+        # --- Index files now ---
         if index_now:
             # only immediate child files (not folders), indexable types only, capped
             file_ids: List[str] = []
+            file_info_map: Dict[str, Dict] = {}
             for c in children:
                 mime = c.get("mimeType") or ""
                 if mime == "application/vnd.google-apps.folder":
@@ -241,22 +329,39 @@ def discover_and_upsert_drive_projects(
                 fid = c.get("id")
                 if fid:
                     file_ids.append(fid)
+                    file_info_map[fid] = c
                 if len(file_ids) >= max_files_per_project:
                     break
 
             if file_ids:
-                # Update UI status before enqueue
-                mapping.indexing_status = "queued"
+                # Update UI status to running
+                mapping.indexing_status = "running"
                 mapping.indexing_progress = {"indexed": 0, "total": len(file_ids)}
-
-                # Defer import to avoid circular imports at module import time
-                from app.tasks import process_drive_file_batch
-
-                process_drive_file_batch.delay(
-                    file_ids=file_ids,
-                    user_id=str(user_id),
-                    access_token=tok.access_token,
-                )
+                db.commit()  # Commit so UI sees the change immediately
+                
+                # Try synchronous indexing first (works without Celery worker)
+                try:
+                    indexed_count = _index_files_sync(
+                        db, file_ids, file_info_map, user_id, tok.access_token
+                    )
+                    mapping.indexing_status = "done"
+                    mapping.indexing_progress = {"indexed": indexed_count, "total": len(file_ids)}
+                    mapping.last_indexed_at = datetime.utcnow()
+                except Exception as e:
+                    print(f"Sync indexing failed: {e}")
+                    # Fall back to Celery if sync fails
+                    mapping.indexing_status = "queued"
+                    try:
+                        from app.tasks import process_drive_file_batch
+                        process_drive_file_batch.delay(
+                            file_ids=file_ids,
+                            user_id=str(user_id),
+                            access_token=tok.access_token,
+                        )
+                    except Exception as celery_err:
+                        print(f"Celery also failed: {celery_err}")
+                        mapping.indexing_status = "error"
+                
                 queued_index_jobs += 1
 
         mapping_ids.append(str(mapping.id))
