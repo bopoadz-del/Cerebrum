@@ -116,13 +116,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Validate token with backend
   const validateToken = useCallback(async (token: string): Promise<boolean> => {
     try {
+      console.log('[Auth] Validating token...');
       const response = await fetch(`${API_BASE}/auth/me`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
+      console.log('[Auth] Token validation response:', { status: response.status, ok: response.ok });
       return response.ok;
-    } catch {
+    } catch (e: any) {
+      console.error('[Auth] Token validation error:', e.message);
       return false;
     }
   }, []);

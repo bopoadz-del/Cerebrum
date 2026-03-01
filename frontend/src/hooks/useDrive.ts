@@ -123,15 +123,21 @@ export function useDrive() {
 
   // Check backend health and connection status
   const checkConnection = useCallback(async () => {
+    console.log('[Drive] Checking connection...');
     try {
       setLoading(true);
       setConnectionError(null);
+      
+      const token = getAuthToken();
+      console.log('[Drive] Token present:', !!token);
       
       const res = await fetch(`${API_URL}/connectors/google-drive/status`, { 
         headers: getHeaders(),
         // Short timeout to quickly detect backend issues
         signal: AbortSignal.timeout(5000)
       });
+      
+      console.log('[Drive] Status response:', { status: res.status, ok: res.ok });
       
       if (res.ok) {
         const data = await res.json();
