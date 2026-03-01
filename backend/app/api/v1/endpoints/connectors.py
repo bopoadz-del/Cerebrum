@@ -566,42 +566,38 @@ MOCK_PROJECTS = [
 
 @router.post(
     "/google-drive/scan",
-    response_model=GoogleDriveProjectsResponse,
     summary="Scan Google Drive for projects",
 )
 async def scan_google_drive(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
-) -> GoogleDriveProjectsResponse:
-    """Return real Drive projects from DB (google_drive_projects)."""
-    from sqlalchemy import select
-    from app.models.google_drive_project import GoogleDriveProject as GoogleDriveProjectModel
-
-    result = await db.execute(
-        select(GoogleDriveProjectModel)
-        .where(
-            GoogleDriveProjectModel.user_id == current_user.id,
-            GoogleDriveProjectModel.deleted == False,
+) -> Dict[str, Any]:
+    """Scan Google Drive, detect projects, and return them."""
+    import uuid
+    from sqlalchemy.orm import Session
+    from app.services.drive_project_sync import discover_and_upsert_drive_projects
+    
+    # Convert async session to sync for the service
+    # The service uses sync SQLAlchemy
+    from app.db.session import db_manager
+    db_manager.initialize()
+    from sqlalchemy.orm import sessionmaker
+    SessionLocal = sessionmaker(bind=db_manager._sync_engine)
+    sync_db = SessionLocal()
+    
+    try:
+        result = discover_and_upsert_drive_projects(
+            sync_db,
+            uuid.UUID(str(current_user.id)),
+            min_score=1.0,  # Lower threshold to catch more folders
+            max_root_folders=50,
+            index_now=True,
         )
-        .order_by(GoogleDriveProjectModel.updated_at.desc())
-    )
-    rows = result.scalars().all()
-
-    projects: List[GoogleDriveProject] = []
-    for r in rows:
-        prog = r.indexing_progress or {}
-        total = int(prog.get("total", 0) or 0)
-        projects.append(
-            GoogleDriveProject(
-                id=str(r.project_id),
-                name=r.root_folder_name,
-                file_count=total,
-                status=r.indexing_status,
-                updated_at=r.updated_at.isoformat() if r.updated_at else "",
-            )
-        )
-
-    return GoogleDriveProjectsResponse(projects=projects)
+        sync_db.close()
+        return result
+    except Exception as e:
+        sync_db.close()
+        raise HTTPException(status_code=500, detail=f"Scan failed: {str(e)}")
 
 
 @router.post("/google-drive/search")
