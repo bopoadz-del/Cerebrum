@@ -335,6 +335,7 @@ async def google_drive_callback(
     from app.core.config import settings
     import httpx
     import urllib.parse
+    import json
     
     try:
         # URL decode state in case it was encoded
@@ -364,6 +365,10 @@ async def google_drive_callback(
             )
             email = userinfo.json().get("email") if userinfo.status_code == 200 else None
         
+        # Properly escape values for JavaScript using JSON encoding
+        code_js = json.dumps(code)
+        state_js = json.dumps(state)
+        
         # Return success HTML that sends postMessage to parent window
         html_content = f"""
         <!DOCTYPE html>
@@ -374,8 +379,8 @@ async def google_drive_callback(
                 if (window.opener) {{
                     window.opener.postMessage({{
                         type: 'GOOGLE_DRIVE_AUTH_SUCCESS',
-                        code: '{code}',
-                        state: '{state}'
+                        code: {code_js},
+                        state: {state_js}
                     }}, 'https://cerebrum-frontend.onrender.com');
                 }}
                 setTimeout(() => window.close(), 500);
@@ -390,6 +395,7 @@ async def google_drive_callback(
         return HTMLResponse(content=html_content)
         
     except Exception as e:
+        error_js = json.dumps(str(e))
         error_html = f"""
         <!DOCTYPE html>
         <html>
@@ -399,7 +405,7 @@ async def google_drive_callback(
                 if (window.opener) {{
                     window.opener.postMessage({{
                         type: 'GOOGLE_DRIVE_AUTH_ERROR',
-                        error: '{str(e)}'
+                        error: {error_js}
                     }}, 'https://cerebrum-frontend.onrender.com');
                 }}
                 setTimeout(() => window.close(), 3000);
