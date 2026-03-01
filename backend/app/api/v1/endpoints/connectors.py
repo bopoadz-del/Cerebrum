@@ -705,10 +705,14 @@ async def scan_google_drive(
     current_user: User = Depends(get_current_user_async),
     db: AsyncSession = Depends(get_async_db),
 ) -> Dict[str, Any]:
-    """Scan Google Drive, detect projects, and return them."""
+    """
+    Scan Google Drive, detect projects, and trigger ZVec indexing.
+    Returns scan results with indexing queue information.
+    """
     import uuid
     from sqlalchemy.orm import Session
     from app.services.drive_project_sync import discover_and_upsert_drive_projects
+    from app.services.zvec_service import get_zvec_service
     
     # Convert async session to sync for the service
     # The service uses sync SQLAlchemy
@@ -719,6 +723,7 @@ async def scan_google_drive(
     sync_db = SessionLocal()
     
     try:
+        # Run the discovery and upsert
         result = discover_and_upsert_drive_projects(
             sync_db,
             uuid.UUID(str(current_user.id)),
@@ -727,7 +732,21 @@ async def scan_google_drive(
             index_now=True,
         )
         sync_db.close()
-        return result
+        
+        # Add ZVec service info to result
+        zvec = get_zvec_service()
+        zvec_stats = zvec.get_stats()
+        
+        return {
+            **result,
+            "zvec": {
+                "ready": zvec_stats.get('ready', False),
+                "indexed_documents": zvec_stats.get('count', 0),
+            },
+            "message": f"Scan complete. Detected {result.get('detected', 0)} projects. "
+                       f"Queued {result.get('queued_index_jobs', 0)} indexing jobs. "
+                       f"ZVec ready: {zvec_stats.get('ready', False)}."
+        }
     except Exception as e:
         sync_db.close()
         raise HTTPException(status_code=500, detail=f"Scan failed: {str(e)}")
@@ -941,16 +960,24 @@ async def list_google_drive_projects(
 ) -> GoogleDriveProjectsResponse:
     """
     Returns detected Drive projects from the google_drive_projects table.
+    Includes ZVec indexing status and progress.
     """
     import uuid
     from sqlalchemy import text
     
     user_id = uuid.UUID(str(current_user.id))
     
-    # Use raw query with proper bindparams
+    # Use raw query with proper bindparams - include indexing_progress
     result = await db.execute(
         text("""
-            SELECT project_id, root_folder_name, indexing_status, updated_at
+            SELECT 
+                project_id, 
+                root_folder_name, 
+                indexing_status, 
+                indexing_progress,
+                updated_at,
+                score,
+                confidence
             FROM google_drive_projects
             WHERE user_id = :user_id
             AND deleted = false
@@ -961,18 +988,100 @@ async def list_google_drive_projects(
 
     projects: List[GoogleDriveProject] = []
     for row in rows:
-        project_id, root_folder_name, indexing_status, updated_at = row
+        project_id, root_folder_name, indexing_status, indexing_progress, updated_at, score, confidence = row
+        # Calculate file_count from indexing_progress if available
+        progress_data = indexing_progress or {}
+        file_count = progress_data.get('total', 0) or progress_data.get('indexed', 0)
+        
         projects.append(
             GoogleDriveProject(
                 id=str(project_id),
                 name=root_folder_name,
-                file_count=0,
+                file_count=file_count,
                 status=indexing_status or "idle",
                 updated_at=updated_at.isoformat() if updated_at else "",
             )
         )
 
     return GoogleDriveProjectsResponse(projects=projects)
+
+
+@router.get(
+    "/google-drive/indexing-status",
+    summary="Get ZVec indexing status for all projects",
+)
+async def get_indexing_status(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db),
+) -> Dict[str, Any]:
+    """
+    Returns detailed ZVec indexing status for polling.
+    Shows progress of document indexing across all projects.
+    """
+    import uuid
+    from sqlalchemy import text
+    from app.services.zvec_service import get_zvec_service
+    
+    user_id = uuid.UUID(str(current_user.id))
+    
+    # Get project indexing statuses
+    result = await db.execute(
+        text("""
+            SELECT 
+                project_id,
+                root_folder_name,
+                indexing_status,
+                indexing_progress,
+                last_indexed_at,
+                score,
+                confidence
+            FROM google_drive_projects
+            WHERE user_id = :user_id
+            AND deleted = false
+            ORDER BY updated_at DESC
+        """).bindparams(user_id=user_id)
+    )
+    
+    projects_status = []
+    total_indexed = 0
+    total_files = 0
+    
+    for row in result.fetchall():
+        project_id, folder_name, status, progress, last_indexed, score, confidence = row
+        progress_data = progress or {}
+        indexed = progress_data.get('indexed', 0)
+        total = progress_data.get('total', 0)
+        total_indexed += indexed
+        total_files += total
+        
+        projects_status.append({
+            "project_id": str(project_id),
+            "name": folder_name,
+            "status": status or "idle",
+            "progress": progress_data,
+            "indexed": indexed,
+            "total": total,
+            "percent": round((indexed / total * 100), 1) if total > 0 else 0,
+            "last_indexed": last_indexed.isoformat() if last_indexed else None,
+            "score": float(score) if score else 0,
+            "confidence": float(confidence) if confidence else 0,
+        })
+    
+    # Get ZVec stats
+    zvec = get_zvec_service()
+    zvec_stats = zvec.get_stats()
+    
+    return {
+        "projects": projects_status,
+        "summary": {
+            "total_projects": len(projects_status),
+            "total_indexed": total_indexed,
+            "total_files": total_files,
+            "overall_percent": round((total_indexed / total_files * 100), 1) if total_files > 0 else 0,
+            "zvec_ready": zvec_stats.get('ready', False),
+            "zvec_count": zvec_stats.get('count', 0),
+        }
+    }
 
 
 @router.get("/google-drive/debug")

@@ -62,6 +62,9 @@ export interface Project {
   file_count: number;
   status: string;
   updated_at?: string;
+  indexed?: number;
+  total?: number;
+  percent?: number;
 }
 
 export interface SearchResult {
@@ -75,6 +78,26 @@ export interface SearchResult {
   };
 }
 
+export interface IndexingStatus {
+  projects: Array<{
+    project_id: string;
+    name: string;
+    status: string;
+    progress: { indexed: number; total: number };
+    indexed: number;
+    total: number;
+    percent: number;
+  }>;
+  summary: {
+    total_projects: number;
+    total_indexed: number;
+    total_files: number;
+    overall_percent: number;
+    zvec_ready: boolean;
+    zvec_count: number;
+  };
+}
+
 export function useDrive() {
   const { user, refreshAuthToken } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
@@ -83,6 +106,8 @@ export function useDrive() {
   const [loading, setLoading] = useState(false);
   const [backendAvailable, setBackendAvailable] = useState<boolean | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [indexingStatus, setIndexingStatus] = useState<IndexingStatus | null>(null);
+  const [scanResults, setScanResults] = useState<{ detected: number; queued: number; zvecReady: boolean } | null>(null);
 
   // Get auth token from localStorage using the same key as AuthContext
   const getAuthToken = () => localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN) || '';
@@ -369,10 +394,47 @@ export function useDrive() {
     }
   };
 
+  // Fetch indexing status for ZVec polling
+  const fetchIndexingStatus = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_URL}/connectors/google-drive/indexing-status`, {
+        headers: getHeaders(),
+        signal: AbortSignal.timeout(10000)
+      });
+      
+      if (res.ok) {
+        const data: IndexingStatus = await res.json();
+        setIndexingStatus(data);
+        
+        // Update projects with indexing progress
+        setProjects(prev => prev.map(p => {
+          const statusProject = data.projects.find(sp => sp.project_id === p.id);
+          if (statusProject) {
+            return {
+              ...p,
+              status: statusProject.status,
+              indexed: statusProject.indexed,
+              total: statusProject.total,
+              percent: statusProject.percent,
+              file_count: statusProject.total || p.file_count,
+            };
+          }
+          return p;
+        }));
+        
+        return data;
+      }
+    } catch (e) {
+      console.error('[Drive] Failed to fetch indexing status:', e);
+    }
+    return null;
+  }, [refreshAuthToken]);
+
   // Scan Drive for projects
   const scanDrive = async () => {
     console.log('[Drive] Starting scan...');
     setScanning(true);
+    setScanResults(null);
     
     try {
       const res = await fetch(`${API_URL}/connectors/google-drive/scan`, {
@@ -387,10 +449,19 @@ export function useDrive() {
         const data = await res.json();
         console.log('[Drive] Scan data:', data);
         
-        // Handle the real scan response
-        if (data.status === 'success' && data.mapping_ids) {
+        // Store scan results
+        if (data.status === 'success') {
+          setScanResults({
+            detected: data.detected || 0,
+            queued: data.queued_index_jobs || 0,
+            zvecReady: data.zvec?.ready || false,
+          });
+          
           // Fetch the actual projects after scan
           await refreshProjects();
+          
+          // Start polling indexing status
+          fetchIndexingStatus();
         } else if (data.message === 'Google Drive not connected') {
           setConnectionError('Google Drive not connected');
           setIsConnected(false);
@@ -613,6 +684,24 @@ export function useDrive() {
     }
   }, [isConnected]);
 
+  // Poll indexing status when scanning or when projects are being indexed
+  useEffect(() => {
+    if (!isConnected) return;
+    
+    // Check if any project is being indexed
+    const hasIndexingProjects = projects.some(p => 
+      p.status === 'queued' || p.status === 'running' || (p.percent !== undefined && p.percent < 100)
+    );
+    
+    if (scanning || hasIndexingProjects) {
+      // Poll every 3 seconds during active indexing
+      const interval = setInterval(() => {
+        fetchIndexingStatus();
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [isConnected, scanning, projects, fetchIndexingStatus]);
+
   return {
     projects,
     scanning,
@@ -620,12 +709,15 @@ export function useDrive() {
     loading,
     backendAvailable,
     connectionError,
+    indexingStatus,
+    scanResults,
     connectDrive,
     disconnectDrive,
     scanDrive,
     refreshProjects,
     searchDrive,
     indexDriveFiles,
-    getProjectFiles
+    getProjectFiles,
+    fetchIndexingStatus
   };
 }

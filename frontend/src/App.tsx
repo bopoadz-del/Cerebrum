@@ -153,6 +153,8 @@ function MobileLayout() {
     loading,
     backendAvailable,
     connectionError,
+    indexingStatus,
+    scanResults,
     connectDrive, 
     disconnectDrive,
     scanDrive,
@@ -199,6 +201,8 @@ function MobileLayout() {
             isScanning={scanning}
             isDemoMode={!backendAvailable}
             connectionError={connectionError}
+            indexingStatus={indexingStatus}
+            scanResults={scanResults}
             onConnectDrive={connectDrive}
             onDisconnectDrive={disconnectDrive}
             onScanDrive={scanDrive}
