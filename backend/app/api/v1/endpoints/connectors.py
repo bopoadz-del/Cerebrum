@@ -810,32 +810,40 @@ async def debug_google_drive(
 ) -> Dict[str, Any]:
     """Debug endpoint to check database state."""
     from sqlalchemy import text
+    import traceback
     
-    # Check google_drive_projects count
-    result = await db.execute(
-        text("SELECT COUNT(*) FROM google_drive_projects WHERE user_id = :user_id::UUID"),
-        {"user_id": str(current_user.id)}
-    )
-    project_count = result.scalar()
-    
-    # Check integration_tokens
-    result2 = await db.execute(
-        text("SELECT COUNT(*) FROM integration_tokens WHERE user_id = :user_id::UUID AND service = 'google_drive'"),
-        {"user_id": str(current_user.id)}
-    )
-    token_count = result2.scalar()
-    
-    # Get sample projects
-    result3 = await db.execute(
-        text("SELECT project_id, root_folder_name, deleted FROM google_drive_projects WHERE user_id = :user_id::UUID LIMIT 5"),
-        {"user_id": str(current_user.id)}
-    )
-    projects = [dict(row) for row in result3.mappings()]
-    
-    return {
-        "user_id": str(current_user.id),
-        "project_count": project_count,
-        "token_count": token_count,
-        "sample_projects": projects,
-    }
+    try:
+        # Check google_drive_projects count
+        result = await db.execute(
+            text("SELECT COUNT(*) FROM google_drive_projects WHERE user_id = :user_id::UUID"),
+            {"user_id": str(current_user.id)}
+        )
+        project_count = result.scalar()
+        
+        # Check integration_tokens
+        result2 = await db.execute(
+            text("SELECT COUNT(*) FROM integration_tokens WHERE user_id = :user_id::UUID AND service = 'google_drive'"),
+            {"user_id": str(current_user.id)}
+        )
+        token_count = result2.scalar()
+        
+        # Get sample projects
+        result3 = await db.execute(
+            text("SELECT project_id, root_folder_name, deleted FROM google_drive_projects WHERE user_id = :user_id::UUID LIMIT 5"),
+            {"user_id": str(current_user.id)}
+        )
+        rows = result3.fetchall()
+        projects = [{"project_id": str(r[0]), "root_folder_name": r[1], "deleted": r[2]} for r in rows]
+        
+        return {
+            "user_id": str(current_user.id),
+            "project_count": project_count,
+            "token_count": token_count,
+            "sample_projects": projects,
+        }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "traceback": traceback.format_exc(),
+        }
 
