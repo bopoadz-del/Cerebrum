@@ -67,6 +67,16 @@ export interface Project {
   percent?: number;
 }
 
+export interface DriveFile {
+  id: string;
+  name: string;
+  mime_type: string;
+  size?: number;
+  modified_time?: string;
+  is_folder: boolean;
+  web_view_link?: string;
+}
+
 export interface SearchResult {
   id: string;
   score: number;
@@ -544,25 +554,36 @@ export function useDrive() {
   };
 
   // Get files for a project
-  const getProjectFiles = useCallback(async (projectId: string) => {
+  const getProjectFiles = useCallback(async (projectId: string): Promise<DriveFile[]> => {
     try {
+      console.log('[Drive] Fetching files for project:', projectId);
       const res = await fetch(`${API_URL}/connectors/google-drive/projects/${projectId}/files`, {
         headers: getHeaders(),
         signal: AbortSignal.timeout(10000)
       });
       
       if (res.ok) {
-        return await res.json();
+        const files = await res.json();
+        console.log('[Drive] Files retrieved:', files.length);
+        return files;
       } else if (res.status === 401) {
+        console.error('[Drive] Auth error getting files, attempting refresh...');
         const refreshed = await refreshAuthToken();
         if (refreshed) {
           return getProjectFiles(projectId);
         }
+        throw new Error('Session expired. Please login again.');
+      } else if (res.status === 404) {
+        console.error('[Drive] Project not found:', projectId);
+        throw new Error('Project not found. Try scanning Drive again.');
+      } else {
+        const error = await res.json().catch(() => ({ detail: 'Failed to load files' }));
+        console.error('[Drive] Error getting files:', error);
+        throw new Error(error.detail || 'Failed to load files from Google Drive');
       }
-      return [];
-    } catch (e) {
+    } catch (e: any) {
       console.error('[Drive] Failed to get project files:', e);
-      return [];
+      throw e;
     }
   }, [refreshAuthToken]);
 

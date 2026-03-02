@@ -846,6 +846,8 @@ async def list_project_files(
     logger = logging.getLogger(__name__)
     user_id = uuid.UUID(str(current_user.id))
     
+    logger.info(f"list_project_files called: project_id={project_id}, user_id={user_id}")
+    
     # Try looking up by project_id first, then by id (mapping id)
     result = await db.execute(
         text("""
@@ -857,6 +859,7 @@ async def list_project_files(
         """).bindparams(project_id=project_id, user_id=user_id)
     )
     row = result.fetchone()
+    lookup_method = "project_id"
     
     # If not found by project_id, try by id (mapping id)
     if not row:
@@ -870,12 +873,14 @@ async def list_project_files(
             """).bindparams(project_id=project_id, user_id=user_id)
         )
         row = result.fetchone()
+        lookup_method = "id"
     
     if not row:
+        logger.error(f"Project not found: project_id={project_id}, user_id={user_id}")
         raise HTTPException(status_code=404, detail="Project not found")
     
     root_folder_id, root_folder_name = row
-    logger.info(f"Listing files for project {project_id}, folder {root_folder_id}, user {user_id}")
+    logger.info(f"Found project via {lookup_method}: folder_id={root_folder_id}, folder_name={root_folder_name}")
     
     # List files from the project's root folder
     db_manager.initialize()
@@ -885,11 +890,20 @@ async def list_project_files(
     
     try:
         svc = GoogleDriveService(sync_db)
+        
+        # Check if we have credentials before making the API call
+        creds = svc.get_credentials(user_id)
+        if not creds:
+            logger.error(f"No Google Drive credentials found for user {user_id}")
+            raise HTTPException(status_code=401, detail="Google Drive not authenticated. Please reconnect.")
+        
+        logger.info(f"Credentials found for user {user_id}, fetching files from folder {root_folder_id}")
         files = await svc.list_files(user_id, root_folder_id)
+        logger.info(f"Retrieved {len(files)} files from Google Drive for folder {root_folder_id}")
+        
         sync_db.close()
         return files
     except ValueError as e:
-        # Not authenticated error
         sync_db.close()
         logger.error(f"Authentication error listing files: {e}")
         raise HTTPException(status_code=401, detail="Google Drive not authenticated. Please reconnect.")

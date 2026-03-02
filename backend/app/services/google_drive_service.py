@@ -168,6 +168,8 @@ class GoogleDriveService:
               q = "trashed=false"
               if folder_id:
                   q += f" and '{folder_id}' in parents"
+              
+              logger.info(f"Querying Google Drive: folder_id={folder_id}, query={q}")
 
               try:
                   results = svc.files().list(
@@ -176,16 +178,23 @@ class GoogleDriveService:
                       q=q,
                       orderBy="modifiedTime desc"
                   ).execute()
+                  
+                  files = results.get("files", [])
+                  logger.info(f"Google Drive returned {len(files)} files for folder {folder_id}")
+                  
               except Exception as e:
                   logger.error(f"Google Drive API error: {e}")
                   # Check if it's an auth error
                   error_str = str(e).lower()
                   if 'unauthorized' in error_str or 'invalid' in error_str or 'expired' in error_str:
                       raise ValueError(f"Google Drive authentication expired: {e}")
+                  # Check if folder not found
+                  if 'not found' in error_str:
+                      raise ValueError(f"Folder not found in Google Drive: {folder_id}")
                   raise
 
               out = []
-              for f in results.get("files", []):
+              for f in files:
                   mt = f.get("mimeType")
                   out.append({
                       "id": f.get("id"),

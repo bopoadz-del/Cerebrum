@@ -35,7 +35,7 @@ interface Project {
   percent?: number;
 }
 
-interface DriveFile {
+export interface DriveFile {
   id: string;
   name: string;
   mime_type: string;
@@ -117,17 +117,20 @@ export function ProjectSidebar({
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set(['1']));
   const [projectFiles, setProjectFiles] = useState<Record<string, DriveFile[]>>({});
   const [loadingFiles, setLoadingFiles] = useState<Record<string, boolean>>({});
+  const [fileErrors, setFileErrors] = useState<Record<string, string>>({});
   const { user, logout } = useAuth();
 
   const loadProjectFiles = async (projectId: string) => {
     if (!getProjectFiles || projectFiles[projectId]) return;
     
     setLoadingFiles(prev => ({ ...prev, [projectId]: true }));
+    setFileErrors(prev => ({ ...prev, [projectId]: '' }));
     try {
       const files = await getProjectFiles(projectId);
       setProjectFiles(prev => ({ ...prev, [projectId]: files }));
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to load project files:', e);
+      setFileErrors(prev => ({ ...prev, [projectId]: e.message || 'Failed to load files' }));
     } finally {
       setLoadingFiles(prev => ({ ...prev, [projectId]: false }));
     }
@@ -338,6 +341,21 @@ export function ProjectSidebar({
                               <div className="flex items-center gap-2 px-2 py-1.5 text-gray-400">
                                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
                                 <span className="text-xs">Loading files...</span>
+                              </div>
+                            ) : fileErrors[project.id] ? (
+                              <div className="px-2 py-2">
+                                <div className="text-xs text-red-500 bg-red-50 px-2 py-1.5 rounded mb-1">
+                                  {fileErrors[project.id]}
+                                </div>
+                                <button
+                                  onClick={() => {
+                                    setProjectFiles(prev => ({ ...prev, [project.id]: [] }));
+                                    loadProjectFiles(project.id);
+                                  }}
+                                  className="text-xs text-blue-500 hover:text-blue-600"
+                                >
+                                  Retry →
+                                </button>
                               </div>
                             ) : projectFiles[project.id]?.length > 0 ? (
                               projectFiles[project.id].map((file) => (
