@@ -708,13 +708,9 @@ async def scan_google_drive(
     """
     Scan Google Drive, detect projects, and trigger ZVec indexing.
     Returns scan results with indexing queue information.
-    
-    Note: Runs discovery WITHOUT immediate indexing to return quickly.
-    Indexing happens in background via Celery or on-demand.
     """
     import uuid
     import logging
-    import asyncio
     from sqlalchemy.orm import Session
     from app.services.drive_project_sync import discover_and_upsert_drive_projects
     from app.services.zvec_service import get_zvec_service
@@ -725,6 +721,7 @@ async def scan_google_drive(
     logger.info(f"Scan requested by user {user_id}")
     
     # Convert async session to sync for the service
+    # The service uses sync SQLAlchemy
     from app.db.session import db_manager
     db_manager.initialize()
     from sqlalchemy.orm import sessionmaker
@@ -734,16 +731,16 @@ async def scan_google_drive(
     try:
         logger.info(f"Starting project discovery for user {user_id}")
         
-        # Run the discovery WITHOUT immediate indexing to return quickly
-        # index_now=False prevents timeout - just detect and store projects
+        # Run the discovery and upsert
+        # Increased limits: 200 root folders, up to 100 files per project
         result = discover_and_upsert_drive_projects(
             sync_db,
             user_id,
-            min_score=0.5,  # Lower threshold to catch more folders
+            min_score=0.5,  # Lower threshold to catch more folders (even with few files)
             max_root_folders=200,
             max_children_per_folder=500,
-            index_now=False,  # Don't block - just detect projects
-            max_files_per_project=0,
+            index_now=True,
+            max_files_per_project=100,
         )
         sync_db.close()
         
@@ -753,12 +750,6 @@ async def scan_google_drive(
         if result.get("status") == "error":
             logger.error(f"Scan error for user {user_id}: {result.get('message')}")
             raise HTTPException(status_code=400, detail=result.get("message", "Scan failed"))
-        
-        # Trigger background indexing for the detected projects (non-blocking)
-        detected_count = result.get("detected", 0)
-        if detected_count > 0:
-            # Start background indexing
-            asyncio.create_task(_background_index_projects(user_id))
         
         # Add ZVec service info to result
         zvec = get_zvec_service()
@@ -771,9 +762,8 @@ async def scan_google_drive(
                 "ready": zvec_stats.get('ready', False),
                 "indexed_documents": zvec_stats.get('count', 0),
             },
-            "queued_index_jobs": detected_count,  # Projects queued for background indexing
-            "message": f"Scan complete. Detected {detected_count} projects. "
-                       f"Indexing will continue in background. "
+            "message": f"Scan complete. Detected {result.get('detected', 0)} projects. "
+                       f"Queued {result.get('queued_index_jobs', 0)} indexing jobs. "
                        f"ZVec ready: {zvec_stats.get('ready', False)}."
         }
         
@@ -787,41 +777,6 @@ async def scan_google_drive(
         sync_db.close()
         logger.error(f"Scan exception for user {user_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Scan failed: {str(e)}")
-
-
-async def _background_index_projects(user_id: uuid.UUID):
-    """Background task to index projects without blocking the API."""
-    import logging
-    logger = logging.getLogger(__name__)
-    
-    try:
-        logger.info(f"Starting background indexing for user {user_id}")
-        # Wait a bit to let the scan response return first
-        await asyncio.sleep(2)
-        
-        # Re-initialize DB for background task
-        from app.db.session import db_manager
-        db_manager.initialize()
-        from sqlalchemy.orm import sessionmaker
-        SessionLocal = sessionmaker(bind=db_manager._sync_engine)
-        sync_db = SessionLocal()
-        
-        try:
-            from app.services.drive_project_sync import discover_and_upsert_drive_projects
-            # Now run with indexing enabled - this can take time
-            result = discover_and_upsert_drive_projects(
-                sync_db,
-                user_id,
-                min_score=0.5,
-                max_root_folders=200,
-                index_now=True,
-                max_files_per_project=50,  # Index up to 50 files per project
-            )
-            logger.info(f"Background indexing complete for user {user_id}: {result}")
-        finally:
-            sync_db.close()
-    except Exception as e:
-        logger.error(f"Background indexing failed for user {user_id}: {e}", exc_info=True)
 
 
 @router.post("/google-drive/search")

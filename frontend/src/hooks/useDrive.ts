@@ -451,7 +451,7 @@ export function useDrive() {
       const res = await fetch(`${API_URL}/connectors/google-drive/scan`, {
         method: 'POST',
         headers: getHeaders(),
-        signal: AbortSignal.timeout(60000) // 60 second timeout (scan is now fast)
+        signal: AbortSignal.timeout(30000) // 30 second timeout for real scan
       });
       
       console.log('[Drive] Scan response:', { status: res.status, ok: res.ok });
@@ -471,18 +471,8 @@ export function useDrive() {
           // Fetch the actual projects after scan
           await refreshProjects();
           
-          // Start polling indexing status (background indexing)
-          if (data.detected > 0) {
-            // Poll for 2 minutes to track background indexing progress
-            const pollInterval = setInterval(() => {
-              fetchIndexingStatus();
-            }, 5000);
-            
-            // Stop polling after 2 minutes
-            setTimeout(() => {
-              clearInterval(pollInterval);
-            }, 120000);
-          }
+          // Start polling indexing status
+          fetchIndexingStatus();
         } else {
           setConnectionError(data.message || 'Scan returned unexpected status');
         }
