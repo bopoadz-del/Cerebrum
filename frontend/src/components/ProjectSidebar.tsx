@@ -214,6 +214,13 @@ export function ProjectSidebar({
                 {isScanning && <Loader2 className="w-3 h-3 text-indigo-600 animate-spin" />}
               </div>
               
+              {/* Scanning Indicator */}
+              {isScanning && !scanResults && (
+                <div className="text-xs text-indigo-600 mb-2 animate-pulse">
+                  Scanning Google Drive for projects...
+                </div>
+              )}
+              
               {/* Scan Results */}
               {scanResults && (
                 <div className="text-xs text-indigo-700 mb-2 space-y-0.5">
