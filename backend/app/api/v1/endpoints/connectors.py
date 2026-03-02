@@ -732,12 +732,15 @@ async def scan_google_drive(
         logger.info(f"Starting project discovery for user {user_id}")
         
         # Run the discovery and upsert
+        # Increased limits: 200 root folders, up to 100 files per project
         result = discover_and_upsert_drive_projects(
             sync_db,
             user_id,
-            min_score=1.0,  # Lower threshold to catch more folders
-            max_root_folders=50,
+            min_score=0.5,  # Lower threshold to catch more folders (even with few files)
+            max_root_folders=200,
+            max_children_per_folder=500,
             index_now=True,
+            max_files_per_project=100,
         )
         sync_db.close()
         
