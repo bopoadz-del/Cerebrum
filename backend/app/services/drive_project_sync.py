@@ -169,6 +169,11 @@ def discover_and_upsert_drive_projects(
 
     Returns counts + ids for UI/debug.
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    logger.info(f"Starting drive project discovery for user {user_id}")
+    
     # Use raw query to avoid column mismatch issues during migrations
     from sqlalchemy import text
     result = db.execute(
@@ -185,7 +190,10 @@ def discover_and_upsert_drive_projects(
     row = result.fetchone()
     
     if not row:
+        logger.error(f"No Google Drive token found for user {user_id}")
         return {"status": "error", "message": "Google Drive not connected", "detected": 0, "updated": 0}
+    
+    logger.info(f"Found Google Drive token for user {user_id}")
     
     # Create a simple object to hold token data
     class SimpleToken:
@@ -203,11 +211,24 @@ def discover_and_upsert_drive_projects(
     svc = GoogleDriveService(db)
     creds = svc.get_credentials(user_id)
     if not creds:
+        logger.error(f"No valid credentials for user {user_id}")
         return {"status": "error", "message": "Google Drive credentials unavailable", "detected": 0, "updated": 0}
+    
+    logger.info(f"Got valid credentials for user {user_id}")
 
-    drive = build("drive", "v3", credentials=creds, cache_discovery=False)
+    try:
+        drive = build("drive", "v3", credentials=creds, cache_discovery=False)
+        logger.info(f"Built Drive service for user {user_id}")
+    except Exception as e:
+        logger.error(f"Failed to build Drive service for user {user_id}: {e}")
+        return {"status": "error", "message": f"Failed to initialize Drive service: {str(e)}", "detected": 0, "updated": 0}
 
-    root_folders = _list_folders_root(drive)[:max_root_folders]
+    try:
+        root_folders = _list_folders_root(drive)[:max_root_folders]
+        logger.info(f"Found {len(root_folders)} root folders for user {user_id}")
+    except Exception as e:
+        logger.error(f"Failed to list root folders for user {user_id}: {e}")
+        return {"status": "error", "message": f"Failed to list Drive folders: {str(e)}", "detected": 0, "updated": 0}
 
     detected = 0
     created_projects = 0
@@ -366,8 +387,16 @@ def discover_and_upsert_drive_projects(
 
         mapping_ids.append(str(mapping.id))
 
-    db.commit()
+    try:
+        db.commit()
+        logger.info(f"Committed {detected} projects for user {user_id}")
+    except Exception as e:
+        logger.error(f"Failed to commit projects for user {user_id}: {e}")
+        db.rollback()
+        return {"status": "error", "message": f"Database commit failed: {str(e)}", "detected": 0, "updated": 0}
 
+    logger.info(f"Discovery complete for user {user_id}: detected={detected}, created={created_projects}")
+    
     return {
         "status": "success",
         "detected": detected,

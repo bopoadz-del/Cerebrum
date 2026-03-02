@@ -445,6 +445,7 @@ export function useDrive() {
     console.log('[Drive] Starting scan...');
     setScanning(true);
     setScanResults(null);
+    setConnectionError(null);
     
     try {
       const res = await fetch(`${API_URL}/connectors/google-drive/scan`, {
@@ -472,15 +473,19 @@ export function useDrive() {
           
           // Start polling indexing status
           fetchIndexingStatus();
-        } else if (data.message === 'Google Drive not connected') {
-          setConnectionError('Google Drive not connected');
-          setIsConnected(false);
         } else {
-          setConnectionError(data.message || 'Scan failed');
+          setConnectionError(data.message || 'Scan returned unexpected status');
         }
         
         // Update last connected timestamp
         localStorage.setItem(DRIVE_STORAGE_KEYS.LAST_CONNECTED_AT, String(Date.now()));
+      } else if (res.status === 400) {
+        // Bad request - likely not connected
+        const error = await res.json().catch(() => ({ detail: 'Scan failed' }));
+        console.error('[Drive] Scan error (400):', error);
+        setConnectionError(error.detail || 'Google Drive not connected. Please reconnect.');
+        setIsConnected(false);
+        localStorage.removeItem(DRIVE_STORAGE_KEYS.CONNECTED);
       } else if (res.status === 401) {
         // Token expired - try refresh
         const refreshed = await refreshAuthToken();
@@ -492,7 +497,7 @@ export function useDrive() {
       } else {
         const error = await res.json().catch(() => ({ detail: 'Scan failed' }));
         console.error('[Drive] Scan error:', error);
-        setConnectionError(error.detail || 'Scan failed');
+        setConnectionError(error.detail || `Scan failed (${res.status})`);
       }
     } catch (e: any) {
       console.error('[Drive] Scan failed:', e);

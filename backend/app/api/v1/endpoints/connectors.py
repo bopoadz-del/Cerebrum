@@ -710,9 +710,15 @@ async def scan_google_drive(
     Returns scan results with indexing queue information.
     """
     import uuid
+    import logging
     from sqlalchemy.orm import Session
     from app.services.drive_project_sync import discover_and_upsert_drive_projects
     from app.services.zvec_service import get_zvec_service
+    
+    logger = logging.getLogger(__name__)
+    user_id = uuid.UUID(str(current_user.id))
+    
+    logger.info(f"Scan requested by user {user_id}")
     
     # Convert async session to sync for the service
     # The service uses sync SQLAlchemy
@@ -723,22 +729,32 @@ async def scan_google_drive(
     sync_db = SessionLocal()
     
     try:
+        logger.info(f"Starting project discovery for user {user_id}")
+        
         # Run the discovery and upsert
         result = discover_and_upsert_drive_projects(
             sync_db,
-            uuid.UUID(str(current_user.id)),
+            user_id,
             min_score=1.0,  # Lower threshold to catch more folders
             max_root_folders=50,
             index_now=True,
         )
         sync_db.close()
         
+        logger.info(f"Discovery result for user {user_id}: {result}")
+        
+        # Check if there was an error
+        if result.get("status") == "error":
+            logger.error(f"Scan error for user {user_id}: {result.get('message')}")
+            raise HTTPException(status_code=400, detail=result.get("message", "Scan failed"))
+        
         # Add ZVec service info to result
         zvec = get_zvec_service()
         zvec_stats = zvec.get_stats()
         
-        return {
+        response = {
             **result,
+            "status": "success",
             "zvec": {
                 "ready": zvec_stats.get('ready', False),
                 "indexed_documents": zvec_stats.get('count', 0),
@@ -747,8 +763,16 @@ async def scan_google_drive(
                        f"Queued {result.get('queued_index_jobs', 0)} indexing jobs. "
                        f"ZVec ready: {zvec_stats.get('ready', False)}."
         }
+        
+        logger.info(f"Scan complete for user {user_id}: {response}")
+        return response
+        
+    except HTTPException:
+        sync_db.close()
+        raise
     except Exception as e:
         sync_db.close()
+        logger.error(f"Scan exception for user {user_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Scan failed: {str(e)}")
 
 
