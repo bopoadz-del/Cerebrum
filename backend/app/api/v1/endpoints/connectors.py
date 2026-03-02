@@ -858,7 +858,8 @@ async def list_project_files(
                 WHERE project_id = :project_id::UUID 
                 AND user_id = :user_id::UUID
                 LIMIT 1
-            """).bindparams(project_id=project_id, user_id=str(user_id))
+            """),
+            {"project_id": project_id, "user_id": str(user_id)}
         )
         row = result.fetchone()
         lookup_method = "project_id"
@@ -872,7 +873,8 @@ async def list_project_files(
                     WHERE id = :project_id::UUID 
                     AND user_id = :user_id::UUID
                     LIMIT 1
-                """).bindparams(project_id=project_id, user_id=str(user_id))
+                """),
+                {"project_id": project_id, "user_id": str(user_id)}
             )
             row = result.fetchone()
             lookup_method = "id"
