@@ -106,64 +106,96 @@ class GoogleDriveService:
         self.db.commit()
 
     def get_credentials(self, user_id: uuid.UUID) -> Optional[Credentials]:
-        # Use raw query to avoid column mismatch during migrations
-        from sqlalchemy import text
-        result = self.db.execute(
-            text("""
-                SELECT access_token, refresh_token, expiry, scopes, token_uri, client_id, client_secret
-                FROM integration_tokens 
-                WHERE user_id = :user_id 
-                AND service = 'google_drive' 
-                AND is_active = true
-                LIMIT 1
-            """),
-            {"user_id": str(user_id)}
-        )
-        row = result.fetchone()
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        try:
+            # Use raw query to avoid column mismatch during migrations
+            from sqlalchemy import text
+            result = self.db.execute(
+                text("""
+                    SELECT access_token, refresh_token, expiry, scopes, token_uri, client_id, client_secret
+                    FROM integration_tokens 
+                    WHERE user_id = :user_id 
+                    AND service = 'google_drive' 
+                    AND is_active = true
+                    LIMIT 1
+                """),
+                {"user_id": str(user_id)}
+            )
+            row = result.fetchone()
 
-        if not row:
-            return None
-
-        access_token, refresh_token, expiry, scopes, token_uri, client_id, client_secret = row
-
-        creds = Credentials(
-            token=access_token,
-            refresh_token=refresh_token,
-            token_uri=token_uri or 'https://oauth2.googleapis.com/token',
-            client_id=client_id or self.client_id,
-            client_secret=client_secret or self.client_secret,
-            scopes=self.SCOPES
-        )
-
-        if creds.expired and creds.refresh_token:
-            try:
-                creds.refresh(Request())
-                # Update token in DB using raw SQL
-                self.db.execute(
-                    text("""
-                        UPDATE integration_tokens 
-                        SET access_token = :access_token
-                        WHERE user_id = :user_id 
-                        AND service = 'google_drive'
-                    """),
-                    {"access_token": creds.token, "user_id": str(user_id)}
-                )
-                self.db.commit()
-            except Exception:
+            if not row:
+                logger.info(f"No active Google Drive token found for user {user_id}")
                 return None
-        return creds
+
+            access_token, refresh_token, expiry, scopes, token_uri, client_id, client_secret = row
+            
+            if not access_token:
+                logger.error(f"Access token is empty for user {user_id}")
+                return None
+
+            creds = Credentials(
+                token=access_token,
+                refresh_token=refresh_token,
+                token_uri=token_uri or 'https://oauth2.googleapis.com/token',
+                client_id=client_id or self.client_id,
+                client_secret=client_secret or self.client_secret,
+                scopes=self.SCOPES
+            )
+
+            # Check if token needs refresh
+            try:
+                is_expired = creds.expired if expiry else False
+            except Exception as exp_err:
+                logger.warning(f"Could not check expiry: {exp_err}")
+                is_expired = False
+
+            if is_expired and creds.refresh_token:
+                logger.info(f"Token expired for user {user_id}, attempting refresh")
+                try:
+                    creds.refresh(Request())
+                    # Update token in DB using raw SQL
+                    self.db.execute(
+                        text("""
+                            UPDATE integration_tokens 
+                            SET access_token = :access_token
+                            WHERE user_id = :user_id 
+                            AND service = 'google_drive'
+                        """),
+                        {"access_token": creds.token, "user_id": str(user_id)}
+                    )
+                    self.db.commit()
+                    logger.info(f"Token refreshed successfully for user {user_id}")
+                except Exception as refresh_err:
+                    logger.error(f"Failed to refresh token for user {user_id}: {refresh_err}")
+                    return None
+            
+            return creds
+        except Exception as e:
+            logger.error(f"Error getting credentials for user {user_id}: {e}", exc_info=True)
+            return None
     
     async def list_files(self, user_id: uuid.UUID, folder_id: Optional[str] = None, page_size: int = 50):
           import logging
+          from googleapiclient.errors import HttpError
           logger = logging.getLogger(__name__)
           
           def _run():
-              creds = self.get_credentials(user_id)
-              if not creds:
-                  logger.error(f"No credentials found for user {user_id}")
-                  raise ValueError("Not authenticated")
+              try:
+                  creds = self.get_credentials(user_id)
+                  if not creds:
+                      logger.error(f"No credentials found for user {user_id}")
+                      raise ValueError("Not authenticated")
+              except Exception as cred_err:
+                  logger.error(f"Error getting credentials: {cred_err}")
+                  raise ValueError(f"Authentication error: {cred_err}")
 
-              svc = build('drive', 'v3', credentials=creds, cache_discovery=False)
+              try:
+                  svc = build('drive', 'v3', credentials=creds, cache_discovery=False)
+              except Exception as build_err:
+                  logger.error(f"Error building Drive service: {build_err}")
+                  raise ValueError(f"Failed to initialize Google Drive service: {build_err}")
 
               q = "trashed=false"
               if folder_id:
@@ -182,16 +214,27 @@ class GoogleDriveService:
                   files = results.get("files", [])
                   logger.info(f"Google Drive returned {len(files)} files for folder {folder_id}")
                   
+              except HttpError as e:
+                  error_code = e.resp.status if hasattr(e, 'resp') else 'unknown'
+                  error_details = e._get_reason() if hasattr(e, '_get_reason') else str(e)
+                  logger.error(f"Google Drive HTTP error {error_code}: {error_details}")
+                  
+                  if error_code == 401 or 'unauthorized' in error_details.lower():
+                      raise ValueError("Google Drive authentication expired. Please reconnect.")
+                  elif error_code == 404 or 'not found' in error_details.lower():
+                      raise ValueError(f"Folder not found in Google Drive: {folder_id}")
+                  elif error_code == 403:
+                      raise ValueError("Access denied to Google Drive folder. Check permissions.")
+                  else:
+                      raise ValueError(f"Google Drive API error ({error_code}): {error_details}")
               except Exception as e:
-                  logger.error(f"Google Drive API error: {e}")
-                  # Check if it's an auth error
+                  logger.error(f"Google Drive API error: {e}", exc_info=True)
                   error_str = str(e).lower()
                   if 'unauthorized' in error_str or 'invalid' in error_str or 'expired' in error_str:
-                      raise ValueError(f"Google Drive authentication expired: {e}")
-                  # Check if folder not found
+                      raise ValueError("Google Drive authentication expired. Please reconnect.")
                   if 'not found' in error_str:
                       raise ValueError(f"Folder not found in Google Drive: {folder_id}")
-                  raise
+                  raise ValueError(f"Google Drive error: {str(e)}")
 
               out = []
               for f in files:

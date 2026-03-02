@@ -839,6 +839,7 @@ async def list_project_files(
     """
     import uuid
     import logging
+    import traceback
     from sqlalchemy import text
     from app.db.session import db_manager
     from app.services.google_drive_service import GoogleDriveService
@@ -848,68 +849,93 @@ async def list_project_files(
     
     logger.info(f"list_project_files called: project_id={project_id}, user_id={user_id}")
     
-    # Try looking up by project_id first, then by id (mapping id)
-    result = await db.execute(
-        text("""
-            SELECT root_folder_id, root_folder_name 
-            FROM google_drive_projects 
-            WHERE project_id = :project_id::UUID 
-            AND user_id = :user_id
-            LIMIT 1
-        """).bindparams(project_id=project_id, user_id=user_id)
-    )
-    row = result.fetchone()
-    lookup_method = "project_id"
-    
-    # If not found by project_id, try by id (mapping id)
-    if not row:
+    try:
+        # Try looking up by project_id first, then by id (mapping id)
         result = await db.execute(
             text("""
                 SELECT root_folder_id, root_folder_name 
                 FROM google_drive_projects 
-                WHERE id = :project_id::UUID 
-                AND user_id = :user_id
+                WHERE project_id = :project_id::UUID 
+                AND user_id = :user_id::UUID
                 LIMIT 1
-            """).bindparams(project_id=project_id, user_id=user_id)
+            """).bindparams(project_id=project_id, user_id=str(user_id))
         )
         row = result.fetchone()
-        lookup_method = "id"
-    
-    if not row:
-        logger.error(f"Project not found: project_id={project_id}, user_id={user_id}")
-        raise HTTPException(status_code=404, detail="Project not found")
-    
-    root_folder_id, root_folder_name = row
-    logger.info(f"Found project via {lookup_method}: folder_id={root_folder_id}, folder_name={root_folder_name}")
+        lookup_method = "project_id"
+        
+        # If not found by project_id, try by id (mapping id)
+        if not row:
+            result = await db.execute(
+                text("""
+                    SELECT root_folder_id, root_folder_name 
+                    FROM google_drive_projects 
+                    WHERE id = :project_id::UUID 
+                    AND user_id = :user_id::UUID
+                    LIMIT 1
+                """).bindparams(project_id=project_id, user_id=str(user_id))
+            )
+            row = result.fetchone()
+            lookup_method = "id"
+        
+        if not row:
+            logger.error(f"Project not found: project_id={project_id}, user_id={user_id}")
+            raise HTTPException(status_code=404, detail="Project not found")
+        
+        root_folder_id, root_folder_name = row
+        logger.info(f"Found project via {lookup_method}: folder_id={root_folder_id}, folder_name={root_folder_name}")
+    except HTTPException:
+        raise
+    except Exception as db_err:
+        logger.error(f"Database error looking up project: {db_err}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Database error: {str(db_err)}")
     
     # List files from the project's root folder
-    db_manager.initialize()
-    from sqlalchemy.orm import sessionmaker
-    SessionLocal = sessionmaker(bind=db_manager._sync_engine)
-    sync_db = SessionLocal()
+    try:
+        db_manager.initialize()
+        from sqlalchemy.orm import sessionmaker
+        SessionLocal = sessionmaker(bind=db_manager._sync_engine)
+        sync_db = SessionLocal()
+    except Exception as db_init_err:
+        logger.error(f"Failed to initialize database session: {db_init_err}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Database connection error")
     
     try:
         svc = GoogleDriveService(sync_db)
         
         # Check if we have credentials before making the API call
-        creds = svc.get_credentials(user_id)
+        try:
+            creds = svc.get_credentials(user_id)
+        except Exception as cred_err:
+            logger.error(f"Error getting credentials: {cred_err}", exc_info=True)
+            raise HTTPException(status_code=401, detail="Failed to get Google Drive credentials")
+            
         if not creds:
             logger.error(f"No Google Drive credentials found for user {user_id}")
             raise HTTPException(status_code=401, detail="Google Drive not authenticated. Please reconnect.")
         
         logger.info(f"Credentials found for user {user_id}, fetching files from folder {root_folder_id}")
-        files = await svc.list_files(user_id, root_folder_id)
+        
+        try:
+            files = await svc.list_files(user_id, root_folder_id)
+        except HTTPException:
+            raise
+        except ValueError as ve:
+            logger.error(f"Value error listing files: {ve}")
+            raise HTTPException(status_code=401, detail=str(ve))
+        except Exception as api_err:
+            logger.error(f"Google Drive API error: {api_err}", exc_info=True)
+            raise HTTPException(status_code=502, detail=f"Google Drive API error: {str(api_err)}")
+            
         logger.info(f"Retrieved {len(files)} files from Google Drive for folder {root_folder_id}")
         
         sync_db.close()
         return files
-    except ValueError as e:
+    except HTTPException:
         sync_db.close()
-        logger.error(f"Authentication error listing files: {e}")
-        raise HTTPException(status_code=401, detail="Google Drive not authenticated. Please reconnect.")
+        raise
     except Exception as e:
         sync_db.close()
-        logger.error(f"Error listing files: {e}", exc_info=True)
+        logger.error(f"Unexpected error listing files: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to list files: {str(e)}")
 
 
