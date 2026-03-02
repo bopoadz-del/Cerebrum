@@ -875,12 +875,13 @@ async def list_project_files(
     
     try:
         # Try looking up by project_id first, then by id (mapping id)
+        # Note: asyncpg doesn't support :: cast syntax in prepared statements
         result = await db.execute(
             text("""
                 SELECT root_folder_id, root_folder_name 
                 FROM google_drive_projects 
-                WHERE project_id = :project_id::UUID 
-                AND user_id = :user_id::UUID
+                WHERE CAST(project_id AS TEXT) = :project_id 
+                AND CAST(user_id AS TEXT) = :user_id
                 LIMIT 1
             """),
             {"project_id": project_id, "user_id": str(user_id)}
@@ -894,8 +895,8 @@ async def list_project_files(
                 text("""
                     SELECT root_folder_id, root_folder_name 
                     FROM google_drive_projects 
-                    WHERE id = :project_id::UUID 
-                    AND user_id = :user_id::UUID
+                    WHERE CAST(id AS TEXT) = :project_id 
+                    AND CAST(user_id AS TEXT) = :user_id
                     LIMIT 1
                 """),
                 {"project_id": project_id, "user_id": str(user_id)}
