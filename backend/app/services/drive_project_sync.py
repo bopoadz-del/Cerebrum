@@ -208,11 +208,43 @@ def discover_and_upsert_drive_projects(
     tok.client_id = row[5]
     tok.client_secret = row[6]
 
-    svc = GoogleDriveService(db)
-    creds = svc.get_credentials(user_id)
-    if not creds:
-        logger.error(f"No valid credentials for user {user_id}")
-        return {"status": "error", "message": "Google Drive credentials unavailable", "detected": 0, "updated": 0}
+    # Build credentials directly from token data (avoid get_credentials which may fail on refresh)
+    from google.oauth2.credentials import Credentials
+    from google.auth.transport.requests import Request
+    
+    creds = Credentials(
+        token=tok.access_token,
+        refresh_token=tok.refresh_token,
+        token_uri=tok.token_uri,
+        client_id=tok.client_id or os.environ.get('GOOGLE_CLIENT_ID'),
+        client_secret=tok.client_secret or os.environ.get('GOOGLE_CLIENT_SECRET'),
+        scopes=['https://www.googleapis.com/auth/drive.readonly', 'https://www.googleapis.com/auth/drive.file', 'https://www.googleapis.com/auth/drive.metadata.readonly']
+    )
+    
+    # Check expiry and refresh if needed
+    if tok.expiry:
+        from datetime import datetime, timezone, timedelta
+        expiry = tok.expiry
+        if expiry.tzinfo is None:
+            expiry = expiry.replace(tzinfo=timezone.utc)
+        if datetime.now(timezone.utc) >= expiry - timedelta(minutes=5):
+            logger.info(f"Token expired for user {user_id}, refreshing...")
+            try:
+                creds.refresh(Request())
+                # Update token in DB
+                db.execute(
+                    text("""
+                        UPDATE integration_tokens 
+                        SET access_token = :access_token, updated_at = NOW()
+                        WHERE user_id = :user_id AND service = 'google_drive'
+                    """),
+                    {"access_token": creds.token, "user_id": str(user_id)}
+                )
+                db.commit()
+                logger.info(f"Token refreshed for user {user_id}")
+            except Exception as e:
+                logger.error(f"Failed to refresh token: {e}")
+                return {"status": "error", "message": f"Google Drive auth failed: {str(e)}", "detected": 0, "updated": 0}
     
     logger.info(f"Got valid credentials for user {user_id}")
 
