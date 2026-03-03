@@ -246,7 +246,7 @@ async def get_google_drive_token(
             SELECT access_token, refresh_token, expiry, scopes, token_uri, 
                    client_id, client_secret, account_email, is_active, updated_at
             FROM integration_tokens 
-            WHERE user_id = :user_id::UUID 
+            WHERE user_id = :user_id 
             AND service = 'google_drive'
             AND is_active = true
             LIMIT 1
@@ -301,7 +301,7 @@ async def get_google_drive_status(
                 SELECT account_email, is_active, expiry, updated_at, scopes,
                        refresh_token, access_token, client_id, client_secret
                 FROM integration_tokens 
-                WHERE user_id = :user_id::UUID 
+                WHERE user_id = :user_id 
                 AND service = 'google_drive'
                 AND is_active = true
                 LIMIT 1
@@ -361,7 +361,7 @@ async def get_google_drive_status(
                         SET access_token = :access_token,
                             expiry = :expiry,
                             updated_at = NOW()
-                        WHERE user_id = :user_id::UUID 
+                        WHERE user_id = :user_id 
                         AND service = 'google_drive'
                     """),
                     {
@@ -734,7 +734,7 @@ async def scan_google_drive(
             text("""
                 SELECT account_email, is_active, expiry, refresh_token, access_token
                 FROM integration_tokens 
-                WHERE user_id = :user_id::UUID 
+                WHERE user_id = :user_id 
                 AND service = 'google_drive'
                 AND is_active = true
                 LIMIT 1
@@ -794,7 +794,7 @@ async def scan_google_drive(
                         SET access_token = :access_token,
                             expiry = :expiry,
                             updated_at = NOW()
-                        WHERE user_id = :user_id::UUID 
+                        WHERE user_id = :user_id 
                         AND service = 'google_drive'
                     """),
                     {
