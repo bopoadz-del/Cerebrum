@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Brain, CheckCircle, AlertCircle, FileText, Tag, Clock } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 interface DriveFileProcessorProps {
   fileId: string;
@@ -30,7 +30,7 @@ export const DriveFileProcessor: React.FC<DriveFileProcessorProps> = ({
   const [status, setStatus] = useState<'idle' | 'processing' | 'completed' | 'error'>('idle');
   const [result, setResult] = useState<ProcessingResult | null>(null);
   const [progress, setProgress] = useState<string>('');
-  const { toast } = useToast();
+
 
   // Check if already processed on mount
   useEffect(() => {
@@ -77,18 +77,15 @@ export const DriveFileProcessor: React.FC<DriveFileProcessorProps> = ({
       setProgress('Analysis complete');
       onProcessed?.(data);
 
-      toast({
-        title: "AI Analysis Complete",
+      toast.success("AI Analysis Complete", {
         description: `Processed ${fileName} in ${data.processing_time?.toFixed(1)}s`
       });
 
     } catch (error: any) {
       setStatus('error');
       setProgress(error.message || 'Processing failed');
-      toast({
-        title: "Processing Failed",
-        description: error.message,
-        variant: "destructive"
+      toast.error("Processing Failed", {
+        description: error.message
       });
     }
   };
