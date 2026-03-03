@@ -12,7 +12,9 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, File, Up
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
-from app.api.deps import get_current_user, User
+from app.api.deps import get_current_user, User, get_db
+from app.services.google_drive_service import GoogleDriveService, GoogleDriveAuthError, GoogleDriveError
+from sqlalchemy.orm import Session
 from app.core.logging import get_logger
 from app.pipelines.ocr import extract_text_from_image, OCRLanguage, OCRMode
 from app.pipelines.document_classification import classify_document, DocumentType
@@ -505,3 +507,249 @@ async def health_check() -> Dict[str, Any]:
             "transcription": "available"
         }
     }
+
+
+# Google Drive Integration Endpoints
+
+class DriveFileProcessResponse(BaseModel):
+    """Response for Drive file processing."""
+    message: str
+    document_id: Optional[str] = None
+    drive_file_id: str
+    filename: str
+    status: str
+    processing_time: float
+    summary: Optional[str] = None
+    entities_count: int = 0
+    results: Dict[str, Any] = {}
+
+
+class DriveProcessedFile(BaseModel):
+    """Processed Drive file info."""
+    document_id: str
+    drive_file_id: Optional[str] = None
+    filename: str
+    status: str
+    summary: Optional[str] = None
+    entity_count: int = 0
+    created_at: Optional[str] = None
+    project_name: Optional[str] = None
+
+
+@router.post("/drive/{drive_file_id}/process", response_model=DriveFileProcessResponse)
+async def process_drive_file(
+    drive_file_id: str,
+    operations: str = "ocr,classification,ner",
+    background_tasks: BackgroundTasks = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> DriveFileProcessResponse:
+    """
+    Process a Google Drive file with AI pipeline.
+    
+    Downloads from Drive, runs OCR/NER/Classification, saves to Document table.
+    
+    Args:
+        drive_file_id: Google Drive file ID
+        operations: Comma-separated list of operations (ocr,classification,ner)
+    
+    Returns:
+        Processing results with document_id and AI summary
+    """
+    from app.models.document import Document
+    import time
+
+    drive_service = GoogleDriveService(db)
+
+    try:
+        # 1. Get metadata
+        metadata = await drive_service.get_file(current_user.id, drive_file_id)
+
+        # 2. Check if already processed
+        existing = db.query(Document).filter(
+            Document.drive_id == drive_file_id,
+            Document.user_id == current_user.id
+        ).first()
+
+        if existing and existing.status == "indexed":
+            return DriveFileProcessResponse(
+                message="File already processed",
+                document_id=str(existing.id),
+                drive_file_id=drive_file_id,
+                filename=existing.filename,
+                status="completed",
+                processing_time=0.0,
+                summary=existing.ai_summary
+            )
+
+        # 3. Create or update Document record
+        if existing:
+            doc = existing
+            doc.status = "processing"
+        else:
+            doc = Document(
+                drive_id=drive_file_id,
+                filename=metadata['name'],
+                mime_type=metadata.get('mime_type'),
+                user_id=current_user.id,
+                status="processing",
+                project_name=metadata['name'].split('_')[0] if '_' in metadata['name'] else None
+            )
+            db.add(doc)
+
+        db.commit()
+
+        # 4. Check file size before downloading
+        max_size = 50 * 1024 * 1024  # 50MB limit
+        file_size = metadata.get('size', 0) or 0
+        if int(file_size) > max_size:
+            doc.status = "error"
+            doc.ai_summary = "File too large (>50MB)"
+            db.commit()
+            raise HTTPException(status_code=413, detail="File too large for processing")
+
+        # 5. Download file
+        file_bytes, filename, mime_type = await drive_service.download_file(
+            current_user.id, drive_file_id
+        )
+
+        # 6. Process based on file type
+        results = {}
+        ops = [op.strip() for op in operations.split(",")]
+        text_content = ""
+
+        start_time = time.time()
+
+        # OCR for images/PDFs
+        if "ocr" in ops and any(t in mime_type for t in ['pdf', 'image', 'officedocument', 'document']):
+            try:
+                ocr_result = await extract_text_from_image(file_bytes)
+                results["ocr"] = ocr_result.to_dict() if hasattr(ocr_result, 'to_dict') else {"text": str(ocr_result)}
+                text_content = results["ocr"].get("text", "")
+            except Exception as e:
+                logger.warning(f"OCR failed: {e}")
+                results["ocr_error"] = str(e)
+
+        # Classification
+        if "classification" in ops:
+            try:
+                classify_result = await classify_document(file_bytes, filename)
+                if hasattr(classify_result, 'primary_classification'):
+                    results["classification"] = classify_result.primary_classification.to_dict()
+                else:
+                    results["classification"] = {"result": str(classify_result)}
+            except Exception as e:
+                logger.warning(f"Classification failed: {e}")
+                results["classification_error"] = str(e)
+
+        # NER
+        if "ner" in ops and text_content:
+            try:
+                ner_result = await extract_entities(text_content)
+                results["ner"] = ner_result.get("entities", {}).get("entities", [])
+            except Exception as e:
+                logger.warning(f"NER failed: {e}")
+                results["ner_error"] = str(e)
+
+        # 7. Update Document record with results
+        processing_time = time.time() - start_time
+
+        doc.status = "indexed"
+        doc.content = text_content[:50000] if text_content else None  # Limit storage
+        doc.ai_summary = _generate_summary(results, text_content)
+        doc.entities = results.get("ner", [])
+        doc.processing_metadata = {
+            "operations": ops,
+            "processing_time": processing_time,
+            "file_size": len(file_bytes),
+            "mime_type": mime_type,
+            "results": {k: v for k, v in results.items() if not k.endswith('_error')}
+        }
+
+        db.commit()
+
+        return DriveFileProcessResponse(
+            message="Processing completed",
+            document_id=str(doc.id),
+            drive_file_id=drive_file_id,
+            filename=metadata['name'],
+            status="indexed",
+            processing_time=processing_time,
+            summary=doc.ai_summary,
+            entities_count=len(doc.entities) if doc.entities else 0,
+            results=results
+        )
+
+    except GoogleDriveAuthError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+    except GoogleDriveError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Drive file processing failed: {e}", exc_info=True)
+        # Update status to error if doc exists
+        if 'doc' in locals():
+            doc.status = "error"
+            doc.ai_summary = f"Processing failed: {str(e)}"
+            db.commit()
+        raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
+
+
+def _generate_summary(results: dict, text_content: str) -> str:
+    """Generate human-readable summary from results."""
+    summary_parts = []
+
+    # Classification
+    if "classification" in results:
+        cls = results["classification"]
+        if isinstance(cls, dict):
+            if "document_type" in cls:
+                summary_parts.append(f"Type: {cls['document_type']}")
+            elif "label" in cls:
+                summary_parts.append(f"Document type: {cls['label']}")
+
+    # Entities
+    if "ner" in results and results["ner"]:
+        entities = results["ner"]
+        if len(entities) > 0:
+            entity_types = set(
+                e.get("type", e.get("label", "unknown")) 
+                for e in entities[:5]
+            )
+            summary_parts.append(f"Key elements: {', '.join(entity_types)}")
+
+    # Text stats
+    if text_content:
+        word_count = len(text_content.split())
+        summary_parts.append(f"Extracted {word_count} words")
+
+    return " | ".join(summary_parts) if summary_parts else "Document processed successfully"
+
+
+@router.get("/drive/processed", response_model=List[DriveProcessedFile])
+async def list_processed_drive_files(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> List[DriveProcessedFile]:
+    """List all AI-processed Drive files for current user."""
+    from app.models.document import Document
+
+    docs = db.query(Document).filter(
+        Document.user_id == current_user.id,
+        Document.drive_id.isnot(None)
+    ).order_by(Document.created_at.desc()).all()
+
+    return [
+        DriveProcessedFile(
+            document_id=str(d.id),
+            drive_file_id=d.drive_id,
+            filename=d.filename,
+            status=d.status,
+            summary=d.ai_summary,
+            entity_count=len(d.entities) if d.entities else 0,
+            created_at=d.created_at.isoformat() if d.created_at else None,
+            project_name=d.project_name
+        )
+        for d in docs
+    ]
