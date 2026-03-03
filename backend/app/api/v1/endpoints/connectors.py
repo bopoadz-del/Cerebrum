@@ -1309,3 +1309,122 @@ async def debug_google_drive(
             "traceback": traceback.format_exc(),
         }
 
+
+# =============================================================================
+# Chat File Upload (Simplified - bypasses documents module)
+# =============================================================================
+
+from fastapi import File as FastAPIFile, UploadFile as FastAPIUploadFile
+
+UPLOAD_DIR_CONNECTORS = "/tmp/chat_uploads"
+os.makedirs(UPLOAD_DIR_CONNECTORS, exist_ok=True)
+
+
+@router.post("/upload/chat")
+async def upload_chat_file_simple(
+    file: FastAPIUploadFile = FastAPIFile(...),
+    current_user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """Upload a file via chat interface (simplified endpoint).
+    
+    Stores the file and optionally extracts text for indexing.
+    """
+    import uuid
+    
+    try:
+        # Validate file size (max 50MB)
+        max_size = 50 * 1024 * 1024  # 50MB
+        file_content = await file.read()
+        if len(file_content) > max_size:
+            raise HTTPException(status_code=413, detail="File too large (max 50MB)")
+        
+        # Generate unique file ID
+        file_id = f"{current_user.id}_{uuid.uuid4().hex}"
+        file_ext = os.path.splitext(file.filename)[1].lower() if file.filename else ""
+        safe_filename = f"{file_id}{file_ext}"
+        file_path = os.path.join(UPLOAD_DIR_CONNECTORS, safe_filename)
+        
+        # Save file
+        with open(file_path, "wb") as f:
+            f.write(file_content)
+        
+        # Determine file type category
+        mime_type = file.content_type or "application/octet-stream"
+        file_category = "document"
+        if mime_type.startswith("image/"):
+            file_category = "image"
+        elif mime_type.startswith("audio/"):
+            file_category = "audio"
+        elif mime_type.startswith("video/"):
+            file_category = "video"
+        
+        # Try to extract text for supported documents
+        extracted_text = None
+        text_supported_exts = ['.pdf', '.txt', '.md', '.png', '.jpg', '.jpeg', '.tiff']
+        
+        if file_ext in text_supported_exts or mime_type.startswith("text/"):
+            try:
+                # Simple text extraction for text files
+                if mime_type.startswith("text/") or file_ext in ['.txt', '.md', '.csv']:
+                    try:
+                        extracted_text = file_content.decode('utf-8')
+                    except UnicodeDecodeError:
+                        extracted_text = file_content.decode('latin-1')
+                    extracted_text = extracted_text[:10000]  # Limit to 10k chars
+                
+                # Try PDF extraction if PyPDF2 is available
+                elif file_ext == '.pdf':
+                    try:
+                        import PyPDF2
+                        import io
+                        pdf_file = io.BytesIO(file_content)
+                        reader = PyPDF2.PdfReader(pdf_file)
+                        text_parts = []
+                        for page in reader.pages:
+                            page_text = page.extract_text()
+                            if page_text:
+                                text_parts.append(page_text)
+                        extracted_text = "\n".join(text_parts)[:10000]
+                    except Exception as pdf_err:
+                        logger.warning(f"PDF extraction failed: {pdf_err}")
+                
+                # Index in ZVec if text was extracted
+                if extracted_text and len(extracted_text) > 50:
+                    from app.services.zvec_service import get_zvec_service
+                    zvec = get_zvec_service()
+                    doc_id = f"chat_upload_{file_id}"
+                    metadata = {
+                        'name': file.filename,
+                        'source': 'chat_upload',
+                        'mime_type': mime_type,
+                        'user_id': str(current_user.id),
+                        'content_preview': extracted_text[:500],
+                        'file_id': file_id,
+                    }
+                    zvec.add_document(doc_id, extracted_text, metadata)
+                    
+            except Exception as e:
+                logger.warning(f"Text extraction failed for {file.filename}: {e}")
+                extracted_text = None
+        
+        # Generate file URL
+        file_url = f"/api/v1/connectors/upload/chat/{file_id}"
+        
+        return {
+            "success": True,
+            "file_id": file_id,
+            "filename": file.filename,
+            "size": len(file_content),
+            "mime_type": mime_type,
+            "category": file_category,
+            "url": file_url,
+            "text_extracted": extracted_text is not None,
+            "text_length": len(extracted_text) if extracted_text else 0,
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Chat file upload failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+

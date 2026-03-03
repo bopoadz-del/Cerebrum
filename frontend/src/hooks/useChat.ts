@@ -399,12 +399,12 @@ This is a simulated result showing how ZVec offline semantic search would work. 
       };
       setAttachments((prev) => [...prev, tempAttachment]);
       
-      // Upload file to backend
+      // Upload file to backend (using connectors endpoint which is more reliable)
       const formData = new FormData();
       formData.append('file', file);
       
       const token = getAuthToken();
-      const response = await fetch(`${apiBaseUrl}/documents/upload/chat`, {
+      const response = await fetch(`${apiBaseUrl}/connectors/upload/chat`, {
         method: 'POST',
         headers: {
           'Authorization': token ? `Bearer ${token}` : '',
@@ -416,12 +416,22 @@ This is a simulated result showing how ZVec offline semantic search would work. 
         // Remove temp attachment on error
         setAttachments((prev) => prev.filter((a) => a.id !== tempAttachment.id));
         
-        let errorMsg = 'Upload failed';
-        try {
-          const errorData = await response.json();
-          errorMsg = errorData.detail || errorData.message || `Upload failed: ${response.status}`;
-        } catch {
-          errorMsg = `Upload failed: ${response.status}`;
+        let errorMsg = `Upload failed: ${response.status} ${response.statusText}`;
+        
+        // Try to get error details from response
+        const responseText = await response.text();
+        console.error('Upload error response:', response.status, responseText.substring(0, 500));
+        
+        if (responseText) {
+          try {
+            const errorData = JSON.parse(responseText);
+            errorMsg = errorData.detail || errorData.message || errorMsg;
+          } catch {
+            // Not JSON, use text if available
+            if (responseText.length > 0 && responseText.length < 200) {
+              errorMsg = `${errorMsg}\n\n${responseText}`;
+            }
+          }
         }
         
         // Show error message in chat
