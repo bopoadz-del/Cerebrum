@@ -1315,6 +1315,7 @@ async def debug_google_drive(
 # =============================================================================
 
 from fastapi import File as FastAPIFile, UploadFile as FastAPIUploadFile
+from fastapi.responses import JSONResponse
 
 UPLOAD_DIR_CONNECTORS = "/tmp/chat_uploads"
 os.makedirs(UPLOAD_DIR_CONNECTORS, exist_ok=True)
@@ -1339,17 +1340,21 @@ async def upload_chat_health(
 async def upload_chat_file_simple(
     file: FastAPIUploadFile = FastAPIFile(...),
     current_user: User = Depends(get_current_user)
-) -> Dict[str, Any]:
+):
     """Upload a file via chat interface (simplified endpoint).
     
     Stores the file and optionally extracts text for indexing.
     """
     import uuid
     
+    logger.info(f"Upload request received from user {current_user.id}, file: {file.filename}")
+    
     try:
         # Validate file size (max 50MB)
         max_size = 50 * 1024 * 1024  # 50MB
         file_content = await file.read()
+        logger.info(f"File read: {len(file_content)} bytes")
+        
         if len(file_content) > max_size:
             raise HTTPException(status_code=413, detail="File too large (max 50MB)")
         
@@ -1425,7 +1430,7 @@ async def upload_chat_file_simple(
         # Generate file URL
         file_url = f"/api/v1/connectors/upload/chat/{file_id}"
         
-        return {
+        response_data = {
             "success": True,
             "file_id": file_id,
             "filename": file.filename,
@@ -1436,6 +1441,9 @@ async def upload_chat_file_simple(
             "text_extracted": extracted_text is not None,
             "text_length": len(extracted_text) if extracted_text else 0,
         }
+        
+        logger.info(f"Upload successful for user {current_user.id}: {file.filename}")
+        return JSONResponse(content=response_data, status_code=200)
         
     except HTTPException:
         raise
