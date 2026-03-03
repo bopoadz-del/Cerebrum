@@ -1320,6 +1320,132 @@ async def debug_google_drive(
         }
 
 
+@router.get("/google-drive/debug/credentials")
+async def debug_google_drive_credentials(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db),
+) -> Dict[str, Any]:
+    """
+    Debug endpoint to check Google Drive credential status.
+    """
+    from sqlalchemy import text
+    import uuid
+    
+    try:
+        user_id = uuid.UUID(str(current_user.id))
+        
+        # Check integration_tokens for Google Drive
+        result = await db.execute(
+            text("""
+                SELECT token_id, service, is_active, expiry, account_email, scopes, updated_at
+                FROM integration_tokens 
+                WHERE user_id = :user_id AND service = 'google_drive' AND is_active = true
+                LIMIT 1
+            """).bindparams(user_id=user_id)
+        )
+        row = result.fetchone()
+        
+        if not row:
+            return {
+                "error": "No active Google Drive token found",
+                "user_id": str(current_user.id),
+                "solution": "Reconnect Google Drive - no stored credentials"
+            }
+        
+        token_id, service, is_active, expiry, account_email, scopes, updated_at = row
+        
+        # Check if expired
+        from datetime import datetime, timezone
+        is_expired = False
+        if expiry:
+            try:
+                if expiry.tzinfo is None:
+                    expiry = expiry.replace(tzinfo=timezone.utc)
+                is_expired = expiry < datetime.now(timezone.utc)
+            except:
+                pass
+        
+        return {
+            "token_exists": True,
+            "user_id": str(current_user.id),
+            "email": account_email,
+            "expired": is_expired,
+            "expiry": expiry.isoformat() if expiry else None,
+            "is_active": is_active,
+            "updated_at": updated_at.isoformat() if updated_at else None,
+            "credentials_valid": is_active and not is_expired,
+        }
+        
+    except Exception as e:
+        return {
+            "error": str(e),
+            "user_id": str(current_user.id),
+            "solution": "Check error details - may need to reconnect"
+        }
+
+
+@router.get("/google-drive/debug/token-details")
+async def debug_google_drive_token_details(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db),
+) -> Dict[str, Any]:
+    """
+    Get detailed token information (safely - no sensitive data exposed).
+    """
+    from sqlalchemy import text
+    import uuid
+    from datetime import datetime, timezone
+    
+    try:
+        user_id = uuid.UUID(str(current_user.id))
+        
+        # Get all Google Drive tokens for user
+        result = await db.execute(
+            text("""
+                SELECT token_id, service, is_active, expiry, account_email, scopes, created_at, updated_at
+                FROM integration_tokens 
+                WHERE user_id = :user_id AND service = 'google_drive'
+            """).bindparams(user_id=user_id)
+        )
+        
+        tokens = []
+        for row in result.fetchall():
+            token_id, service, is_active, expiry, account_email, scopes, created_at, updated_at = row
+            
+            # Check if expired
+            is_expired = False
+            if expiry:
+                try:
+                    exp = expiry if expiry.tzinfo else expiry.replace(tzinfo=timezone.utc)
+                    is_expired = exp < datetime.now(timezone.utc)
+                except:
+                    pass
+            
+            tokens.append({
+                "token_id": token_id,
+                "service": service,
+                "is_active": is_active,
+                "is_expired": is_expired,
+                "expiry": expiry.isoformat() if expiry else None,
+                "account_email": account_email,
+                "scopes_preview": scopes[:50] + "..." if scopes and len(scopes) > 50 else scopes,
+                "created_at": created_at.isoformat() if created_at else None,
+                "updated_at": updated_at.isoformat() if updated_at else None,
+            })
+        
+        return {
+            "user_id": str(current_user.id),
+            "token_count": len(tokens),
+            "tokens": tokens,
+        }
+        
+    except Exception as e:
+        return {
+            "error": str(e),
+            "user_id": str(current_user.id),
+        }
+
+
 # =============================================================================
 # Chat File Upload (Simplified - bypasses documents module)
 # =============================================================================
