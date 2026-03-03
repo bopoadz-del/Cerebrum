@@ -308,7 +308,7 @@ async def get_google_drive_status(
             """), {"user_id": user_id}
         )
         row = result.fetchone()
-        logger.info(f"Token query result for user {user_id_str}: row={row is not None}")
+        logger.info(f"Token query result for user {user_id}: row={row is not None}")
         
         if not row:
             logger.info(f"No Drive token found for user {user_id}")
@@ -709,73 +709,118 @@ async def scan_google_drive(
 ) -> Dict[str, Any]:
     """
     Scan Google Drive, detect projects, and trigger ZVec indexing.
-    Returns scan results with indexing queue information.
     """
     import uuid
     import logging
-    from sqlalchemy.orm import Session
+    from datetime import datetime, timezone, timedelta
+    from sqlalchemy import text
+    import httpx
     from app.services.drive_project_sync import discover_and_upsert_drive_projects
     from app.services.zvec_service import get_zvec_service
+    from app.core.config import settings
     
     logger = logging.getLogger(__name__)
-    user_id = uuid.UUID(str(current_user.id))
+    user_id_str = str(current_user.id)
+    user_id = uuid.UUID(user_id_str)
     
     logger.info(f"Scan requested by user {user_id}")
     
+    # Pre-flight: Check and refresh token if needed
+    try:
+        result = await db.execute(
+            text("""
+                SELECT refresh_token, expiry 
+                FROM integration_tokens 
+                WHERE user_id = :user_id AND service = 'google_drive' AND is_active = true
+                LIMIT 1
+            """), {"user_id": user_id_str}
+        )
+        row = result.fetchone()
+        
+        if not row:
+            raise HTTPException(status_code=400, detail="Google Drive not connected")
+        
+        refresh_token, expiry = row
+        
+        # Check if expired
+        is_expired = False
+        if expiry:
+            if expiry.tzinfo is None:
+                expiry = expiry.replace(tzinfo=timezone.utc)
+            is_expired = expiry < datetime.now(timezone.utc)
+        
+        # Refresh if expired
+        if is_expired and refresh_token:
+            logger.info(f"Refreshing expired token for user {user_id}")
+            async with httpx.AsyncClient(timeout=30) as client:
+                resp = await client.post(
+                    "https://oauth2.googleapis.com/token",
+                    data={
+                        "refresh_token": refresh_token,
+                        "client_id": settings.GOOGLE_CLIENT_ID,
+                        "client_secret": settings.GOOGLE_CLIENT_SECRET,
+                        "grant_type": "refresh_token",
+                    },
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                )
+                resp.raise_for_status()
+                token_data = resp.json()
+            
+            new_expires_in = int(token_data.get('expires_in', 3600) or 3600)
+            new_expiry = datetime.utcnow() + timedelta(seconds=new_expires_in)
+            
+            await db.execute(
+                text("""
+                    UPDATE integration_tokens 
+                    SET access_token = :access_token, expiry = :expiry, updated_at = NOW()
+                    WHERE user_id = :user_id AND service = 'google_drive'
+                """), {"access_token": token_data['access_token'], "expiry": new_expiry, "user_id": user_id_str}
+            )
+            await db.commit()
+            logger.info(f"Token refreshed for user {user_id}")
+        elif is_expired and not refresh_token:
+            raise HTTPException(status_code=400, detail="Google Drive credentials expired. Please reconnect.")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Token refresh failed: {e}")
+        raise HTTPException(status_code=400, detail=f"Google Drive auth failed: {str(e)}")
+    
     # Use sync database session for the service
     from app.db.session import db_manager
-    db_manager.initialize()
     from sqlalchemy.orm import sessionmaker
+    db_manager.initialize()
     SessionLocal = sessionmaker(bind=db_manager._sync_engine)
     sync_db = SessionLocal()
     
     try:
-        logger.info(f"Starting project discovery for user {user_id}")
-        
-        # Run the discovery and upsert
         result = discover_and_upsert_drive_projects(
-            sync_db,
-            user_id,
-            min_score=0.5,
-            max_root_folders=200,
-            max_children_per_folder=500,
-            index_now=True,
-            max_files_per_project=100,
+            sync_db, user_id,
+            min_score=0.5, max_root_folders=200, max_children_per_folder=500,
+            index_now=True, max_files_per_project=100
         )
         sync_db.close()
         
-        logger.info(f"Discovery result for user {user_id}: {result}")
-        
-        # Check if there was an error
         if result.get("status") == "error":
-            logger.error(f"Scan error for user {user_id}: {result.get('message')}")
             raise HTTPException(status_code=400, detail=result.get("message", "Scan failed"))
         
-        # Add ZVec service info to result
         zvec = get_zvec_service()
         zvec_stats = zvec.get_stats()
         
-        response = {
+        return {
             **result,
             "status": "success",
-            "zvec": {
-                "ready": zvec_stats.get('ready', False),
-                "indexed_documents": zvec_stats.get('count', 0),
-            },
-            "message": f"Scan complete. Detected {result.get('detected', 0)} projects. "
-                       f"Queued {result.get('queued_index_jobs', 0)} indexing jobs. "
-                       f"ZVec ready: {zvec_stats.get('ready', False)}."
+            "zvec": {"ready": zvec_stats.get('ready', False), "indexed_documents": zvec_stats.get('count', 0)},
+            "message": f"Scan complete. Detected {result.get('detected', 0)} projects."
         }
-        
-        logger.info(f"Scan complete for user {user_id}: {response}")
-        return response
         
     except HTTPException:
         sync_db.close()
         raise
     except Exception as e:
         sync_db.close()
-        logger.error(f"Scan exception for user {user_id}: {e}", exc_info=True)
+        logger.error(f"Scan failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Scan failed: {str(e)}")
 
 
@@ -1653,3 +1698,68 @@ async def upload_chat_file_simple(
         logger.error(f"Chat file upload failed: {e}")
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
+# ... (keeping all imports and other code before scan endpoint) ...
+
+@router.post(
+    "/google-drive/scan",
+    summary="Scan Google Drive for projects",
+)
+async def scan_google_drive(
+    current_user: User = Depends(get_current_user_async),
+    db: AsyncSession = Depends(get_async_db),
+) -> Dict[str, Any]:
+    """
+    Scan Google Drive, detect projects, and trigger ZVec indexing.
+    """
+    import uuid
+    import logging
+    from app.services.drive_project_sync import discover_and_upsert_drive_projects
+    from app.services.zvec_service import get_zvec_service
+    from app.db.session import db_manager
+    from sqlalchemy.orm import sessionmaker
+    
+    logger = logging.getLogger(__name__)
+    user_id = uuid.UUID(str(current_user.id))
+    
+    logger.info(f"Scan requested by user {user_id}")
+    
+    # Use sync database session
+    db_manager.initialize()
+    SessionLocal = sessionmaker(bind=db_manager._sync_engine)
+    sync_db = SessionLocal()
+    
+    try:
+        result = discover_and_upsert_drive_projects(
+            sync_db,
+            user_id,
+            min_score=0.5,
+            max_root_folders=200,
+            max_children_per_folder=500,
+            index_now=True,
+            max_files_per_project=100,
+        )
+        sync_db.close()
+        
+        if result.get("status") == "error":
+            raise HTTPException(status_code=400, detail=result.get("message", "Scan failed"))
+        
+        # Add ZVec stats
+        zvec = get_zvec_service()
+        zvec_stats = zvec.get_stats()
+        
+        return {
+            **result,
+            "status": "success",
+            "zvec": {
+                "ready": zvec_stats.get('ready', False),
+                "indexed_documents": zvec_stats.get('count', 0),
+            },
+            "message": f"Scan complete. Detected {result.get('detected', 0)} projects."
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        sync_db.close()
+        logger.error(f"Scan failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Scan failed: {str(e)}")
