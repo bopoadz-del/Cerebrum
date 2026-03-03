@@ -1346,6 +1346,8 @@ async def upload_chat_file_simple(
     Stores the file and optionally extracts text for indexing.
     """
     import uuid
+    import logging
+    logger = logging.getLogger(__name__)
     
     logger.info(f"Upload request received from user {current_user.id}, file: {file.filename}")
     
