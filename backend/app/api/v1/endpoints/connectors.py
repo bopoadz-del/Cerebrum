@@ -990,39 +990,63 @@ async def list_project_files(
         logger.error(f"Failed to initialize database session: {db_init_err}", exc_info=True)
         raise HTTPException(status_code=500, detail="Database connection error")
     
-    try:
-        from app.services.google_drive_service import (
-            GoogleDriveAuthError,
-            GoogleDriveNotFoundError,
-            GoogleDriveError
-        )
-        
-        svc = GoogleDriveService(sync_db)
-        files = await svc.list_files(user_id, root_folder_id)
-        
-        logger.info(f"Retrieved {len(files)} files from Google Drive for folder {root_folder_id}")
-        
-        sync_db.close()
-        return files
-    except GoogleDriveAuthError as e:
-        sync_db.close()
-        logger.error(f"Google Drive auth error: {e}")
-        raise HTTPException(status_code=401, detail=str(e))
-    except GoogleDriveNotFoundError as e:
-        sync_db.close()
-        logger.error(f"Google Drive folder not found: {e}")
-        raise HTTPException(status_code=404, detail=str(e))
-    except GoogleDriveError as e:
-        sync_db.close()
-        logger.error(f"Google Drive error: {e}")
-        raise HTTPException(status_code=502, detail=str(e))
-    except HTTPException:
-        sync_db.close()
-        raise
-    except Exception as e:
-        sync_db.close()
-        logger.error(f"Unexpected error listing files: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to list files: {str(e)}")
+    # Try to get files with automatic token refresh
+    max_retries = 2
+    last_error = None
+    
+    for attempt in range(max_retries):
+        try:
+            from app.services.google_drive_service import (
+                GoogleDriveAuthError,
+                GoogleDriveNotFoundError,
+                GoogleDriveError
+            )
+            
+            svc = GoogleDriveService(sync_db)
+            files = await svc.list_files(user_id, root_folder_id)
+            
+            logger.info(f"Retrieved {len(files)} files from Google Drive for folder {root_folder_id}")
+            
+            sync_db.close()
+            return files
+            
+        except GoogleDriveAuthError as e:
+            error_msg = str(e)
+            last_error = e
+            logger.error(f"Google Drive auth error (attempt {attempt + 1}): {error_msg}")
+            
+            # Check if it's a hard failure (invalid_grant = needs reconnect)
+            if 'invalid_grant' in error_msg or 'revoked' in error_msg.lower():
+                sync_db.close()
+                raise HTTPException(status_code=401, detail=f"Google Drive connection expired. Please reconnect. ({error_msg})")
+            
+            if attempt < max_retries - 1:
+                logger.info(f"Retrying after auth error...")
+                sync_db.close()
+                sync_db = SessionLocal()  # Recreate session
+                continue
+            else:
+                sync_db.close()
+                raise HTTPException(status_code=401, detail=f"Google Drive auth error: {error_msg}")
+                
+        except GoogleDriveNotFoundError as e:
+            sync_db.close()
+            logger.error(f"Google Drive folder not found: {e}")
+            raise HTTPException(status_code=404, detail=str(e))
+        except GoogleDriveError as e:
+            sync_db.close()
+            logger.error(f"Google Drive error: {e}")
+            raise HTTPException(status_code=502, detail=str(e))
+        except Exception as e:
+            sync_db.close()
+            logger.error(f"Unexpected error listing files: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail=f"Failed to list files: {str(e)}")
+    
+    # Should not reach here, but just in case
+    sync_db.close()
+    if last_error:
+        raise HTTPException(status_code=401, detail=f"Google Drive auth failed after retries: {last_error}")
+    raise HTTPException(status_code=500, detail="Failed to list files after retries")
 
 
 @router.post(

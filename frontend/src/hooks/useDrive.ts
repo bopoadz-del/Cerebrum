@@ -560,15 +560,15 @@ export function useDrive() {
 
   // Track retry attempts to prevent infinite loops
   const retryAttempts = React.useRef<{[key: string]: number}>({});
-  const MAX_RETRIES = 2;
+  const MAX_RETRIES = 3;
 
-  // Get files for a project
+  // Get files for a project with hardened error handling
   const getProjectFiles = useCallback(async (projectId: string): Promise<DriveFile[]> => {
     try {
       console.log('[Drive] Fetching files for project:', projectId);
       const res = await fetch(`${API_URL}/connectors/google-drive/projects/${projectId}/files`, {
         headers: getHeaders(),
-        signal: AbortSignal.timeout(10000)
+        signal: AbortSignal.timeout(15000) // Increased timeout
       });
       
       if (res.ok) {
@@ -581,32 +581,42 @@ export function useDrive() {
         const error = await res.json().catch(() => ({ detail: 'Unauthorized' }));
         console.error('[Drive] Auth error getting files:', error);
         
-        // Check if this is a Google Drive auth error (not app auth)
-        const isDriveAuthError = error.detail?.includes('Google Drive') || 
-                                 error.detail?.includes('token') ||
-                                 error.detail?.includes('expired');
+        // Check if this is a HARD Google Drive auth error (needs reconnect)
+        const needsReconnect = error.detail?.includes('invalid_grant') || 
+                               error.detail?.includes('Invalid credentials') ||
+                               error.detail?.includes('Token has been revoked') ||
+                               error.detail?.includes('refresh_token_revoked');
         
-        if (isDriveAuthError) {
-          // Google Drive token expired - need to reconnect
-          console.error('[Drive] Google Drive token expired, triggering reconnect...');
+        if (needsReconnect) {
+          // Hard failure - refresh token is invalid
+          console.error('[Drive] Google Drive hard auth failure, triggering reconnect...');
           setIsConnected(false);
           localStorage.removeItem(DRIVE_STORAGE_KEYS.CONNECTED);
           throw new Error('Google Drive connection expired. Please reconnect.');
         }
         
-        // App token issue - try refresh with retry limit
+        // Soft failure - might be temporary, try refresh with retry limit
         const attempts = retryAttempts.current[projectId] || 0;
         if (attempts >= MAX_RETRIES) {
           retryAttempts.current[projectId] = 0;
-          throw new Error('Session expired. Please login again.');
+          // Don't disconnect, just throw error
+          throw new Error('Failed to load files. Please try again.');
         }
         
         retryAttempts.current[projectId] = attempts + 1;
-        console.log(`[Drive] Attempting token refresh (${attempts + 1}/${MAX_RETRIES})...`);
+        console.log(`[Drive] Attempting recovery (${attempts + 1}/${MAX_RETRIES})...`);
+        
+        // Wait a moment before retry
+        await new Promise(r => setTimeout(r, 1000));
+        
+        // Try to refresh auth
         const refreshed = await refreshAuthToken();
         if (refreshed) {
           return getProjectFiles(projectId);
         }
+        
+        // Auth refresh failed but don't disconnect - just throw
+        throw new Error('Failed to load files. Please try again.')
         throw new Error('Session expired. Please login again.');
       } else if (res.status === 404) {
         console.error('[Drive] Project not found:', projectId);
