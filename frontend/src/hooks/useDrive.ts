@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth, STORAGE_KEYS } from '@/context/AuthContext';
 
 const RAW_API_URL = import.meta.env.VITE_API_URL || 'https://cerebrum-api.onrender.com';
@@ -558,6 +558,10 @@ export function useDrive() {
     setConnectionError(null);
   };
 
+  // Track retry attempts to prevent infinite loops
+  const retryAttempts = React.useRef<{[key: string]: number}>({});
+  const MAX_RETRIES = 2;
+
   // Get files for a project
   const getProjectFiles = useCallback(async (projectId: string): Promise<DriveFile[]> => {
     try {
@@ -568,11 +572,37 @@ export function useDrive() {
       });
       
       if (res.ok) {
+        // Reset retry count on success
+        retryAttempts.current[projectId] = 0;
         const files = await res.json();
         console.log('[Drive] Files retrieved:', files.length);
         return files;
       } else if (res.status === 401) {
-        console.error('[Drive] Auth error getting files, attempting refresh...');
+        const error = await res.json().catch(() => ({ detail: 'Unauthorized' }));
+        console.error('[Drive] Auth error getting files:', error);
+        
+        // Check if this is a Google Drive auth error (not app auth)
+        const isDriveAuthError = error.detail?.includes('Google Drive') || 
+                                 error.detail?.includes('token') ||
+                                 error.detail?.includes('expired');
+        
+        if (isDriveAuthError) {
+          // Google Drive token expired - need to reconnect
+          console.error('[Drive] Google Drive token expired, triggering reconnect...');
+          setIsConnected(false);
+          localStorage.removeItem(DRIVE_STORAGE_KEYS.CONNECTED);
+          throw new Error('Google Drive connection expired. Please reconnect.');
+        }
+        
+        // App token issue - try refresh with retry limit
+        const attempts = retryAttempts.current[projectId] || 0;
+        if (attempts >= MAX_RETRIES) {
+          retryAttempts.current[projectId] = 0;
+          throw new Error('Session expired. Please login again.');
+        }
+        
+        retryAttempts.current[projectId] = attempts + 1;
+        console.log(`[Drive] Attempting token refresh (${attempts + 1}/${MAX_RETRIES})...`);
         const refreshed = await refreshAuthToken();
         if (refreshed) {
           return getProjectFiles(projectId);
