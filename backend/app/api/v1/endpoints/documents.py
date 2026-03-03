@@ -651,6 +651,29 @@ async def process_drive_file(
                 logger.warning(f"NER failed: {e}")
                 results["ner_error"] = str(e)
 
+        # ZVec INDEXING - Index document for semantic search
+        if text_content and len(text_content) > 50:
+            try:
+                from app.services.zvec_service import get_zvec_service
+                zvec = get_zvec_service()
+                
+                doc_id = f"drive_{drive_file_id}"
+                zvec_metadata = {
+                    'name': metadata['name'],
+                    'source': 'google_drive',
+                    'mime_type': metadata.get('mimeType'),
+                    'user_id': str(current_user.id),
+                    'content_preview': text_content[:500],
+                    'drive_file_id': drive_file_id,
+                    'document_id': str(doc.id),
+                    'entities': results.get('ner', [])[:5],  # Store top 5 entities
+                }
+                zvec.add_document(doc_id, text_content, zvec_metadata)
+                results['zvec_indexed'] = True
+            except Exception as e:
+                logger.warning(f"ZVec indexing failed for {drive_file_id}: {e}")
+                results['zvec_indexed'] = False
+
         # 7. Update Document record with results
         processing_time = time.time() - start_time
 
@@ -753,3 +776,91 @@ async def list_processed_drive_files(
         )
         for d in docs
     ]
+
+
+@router.get("/search")
+async def search_documents(
+    query: str = Query(..., description="Search query"),
+    top_k: int = Query(default=5, ge=1, le=20, description="Number of results"),
+    source: Optional[str] = Query(default=None, description="Filter by source (google_drive, chat_upload)"),
+    current_user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """
+    Semantic search across all indexed documents using ZVec.
+    
+    Searches through documents processed from Google Drive and chat uploads.
+    Returns ranked results based on semantic similarity to the query.
+    """
+    try:
+        from app.services.zvec_service import get_zvec_service
+        
+        zvec = get_zvec_service()
+        
+        # Check if ZVec is ready
+        if not zvec.is_ready():
+            return {
+                "query": query,
+                "results": [],
+                "total": 0,
+                "warning": "ZVec service not available (ML stack not initialized)"
+            }
+        
+        # Perform search
+        results = zvec.search_similar(query, top_k=top_k)
+        
+        # Filter by user_id and optionally by source
+        filtered_results = []
+        for r in results:
+            metadata = r.get('metadata', {})
+            # Only return results for current user
+            if str(metadata.get('user_id')) == str(current_user.id):
+                # Filter by source if specified
+                if source is None or metadata.get('source') == source:
+                    filtered_results.append({
+                        "id": r['id'],
+                        "score": r['score'],
+                        "name": metadata.get('name'),
+                        "source": metadata.get('source'),
+                        "mime_type": metadata.get('mime_type'),
+                        "content_preview": metadata.get('content_preview'),
+                        "drive_file_id": metadata.get('drive_file_id'),
+                        "document_id": metadata.get('document_id'),
+                        "entities": metadata.get('entities', [])
+                    })
+        
+        return {
+            "query": query,
+            "results": filtered_results,
+            "total": len(filtered_results),
+            "source_filter": source
+        }
+        
+    except Exception as e:
+        logger.error(f"Document search failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+
+
+@router.get("/zvec/stats")
+async def get_zvec_stats(
+    current_user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """Get ZVec database statistics."""
+    try:
+        from app.services.zvec_service import get_zvec_service
+        
+        zvec = get_zvec_service()
+        stats = zvec.get_stats()
+        
+        return {
+            "ready": stats.get('ready', False),
+            "total_documents": stats.get('count', 0),
+            "service": "ZVec"
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to get ZVec stats: {e}")
+        return {
+            "ready": False,
+            "total_documents": 0,
+            "error": str(e)
+        }
