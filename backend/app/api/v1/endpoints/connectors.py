@@ -250,7 +250,7 @@ async def get_google_drive_token(
             AND service = 'google_drive'
             AND is_active = true
             LIMIT 1
-        """).bindparams(user_id=user_id)
+        """), {"user_id": user_id}
     )
     row = result.fetchone()
     if not row:
@@ -305,7 +305,7 @@ async def get_google_drive_status(
                 AND service = 'google_drive'
                 AND is_active = true
                 LIMIT 1
-            """).bindparams(user_id=user_id)
+            """), {"user_id": user_id}
         )
         row = result.fetchone()
         logger.info(f"Token query result for user {user_id_str}: row={row is not None}")
@@ -363,11 +363,12 @@ async def get_google_drive_status(
                             updated_at = NOW()
                         WHERE user_id = :user_id::UUID 
                         AND service = 'google_drive'
-                    """).bindparams(
-                        access_token=token_data['access_token'],
-                        expiry=new_expiry,
-                        user_id=user_id
-                    )
+                    """),
+                    {
+                        "access_token": token_data['access_token'],
+                        "expiry": new_expiry,
+                        "user_id": user_id
+                    }
                 )
                 await db.commit()
                 
@@ -1211,7 +1212,7 @@ async def list_google_drive_projects(
             WHERE user_id = :user_id
             AND deleted = false
             ORDER BY updated_at DESC
-        """).bindparams(user_id=user_id)
+        """), {"user_id": user_id}
     )
     rows = result.fetchall()
 
@@ -1268,7 +1269,7 @@ async def get_indexing_status(
             WHERE user_id = :user_id
             AND deleted = false
             ORDER BY updated_at DESC
-        """).bindparams(user_id=user_id)
+        """), {"user_id": user_id}
     )
     
     projects_status = []
@@ -1344,7 +1345,7 @@ async def debug_google_drive(
         
         # Check projects for this user - use bindparam properly
         result = await db.execute(
-            text("SELECT COUNT(*) FROM google_drive_projects WHERE user_id = :user_id").bindparams(user_id=user_id)
+            text("SELECT COUNT(*) FROM google_drive_projects WHERE user_id = :user_id"), {"user_id": user_id}
         )
         project_count = result.scalar()
         
@@ -1360,7 +1361,7 @@ async def debug_google_drive(
         if token_table_exists:
             # Check integration_tokens count
             result2 = await db.execute(
-                text("SELECT COUNT(*) FROM integration_tokens WHERE user_id = :user_id AND service = 'google_drive'").bindparams(user_id=user_id)
+                text("SELECT COUNT(*) FROM integration_tokens WHERE user_id = :user_id AND service = 'google_drive'"), {"user_id": user_id}
             )
             token_count = result2.scalar()
             
@@ -1370,7 +1371,7 @@ async def debug_google_drive(
                     SELECT token_id, service, is_active, expiry, account_email, scopes, updated_at
                     FROM integration_tokens 
                     WHERE user_id = :user_id
-                """).bindparams(user_id=user_id)
+                """), {"user_id": user_id}
             )
             for row in result_tokens.fetchall():
                 token_id, service, is_active, expiry, account_email, scopes, updated_at = row
@@ -1439,7 +1440,7 @@ async def debug_google_drive_credentials(
                 FROM integration_tokens 
                 WHERE user_id = :user_id AND service = 'google_drive' AND is_active = true
                 LIMIT 1
-            """).bindparams(user_id=user_id)
+            """), {"user_id": user_id}
         )
         row = result.fetchone()
         
@@ -1503,7 +1504,7 @@ async def debug_google_drive_token_details(
                 SELECT token_id, service, is_active, expiry, account_email, scopes, created_at, updated_at
                 FROM integration_tokens 
                 WHERE user_id = :user_id AND service = 'google_drive'
-            """).bindparams(user_id=user_id)
+            """), {"user_id": user_id}
         )
         
         tokens = []
