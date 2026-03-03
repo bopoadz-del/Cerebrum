@@ -518,3 +518,93 @@ async def get_project_files(
         raise HTTPException(status_code=401, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
+# Debug Endpoints (Temporary - for troubleshooting)
+# =============================================================================
+
+@router.get("/debug/credentials")
+async def debug_credentials(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Debug endpoint to check Google Drive credential status.
+    """
+    from app.models.google_drive import GoogleDriveToken
+    service = GoogleDriveService(db)
+    
+    # Check token in DB
+    token = db.query(GoogleDriveToken).filter(
+        GoogleDriveToken.user_id == current_user.id
+    ).first()
+    
+    if not token:
+        return {
+            "error": "No token found",
+            "user_id": str(current_user.id),
+            "solution": "Reconnect Google Drive - no stored credentials"
+        }
+    
+    # Try to get credentials
+    try:
+        creds = service.get_credentials(current_user.id)
+        
+        result = {
+            "token_exists": True,
+            "user_id": str(current_user.id),
+            "email": token.google_email,
+            "expired": token.is_expired(),
+            "credentials_valid": creds is not None,
+            "creds_type": str(type(creds)) if creds else None,
+        }
+        
+        # Additional credential details if available
+        if creds:
+            result["creds_valid"] = creds.valid if hasattr(creds, 'valid') else 'N/A'
+            result["creds_expired"] = creds.expired if hasattr(creds, 'expired') else 'N/A'
+            if hasattr(creds, 'expiry') and creds.expiry:
+                result["creds_expiry"] = creds.expiry.isoformat()
+        
+        return result
+        
+    except Exception as e:
+        return {
+            "error": str(e),
+            "token_exists": True,
+            "user_id": str(current_user.id),
+            "email": token.google_email,
+            "expired": token.is_expired(),
+            "solution": "Check error details - may need to reconnect"
+        }
+
+
+@router.get("/debug/token-details")
+async def debug_token_details(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get detailed token information (safely - no sensitive data exposed).
+    """
+    from app.models.google_drive import GoogleDriveToken
+    
+    token = db.query(GoogleDriveToken).filter(
+        GoogleDriveToken.user_id == current_user.id
+    ).first()
+    
+    if not token:
+        return {"error": "No token found", "user_id": str(current_user.id)}
+    
+    # Return safe token details (no actual credentials)
+    return {
+        "user_id": str(token.user_id),
+        "google_email": token.google_email,
+        "token_exists": bool(token.token_data),
+        "refresh_token_exists": bool(token.refresh_token),
+        "expires_at": token.expires_at.isoformat() if token.expires_at else None,
+        "is_expired": token.is_expired(),
+        "created_at": token.created_at.isoformat() if token.created_at else None,
+        "updated_at": token.updated_at.isoformat() if token.updated_at else None,
+    }
