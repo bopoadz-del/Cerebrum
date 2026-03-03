@@ -1396,7 +1396,7 @@ async def upload_chat_file_simple(
         
         # Try to extract text for supported documents
         extracted_text = None
-        text_supported_exts = ['.pdf', '.txt', '.md', '.png', '.jpg', '.jpeg', '.tiff']
+        text_supported_exts = ['.pdf', '.txt', '.md', '.docx', '.png', '.jpg', '.jpeg', '.tiff']
         
         if file_ext in text_supported_exts or mime_type.startswith("text/"):
             try:
@@ -1408,6 +1408,29 @@ async def upload_chat_file_simple(
                         extracted_text = file_content.decode('latin-1')
                     extracted_text = extracted_text[:10000]  # Limit to 10k chars
                     logger.info(f"Text extracted from text file: {len(extracted_text)} chars")
+                
+                # Extract text from .docx files
+                elif file_ext == '.docx':
+                    try:
+                        import zipfile
+                        import io
+                        from xml.etree import ElementTree
+                        
+                        docx_file = io.BytesIO(file_content)
+                        with zipfile.ZipFile(docx_file) as zf:
+                            xml_content = zf.read('word/document.xml')
+                        
+                        # Parse XML and extract text
+                        tree = ElementTree.fromstring(xml_content)
+                        texts = []
+                        for elem in tree.iter():
+                            if elem.text and elem.text.strip():
+                                texts.append(elem.text.strip())
+                        
+                        extracted_text = " ".join(texts)[:10000]
+                        logger.info(f"Text extracted from DOCX: {len(extracted_text)} chars")
+                    except Exception as docx_err:
+                        logger.warning(f"DOCX extraction failed: {docx_err}")
                 
                 # Try PDF extraction if PyPDF2 is available
                 elif file_ext == '.pdf':
