@@ -888,7 +888,11 @@ async def list_google_drive_files(
     """List files from Google Drive for a specific folder."""
     import uuid
     from app.db.session import db_manager
-    from app.services.google_drive_service import GoogleDriveService
+    from app.services.google_drive_service import (
+        GoogleDriveService, 
+        GoogleDriveAuthError,
+        GoogleDriveError
+    )
     
     db_manager.initialize()
     from sqlalchemy.orm import sessionmaker
@@ -900,6 +904,12 @@ async def list_google_drive_files(
         files = await svc.list_files(uuid.UUID(str(current_user.id)), folder_id)
         sync_db.close()
         return files
+    except GoogleDriveAuthError as e:
+        sync_db.close()
+        raise HTTPException(status_code=401, detail=str(e))
+    except GoogleDriveError as e:
+        sync_db.close()
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         sync_db.close()
         raise HTTPException(status_code=500, detail=f"Failed to list files: {str(e)}")
@@ -981,36 +991,31 @@ async def list_project_files(
         raise HTTPException(status_code=500, detail="Database connection error")
     
     try:
+        from app.services.google_drive_service import (
+            GoogleDriveAuthError,
+            GoogleDriveNotFoundError,
+            GoogleDriveError
+        )
+        
         svc = GoogleDriveService(sync_db)
+        files = await svc.list_files(user_id, root_folder_id)
         
-        # Check if we have credentials before making the API call
-        try:
-            creds = svc.get_credentials(user_id)
-        except Exception as cred_err:
-            logger.error(f"Error getting credentials: {cred_err}", exc_info=True)
-            raise HTTPException(status_code=401, detail="Failed to get Google Drive credentials")
-            
-        if not creds:
-            logger.error(f"No Google Drive credentials found for user {user_id}")
-            raise HTTPException(status_code=401, detail="Google Drive not authenticated. Please reconnect.")
-        
-        logger.info(f"Credentials found for user {user_id}, fetching files from folder {root_folder_id}")
-        
-        try:
-            files = await svc.list_files(user_id, root_folder_id)
-        except HTTPException:
-            raise
-        except ValueError as ve:
-            logger.error(f"Value error listing files: {ve}")
-            raise HTTPException(status_code=401, detail=str(ve))
-        except Exception as api_err:
-            logger.error(f"Google Drive API error: {api_err}", exc_info=True)
-            raise HTTPException(status_code=502, detail=f"Google Drive API error: {str(api_err)}")
-            
         logger.info(f"Retrieved {len(files)} files from Google Drive for folder {root_folder_id}")
         
         sync_db.close()
         return files
+    except GoogleDriveAuthError as e:
+        sync_db.close()
+        logger.error(f"Google Drive auth error: {e}")
+        raise HTTPException(status_code=401, detail=str(e))
+    except GoogleDriveNotFoundError as e:
+        sync_db.close()
+        logger.error(f"Google Drive folder not found: {e}")
+        raise HTTPException(status_code=404, detail=str(e))
+    except GoogleDriveError as e:
+        sync_db.close()
+        logger.error(f"Google Drive error: {e}")
+        raise HTTPException(status_code=502, detail=str(e))
     except HTTPException:
         sync_db.close()
         raise
@@ -1029,25 +1034,30 @@ async def disconnect_google_drive(
     db: AsyncSession = Depends(get_async_db),
 ) -> Dict[str, Any]:
     """Disconnect Google Drive and revoke tokens."""
-    from sqlalchemy import text
+    import uuid
+    from app.db.session import db_manager
+    from app.services.google_drive_service import GoogleDriveService
     
-    user_id = str(current_user.id)
-    # Use raw SQL to deactivate token
-    await db.execute(
-        text("""
-            UPDATE integration_tokens 
-            SET is_active = false, revoked_at = NOW()
-            WHERE user_id = :user_id::UUID 
-            AND service = 'google_drive'
-            AND is_active = true
-        """).bindparams(user_id=user_id)
-    )
-    await db.commit()
+    db_manager.initialize()
+    from sqlalchemy.orm import sessionmaker
+    SessionLocal = sessionmaker(bind=db_manager._sync_engine)
+    sync_db = SessionLocal()
     
-    return {
-        "success": True,
-        "message": "Google Drive disconnected",
-    }
+    try:
+        svc = GoogleDriveService(sync_db)
+        success = svc.disconnect(uuid.UUID(str(current_user.id)))
+        sync_db.close()
+        
+        if success:
+            return {
+                "success": True,
+                "message": "Google Drive disconnected",
+            }
+        else:
+            raise HTTPException(status_code=500, detail="Failed to disconnect")
+    except Exception as e:
+        sync_db.close()
+        raise HTTPException(status_code=500, detail=f"Failed to disconnect: {str(e)}")
 
 
 # =============================================================================
