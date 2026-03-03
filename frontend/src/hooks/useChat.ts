@@ -409,9 +409,13 @@ This is a simulated result showing how ZVec offline semantic search would work. 
       formData.append('file', file);
       
       const token = getAuthToken();
-      // Use full API URL - ensure we're hitting the right endpoint
-      const baseUrl = apiBaseUrl.startsWith('http') ? apiBaseUrl : window.location.origin + apiBaseUrl;
-      const uploadUrl = `${baseUrl}/connectors/upload/chat`;
+      
+      // FIX: Use the correct API URL (same as useDrive.ts)
+      const RAW_API_URL = import.meta.env.VITE_API_URL || 'https://cerebrum-api.onrender.com';
+      const API_URL = RAW_API_URL.replace(/\/?$/, '').endsWith('/api/v1') 
+        ? RAW_API_URL 
+        : `${RAW_API_URL.replace(/\/?$/, '')}/api/v1`;
+      const uploadUrl = `${API_URL}/connectors/upload/chat`;
       
       console.log('[Chat] Upload starting...');
       console.log('[Chat] URL:', uploadUrl);
