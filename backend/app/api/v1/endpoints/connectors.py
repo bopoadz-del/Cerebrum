@@ -811,8 +811,9 @@ async def scan_google_drive(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error checking token before scan: {e}")
-        raise HTTPException(status_code=500, detail="Error checking credentials")
+        logger.error(f"Error checking token before scan: {e}", exc_info=True)
+        import traceback
+        raise HTTPException(status_code=500, detail=f"Error checking credentials: {str(e)}")
     
     # Now proceed with the scan using sync database session
     from app.db.session import db_manager
