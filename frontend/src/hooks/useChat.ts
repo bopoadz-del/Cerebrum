@@ -404,7 +404,10 @@ This is a simulated result showing how ZVec offline semantic search would work. 
       formData.append('file', file);
       
       const token = getAuthToken();
-      const response = await fetch(`${apiBaseUrl}/connectors/upload/chat`, {
+      const uploadUrl = `${apiBaseUrl}/connectors/upload/chat`;
+      console.log('[Chat] Uploading file to:', uploadUrl, 'File:', file.name, 'Size:', file.size);
+      
+      const response = await fetch(uploadUrl, {
         method: 'POST',
         headers: {
           'Authorization': token ? `Bearer ${token}` : '',
@@ -419,19 +422,27 @@ This is a simulated result showing how ZVec offline semantic search would work. 
         let errorMsg = `Upload failed: ${response.status} ${response.statusText}`;
         
         // Try to get error details from response
-        const responseText = await response.text();
-        console.error('Upload error response:', response.status, responseText.substring(0, 500));
+        let responseText = '';
+        try {
+          responseText = await response.text();
+        } catch (e) {
+          console.error('[Chat] Failed to read error response text:', e);
+        }
         
-        if (responseText) {
+        console.error('[Chat] Upload error response:', response.status, responseText?.substring(0, 500));
+        
+        if (responseText && responseText.trim().length > 0) {
           try {
             const errorData = JSON.parse(responseText);
             errorMsg = errorData.detail || errorData.message || errorMsg;
           } catch {
-            // Not JSON, use text if available
-            if (responseText.length > 0 && responseText.length < 200) {
+            // Not JSON, use text if available and short
+            if (responseText.length < 200) {
               errorMsg = `${errorMsg}\n\n${responseText}`;
             }
           }
+        } else {
+          errorMsg = `${errorMsg}\n\nThe server returned an empty response. This may indicate:\n• The endpoint is not deployed yet\n• The server is restarting\n• A network connectivity issue`;
         }
         
         // Show error message in chat
@@ -446,6 +457,7 @@ This is a simulated result showing how ZVec offline semantic search would work. 
       }
       
       const data = await response.json();
+      console.log('[Chat] Upload successful:', data);
       
       // Update attachment with server info
       const finalAttachment: Attachment = {
