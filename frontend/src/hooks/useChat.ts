@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Message, Attachment } from '@/types';
+import { STORAGE_KEYS } from '@/context/AuthContext';
 
 interface UseChatOptions {
   initialMessages?: Message[];
@@ -9,7 +10,7 @@ interface UseChatOptions {
 }
 
 // Get auth token from localStorage
-const getAuthToken = () => localStorage.getItem('cerebrum_auth_token') || '';
+const getAuthToken = () => localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN) || '';
 
 // Command parser
 interface ParsedCommand {
