@@ -69,6 +69,7 @@ def _index_files_sync(
     """
     Synchronously index files into ZVec.
     Returns number of successfully indexed files.
+    NOTE: Does NOT commit - caller is responsible for session management.
     """
     from app.services.zvec_service import get_zvec_service
     from app.services.document_parser import extract_text_from_drive_file
@@ -120,7 +121,7 @@ def _index_files_sync(
             success = zvec.add_document(doc_id, text, metadata)
             
             if success:
-                # Save to database
+                # Save to database (don't commit - caller manages session)
                 if existing:
                     existing.content = text[:2000]
                     existing.status = "indexed"
@@ -136,7 +137,6 @@ def _index_files_sync(
                     )
                     db.add(doc)
                 
-                db.commit()
                 indexed_count += 1
                 
         except Exception as e:
@@ -358,9 +358,10 @@ def discover_and_upsert_drive_projects(
                 # Update UI status to running
                 mapping.indexing_status = "running"
                 mapping.indexing_progress = {"indexed": 0, "total": len(file_ids)}
-                db.commit()  # Commit so UI sees the change immediately
                 
                 # Try synchronous indexing first (works without Celery worker)
+                indexed_count = 0
+                indexing_error = None
                 try:
                     indexed_count = _index_files_sync(
                         db, file_ids, file_info_map, user_id, tok.access_token
@@ -370,6 +371,7 @@ def discover_and_upsert_drive_projects(
                     mapping.last_indexed_at = datetime.utcnow()
                 except Exception as e:
                     print(f"Sync indexing failed: {e}")
+                    indexing_error = str(e)
                     # Fall back to Celery if sync fails
                     mapping.indexing_status = "queued"
                     try:
@@ -386,14 +388,15 @@ def discover_and_upsert_drive_projects(
                 queued_index_jobs += 1
 
         mapping_ids.append(str(mapping.id))
-
-    try:
-        db.commit()
-        logger.info(f"Committed {detected} projects for user {user_id}")
-    except Exception as e:
-        logger.error(f"Failed to commit projects for user {user_id}: {e}")
-        db.rollback()
-        return {"status": "error", "message": f"Database commit failed: {str(e)}", "detected": 0, "updated": 0}
+        
+        # Commit after each folder is processed to avoid session bloat
+        # and prevent detached instance errors
+        try:
+            db.commit()
+        except Exception as e:
+            logger.error(f"Failed to commit folder {folder_id}: {e}")
+            db.rollback()
+            continue
 
     logger.info(f"Discovery complete for user {user_id}: detected={detected}, created={created_projects}")
     

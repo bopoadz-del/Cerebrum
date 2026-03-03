@@ -1,13 +1,31 @@
-#!/bin/sh
+#!/bin/bash
 # Database Backup Cron Job Script
 # This script is used by the db-backup cronjob in Render
 
 set -euo pipefail
 
+echo "=== Database Backup Cron Job Started ==="
+echo "Timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+# Check required commands
+for cmd in pg_dump gzip; do
+    if ! command -v "$cmd" &> /dev/null; then
+        echo "ERROR: Required command '$cmd' not found"
+        exit 1
+    fi
+done
+
+# Check DATABASE_URL
+if [ -z "${DATABASE_URL:-}" ]; then
+    echo "ERROR: DATABASE_URL environment variable is not set"
+    exit 1
+fi
+
 BACKUP_FILE="backup-$(date +%Y%m%d-%H%M%S).sql.gz"
 echo "Starting backup: $BACKUP_FILE"
 
 # Create backup
+echo "Running pg_dump..."
 pg_dump "$DATABASE_URL" | gzip > "/tmp/$BACKUP_FILE"
 echo "Backup created: $(ls -lh /tmp/$BACKUP_FILE)"
 
