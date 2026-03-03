@@ -786,13 +786,64 @@ async def search_google_drive(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
 ) -> Dict[str, Any]:
-    """Search files in Google Drive (placeholder - returns empty results)."""
-    # TODO: Implement actual Google Drive search with indexing
-    return {
-        "query": query,
-        "results": [],
-        "count": 0,
-    }
+    """Search files in Google Drive using ZVec semantic search."""
+    import uuid
+    from sqlalchemy import text
+    from app.services.zvec_service import get_zvec_service
+    
+    user_id_str = str(current_user.id)
+    
+    if not query or not query.strip():
+        return {"query": query, "results": [], "count": 0}
+    
+    zvec = get_zvec_service()
+    
+    try:
+        # Search using ZVec (returns all results, we'll filter by user)
+        search_results = zvec.search_similar(query, top_k=50)
+        
+        results = []
+        for r in search_results:
+            metadata = r.get("metadata", {})
+            
+            # Filter by user_id
+            result_user_id = metadata.get("user_id", "")
+            if result_user_id != user_id_str:
+                continue
+            
+            # Filter by project if specified
+            if project:
+                result_project = metadata.get("project", "")
+                if result_project != project:
+                    continue
+            
+            results.append({
+                "id": r.get("id", ""),
+                "score": r.get("score", 0),
+                "metadata": {
+                    "name": metadata.get("name", "Unknown"),
+                    "project": metadata.get("project", "Google Drive"),
+                    "mime_type": metadata.get("mime_type", "application/pdf"),
+                    "content_preview": metadata.get("content_preview", "")[:500],
+                    "drive_id": metadata.get("drive_id", ""),
+                }
+            })
+            
+            # Limit to top 10 results
+            if len(results) >= 10:
+                break
+        
+        return {
+            "query": query,
+            "results": results,
+            "count": len(results),
+        }
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Search failed: {e}", exc_info=True)
+        # Return empty results on error
+        return {"query": query, "results": [], "count": 0}
 
 
 @router.post("/google-drive/index")
