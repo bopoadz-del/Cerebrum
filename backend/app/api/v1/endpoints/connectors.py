@@ -308,6 +308,7 @@ async def get_google_drive_status(
             """).bindparams(user_id=user_id)
         )
         row = result.fetchone()
+        logger.info(f"Token query result for user {user_id_str}: row={row is not None}")
         
         if not row:
             logger.info(f"No Drive token found for user {user_id}")
@@ -738,6 +739,7 @@ async def scan_google_drive(
                 LIMIT 1
             """).bindparams(user_id=user_id_str)
         )
+        logger.info(f"Token query executed for user {user_id_str}")
         row = result.fetchone()
         
         if not row:
@@ -811,8 +813,9 @@ async def scan_google_drive(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error checking token before scan: {e}", exc_info=True)
         import traceback
+        tb_str = traceback.format_exc()
+        logger.error(f"Error checking token before scan: {e}\n{tb_str}")
         raise HTTPException(status_code=500, detail=f"Error checking credentials: {str(e)}")
     
     # Now proceed with the scan using sync database session
