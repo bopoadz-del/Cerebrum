@@ -404,16 +404,26 @@ This is a simulated result showing how ZVec offline semantic search would work. 
       formData.append('file', file);
       
       const token = getAuthToken();
-      const uploadUrl = `${apiBaseUrl}/connectors/upload/chat`;
-      console.log('[Chat] Uploading file to:', uploadUrl, 'File:', file.name, 'Size:', file.size);
+      // Use full API URL - ensure we're hitting the right endpoint
+      const baseUrl = apiBaseUrl.startsWith('http') ? apiBaseUrl : window.location.origin + apiBaseUrl;
+      const uploadUrl = `${baseUrl}/connectors/upload/chat`;
+      
+      console.log('[Chat] Upload starting...');
+      console.log('[Chat] URL:', uploadUrl);
+      console.log('[Chat] File:', file.name, 'Type:', file.type, 'Size:', file.size);
+      console.log('[Chat] Token present:', !!token);
       
       const response = await fetch(uploadUrl, {
         method: 'POST',
         headers: {
           'Authorization': token ? `Bearer ${token}` : '',
+          // Don't set Content-Type - browser will set it with boundary for FormData
         },
         body: formData,
       });
+      
+      console.log('[Chat] Response status:', response.status, response.statusText);
+      console.log('[Chat] Response headers:', Object.fromEntries(response.headers.entries()));
       
       if (!response.ok) {
         // Remove temp attachment on error
@@ -456,7 +466,19 @@ This is a simulated result showing how ZVec offline semantic search would work. 
         return;
       }
       
-      const data = await response.json();
+      // Get raw response text first for debugging
+      const responseText = await response.text();
+      console.log('[Chat] Raw response:', responseText);
+      
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('[Chat] JSON parse error:', parseError);
+        console.error('[Chat] Response was:', responseText);
+        throw new Error(`Invalid JSON response: ${responseText.substring(0, 100)}`);
+      }
+      
       console.log('[Chat] Upload successful:', data);
       
       // Update attachment with server info
