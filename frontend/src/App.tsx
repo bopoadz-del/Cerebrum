@@ -11,11 +11,7 @@ import { useDrive } from '@/hooks/useDrive';
 import Login from '@/pages/Login';
 
 // Mobile components
-import { MobileNav } from '@/components/mobile/MobileNav';
-import { MobileChat } from '@/components/mobile/MobileChat';
-import { MobileOutcomes } from '@/components/mobile/MobileOutcomes';
-import { MobileProjects } from '@/components/mobile/MobileProjects';
-import { MobileSettings } from '@/components/mobile/MobileSettings';
+import { MobileLayout } from '@/components/mobile';
 
 // Protected Route Component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -144,91 +140,7 @@ function DesktopLayout() {
   );
 }
 
-function MobileLayout() {
-  const [activeTab, setActiveTab] = useState<'projects' | 'chat' | 'outcomes' | 'settings'>('chat');
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
-  const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
-  
-  // Use Drive integration hook (same as desktop)
-  const { 
-    projects, 
-    scanning, 
-    isConnected, 
-    loading,
-    backendAvailable,
-    connectionError,
-    indexingStatus,
-    scanResults,
-    connectDrive, 
-    disconnectDrive,
-    scanDrive,
-    refreshProjects,
-    getProjectFiles
-  } = useDrive();
 
-  // Update selected project when projects load
-  useEffect(() => {
-    if (projects.length > 0 && !selectedProjectId) {
-      setSelectedProjectId(projects[0].id);
-    }
-  }, [projects, selectedProjectId]);
-
-  const selectedProject = projects.find(p => p.id === selectedProjectId);
-
-  // Show loading state while checking Drive connection
-  if (loading) {
-    return (
-      <div className="flex h-screen bg-white items-center justify-center">
-        <div className="flex items-center gap-3 text-gray-500">
-          <Loader2 className="w-6 h-6 animate-spin" />
-          <span>Checking Google Drive...</span>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col h-screen bg-white">
-      {/* Main Content */}
-      <div className="flex-1 overflow-hidden">
-        {activeTab === 'projects' && (
-          <MobileProjects
-            projects={projects}
-            selectedProjectId={selectedProjectId}
-            selectedChatId={selectedChatId}
-            onSelectProject={(id) => {
-              setSelectedProjectId(id);
-              setActiveTab('chat');
-            }}
-            onSelectChat={setSelectedChatId}
-            isDriveConnected={isConnected}
-            isScanning={scanning}
-            isDemoMode={!backendAvailable}
-            connectionError={connectionError}
-            indexingStatus={indexingStatus}
-            scanResults={scanResults}
-            onConnectDrive={connectDrive}
-            onDisconnectDrive={disconnectDrive}
-            onScanDrive={scanDrive}
-            onRefreshProjects={refreshProjects}
-            getProjectFiles={getProjectFiles}
-          />
-        )}
-        {activeTab === 'chat' && (
-          <MobileChat
-            projectName={selectedProject?.name || 'Select a project'}
-            chatTitle="New Chat"
-          />
-        )}
-        {activeTab === 'outcomes' && <MobileOutcomes />}
-        {activeTab === 'settings' && <MobileSettings />}
-      </div>
-
-      {/* Bottom Navigation */}
-      <MobileNav activeTab={activeTab} onTabChange={setActiveTab} />
-    </div>
-  );
-}
 
 function NewChatModal({ onClose, onCreate }: { onClose: () => void; onCreate: (title: string) => void }) {
   const [title, setTitle] = useState('');

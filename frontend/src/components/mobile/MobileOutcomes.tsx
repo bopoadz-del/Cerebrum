@@ -110,6 +110,8 @@ export function MobileOutcomes() {
     return new Intl.DateTimeFormat('en-US', {
       month: 'short',
       day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
     }).format(date);
   };
 
@@ -143,6 +145,11 @@ export function MobileOutcomes() {
     } else if (item.content) {
       handleCopy(item.content, item.id);
     }
+  };
+
+  const handleDownload = (item: OutcomeItem) => {
+    // Simulate download
+    console.log('Downloading:', item.title);
   };
 
   return (
@@ -180,7 +187,9 @@ export function MobileOutcomes() {
           >
             {filteredOutcomes.length === 0 ? (
               <div className="text-center py-12">
-                <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
+                  <FileText className="w-6 h-6 text-gray-400" />
+                </div>
                 <p className="text-sm text-gray-500">No {activeTab} yet</p>
               </div>
             ) : (
@@ -199,20 +208,25 @@ export function MobileOutcomes() {
                     <div
                       className={cn(
                         'flex items-center gap-3 p-3',
-                        outcome.expandable && 'cursor-pointer'
+                        outcome.expandable && 'cursor-pointer hover:bg-gray-50'
                       )}
                       onClick={() =>
                         outcome.expandable && setExpandedId(isExpanded ? null : outcome.id)
                       }
                     >
                       {StatusIcon && outcome.status && (
-                        <StatusIcon className={cn('w-5 h-5', statusColors[outcome.status])} />
+                        <StatusIcon
+                          className={cn(
+                            'w-5 h-5 flex-shrink-0',
+                            statusColors[outcome.status]
+                          )}
+                        />
                       )}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-900 truncate">
                           {outcome.title}
                         </p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-gray-500" title={formatFullDate(outcome.timestamp)}>
                           {formatTime(outcome.timestamp)}
                         </p>
                       </div>
@@ -227,6 +241,7 @@ export function MobileOutcomes() {
                                 outcome.content && handleCopy(outcome.content, outcome.id);
                               }}
                               className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                              title="Copy"
                             >
                               {isCopied ? (
                                 <Check className="w-4 h-4 text-emerald-500" />
@@ -240,6 +255,7 @@ export function MobileOutcomes() {
                                 handleShare(outcome);
                               }}
                               className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                              title="Share"
                             >
                               <Share2 className="w-4 h-4 text-gray-400" />
                             </button>
@@ -261,10 +277,11 @@ export function MobileOutcomes() {
                     <AnimatePresence>
                       {isExpanded && outcome.content && (
                         <motion.div
-                          initial={{ height: 0 }}
-                          animate={{ height: 'auto' }}
-                          exit={{ height: 0 }}
-                          className="border-t border-gray-100"
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="border-t border-gray-200"
                         >
                           <div className="p-3">
                             <p className="text-sm text-gray-700 leading-relaxed">{outcome.content}</p>
@@ -276,17 +293,22 @@ export function MobileOutcomes() {
                             
                             {/* Action Buttons */}
                             <div className="flex gap-2 mt-3">
-                              <Button variant="outline" size="sm" className="flex-1 h-9">
-                                <Download className="w-4 h-4 mr-2" />
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDownload(outcome)}
+                                className="h-8 flex-1"
+                              >
+                                <Download className="w-3.5 h-3.5 mr-1.5" />
                                 Download
                               </Button>
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="flex-1 h-9"
+                              <Button
+                                variant="outline"
+                                size="sm"
                                 onClick={() => handleShare(outcome)}
+                                className="h-8 flex-1"
                               >
-                                <Share2 className="w-4 h-4 mr-2" />
+                                <Share2 className="w-3.5 h-3.5 mr-1.5" />
                                 Share
                               </Button>
                             </div>

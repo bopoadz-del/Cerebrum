@@ -1,16 +1,15 @@
-import { MessageSquare, FileText, Folder, Settings } from 'lucide-react';
+import { MessageSquare, FileText, Folder } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface MobileNavProps {
-  activeTab: 'projects' | 'chat' | 'outcomes' | 'settings';
-  onTabChange: (tab: 'projects' | 'chat' | 'outcomes' | 'settings') => void;
+  activeTab: 'projects' | 'chat' | 'outcomes';
+  onTabChange: (tab: 'projects' | 'chat' | 'outcomes') => void;
 }
 
 const navItems = [
   { id: 'projects' as const, label: 'Projects', icon: Folder },
   { id: 'chat' as const, label: 'Chat', icon: MessageSquare },
   { id: 'outcomes' as const, label: 'Outcomes', icon: FileText },
-  { id: 'settings' as const, label: 'Settings', icon: Settings },
 ];
 
 export function MobileNav({ activeTab, onTabChange }: MobileNavProps) {

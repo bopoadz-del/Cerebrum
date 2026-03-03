@@ -73,7 +73,7 @@ export function MobileChat({ projectName, sessionToken }: MobileChatProps) {
             <Sparkles className="w-3 h-3 text-indigo-600" />
           </div>
           <div>
-            <h1 className="font-medium text-gray-900 text-sm">{projectName}</h1>
+            <h1 className="font-medium text-gray-900 text-sm">{projectName || 'Select a project'}</h1>
             <div className="flex items-center gap-1 text-xs text-gray-400">
               <Calendar className="w-3 h-3" />
               {today}
