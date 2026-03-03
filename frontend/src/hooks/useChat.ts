@@ -389,9 +389,9 @@ This is a simulated result showing how ZVec offline semantic search would work. 
   const addAttachment = useCallback(async (file: File) => {
     setIsUploading(true);
     
-    // DEBUG: Version 1.0.3 - Enhanced logging for file upload
+    // DEBUG: Version 1.0.4 - Fixed API URL
     console.log('[Chat] ====================================');
-    console.log('[Chat] FILE UPLOAD STARTED - v1.0.3');
+    console.log('[Chat] FILE UPLOAD STARTED - v1.0.4');
     console.log('[Chat] ====================================');
     
     try {
