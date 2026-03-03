@@ -1354,9 +1354,9 @@ async def upload_chat_file_simple(
     file: FastAPIUploadFile = FastAPIFile(...),
     current_user: User = Depends(get_current_user)
 ):
-    """Upload a file via chat interface (simplified endpoint).
+    """Upload a file via chat interface.
     
-    Stores the file and optionally extracts text for indexing.
+    Stores the file and extracts text for indexing.
     """
     import uuid
     import logging
@@ -1364,24 +1364,6 @@ async def upload_chat_file_simple(
     
     logger.info(f"Upload request received from user {current_user.id}, file: {file.filename}")
     
-    # Return immediate response for debugging
-    try:
-        # Just return success without processing to test if endpoint is reachable
-        return JSONResponse(
-            content={
-                "success": True,
-                "message": "Endpoint reached",
-                "user_id": str(current_user.id),
-                "filename": file.filename,
-                "content_type": file.content_type,
-            },
-            status_code=200
-        )
-    except Exception as quick_err:
-        logger.error(f"Quick response failed: {quick_err}")
-        raise
-    
-    # Full processing (commented out for testing)
     try:
         # Validate file size (max 50MB)
         max_size = 50 * 1024 * 1024  # 50MB
@@ -1400,6 +1382,7 @@ async def upload_chat_file_simple(
         # Save file
         with open(file_path, "wb") as f:
             f.write(file_content)
+        logger.info(f"File saved to: {file_path}")
         
         # Determine file type category
         mime_type = file.content_type or "application/octet-stream"
@@ -1424,6 +1407,7 @@ async def upload_chat_file_simple(
                     except UnicodeDecodeError:
                         extracted_text = file_content.decode('latin-1')
                     extracted_text = extracted_text[:10000]  # Limit to 10k chars
+                    logger.info(f"Text extracted from text file: {len(extracted_text)} chars")
                 
                 # Try PDF extraction if PyPDF2 is available
                 elif file_ext == '.pdf':
@@ -1438,6 +1422,7 @@ async def upload_chat_file_simple(
                             if page_text:
                                 text_parts.append(page_text)
                         extracted_text = "\n".join(text_parts)[:10000]
+                        logger.info(f"Text extracted from PDF: {len(extracted_text)} chars")
                     except Exception as pdf_err:
                         logger.warning(f"PDF extraction failed: {pdf_err}")
                 
@@ -1455,6 +1440,7 @@ async def upload_chat_file_simple(
                         'file_id': file_id,
                     }
                     zvec.add_document(doc_id, extracted_text, metadata)
+                    logger.info(f"Document indexed in ZVec: {doc_id}")
                     
             except Exception as e:
                 logger.warning(f"Text extraction failed for {file.filename}: {e}")
