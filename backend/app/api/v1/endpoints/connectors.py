@@ -712,16 +712,109 @@ async def scan_google_drive(
     import uuid
     import logging
     from sqlalchemy.orm import Session
+    from sqlalchemy import text
+    from datetime import datetime, timezone, timedelta
+    import httpx
     from app.services.drive_project_sync import discover_and_upsert_drive_projects
     from app.services.zvec_service import get_zvec_service
+    from app.core.config import settings
     
     logger = logging.getLogger(__name__)
-    user_id = uuid.UUID(str(current_user.id))
+    user_id_str = str(current_user.id)
+    user_id = uuid.UUID(user_id_str)
     
     logger.info(f"Scan requested by user {user_id}")
     
-    # Convert async session to sync for the service
-    # The service uses sync SQLAlchemy
+    # First, check if we have a valid token and try to refresh if needed
+    # (Same logic as status endpoint to ensure consistency)
+    try:
+        result = await db.execute(
+            text("""
+                SELECT account_email, is_active, expiry, refresh_token, access_token
+                FROM integration_tokens 
+                WHERE user_id = :user_id::UUID 
+                AND service = 'google_drive'
+                AND is_active = true
+                LIMIT 1
+            """).bindparams(user_id=user_id_str)
+        )
+        row = result.fetchone()
+        
+        if not row:
+            logger.error(f"No active Google Drive token found for user {user_id}")
+            raise HTTPException(status_code=400, detail="Google Drive not connected. Please connect first.")
+        
+        account_email, is_active, expiry, refresh_token, access_token = row
+        
+        # Check if token is expired
+        is_expired = False
+        if expiry:
+            try:
+                if expiry.tzinfo is None:
+                    expiry = expiry.replace(tzinfo=timezone.utc)
+                is_expired = expiry < datetime.now(timezone.utc)
+            except:
+                pass
+        
+        logger.info(f"Token status for user {user_id}: expired={is_expired}, has_refresh={bool(refresh_token)}")
+        
+        # If expired, try to refresh
+        if is_expired:
+            if not refresh_token:
+                logger.error(f"Token expired and no refresh token for user {user_id}")
+                raise HTTPException(status_code=400, detail="Google Drive credentials expired. Please reconnect.")
+            
+            try:
+                logger.info(f"Refreshing token for user {user_id}")
+                async with httpx.AsyncClient(timeout=30) as client:
+                    resp = await client.post(
+                        "https://oauth2.googleapis.com/token",
+                        data={
+                            "refresh_token": refresh_token,
+                            "client_id": settings.GOOGLE_CLIENT_ID,
+                            "client_secret": settings.GOOGLE_CLIENT_SECRET,
+                            "grant_type": "refresh_token",
+                        },
+                        headers={"Content-Type": "application/x-www-form-urlencoded"},
+                    )
+                    resp.raise_for_status()
+                    token_data = resp.json()
+                
+                # Update the token in database
+                new_expires_in = int(token_data.get('expires_in', 3600) or 3600)
+                new_expiry = datetime.utcnow() + timedelta(seconds=new_expires_in)
+                
+                await db.execute(
+                    text("""
+                        UPDATE integration_tokens 
+                        SET access_token = :access_token,
+                            expiry = :expiry,
+                            updated_at = NOW()
+                        WHERE user_id = :user_id::UUID 
+                        AND service = 'google_drive'
+                    """).bindparams(
+                        access_token=token_data['access_token'],
+                        expiry=new_expiry,
+                        user_id=user_id_str
+                    )
+                )
+                await db.commit()
+                logger.info(f"Token refreshed successfully for user {user_id}")
+                
+            except httpx.HTTPStatusError as e:
+                logger.error(f"Token refresh failed for user {user_id}: {e.response.status_code} - {e.response.text}")
+                raise HTTPException(status_code=400, detail="Google Drive credentials expired. Please reconnect.")
+            except Exception as e:
+                logger.error(f"Token refresh error for user {user_id}: {e}")
+                raise HTTPException(status_code=400, detail="Failed to refresh Google Drive credentials. Please reconnect.")
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error checking token before scan: {e}")
+        raise HTTPException(status_code=500, detail="Error checking credentials")
+    
+    # Now proceed with the scan using sync database session
     from app.db.session import db_manager
     db_manager.initialize()
     from sqlalchemy.orm import sessionmaker
@@ -732,11 +825,10 @@ async def scan_google_drive(
         logger.info(f"Starting project discovery for user {user_id}")
         
         # Run the discovery and upsert
-        # Increased limits: 200 root folders, up to 100 files per project
         result = discover_and_upsert_drive_projects(
             sync_db,
             user_id,
-            min_score=0.5,  # Lower threshold to catch more folders (even with few files)
+            min_score=0.5,
             max_root_folders=200,
             max_children_per_folder=500,
             index_now=True,
