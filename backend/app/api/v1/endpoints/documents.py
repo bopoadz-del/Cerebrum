@@ -382,6 +382,116 @@ async def process_invoice(
     }
 
 
+# Chat File Upload Endpoint
+@router.post("/upload/chat")
+async def upload_chat_file(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """Upload a file via chat interface.
+    
+    Stores the file and optionally extracts text for indexing.
+    Returns file metadata including URL for access.
+    """
+    import uuid
+    import shutil
+    from app.services.document_parser import extract_text_from_upload
+    from app.services.zvec_service import get_zvec_service
+    
+    try:
+        # Validate file size (max 50MB)
+        max_size = 50 * 1024 * 1024  # 50MB
+        file_content = await file.read()
+        if len(file_content) > max_size:
+            raise HTTPException(status_code=413, detail="File too large (max 50MB)")
+        
+        # Generate unique file ID
+        file_id = f"{current_user.id}_{uuid.uuid4().hex}"
+        file_ext = os.path.splitext(file.filename)[1].lower()
+        safe_filename = f"{file_id}{file_ext}"
+        file_path = os.path.join(UPLOAD_DIR, safe_filename)
+        
+        # Save file
+        with open(file_path, "wb") as f:
+            f.write(file_content)
+        
+        # Determine file type category
+        mime_type = file.content_type or "application/octet-stream"
+        file_category = "document"
+        if mime_type.startswith("image/"):
+            file_category = "image"
+        elif mime_type.startswith("audio/"):
+            file_category = "audio"
+        elif mime_type.startswith("video/"):
+            file_category = "video"
+        
+        # Extract text for supported documents
+        extracted_text = None
+        text_supported_exts = ['.pdf', '.txt', '.md', '.doc', '.docx', '.png', '.jpg', '.jpeg', '.tiff']
+        if file_ext in text_supported_exts or mime_type.startswith("text/"):
+            try:
+                extracted_text = await extract_text_from_upload(file_content, mime_type, file_ext)
+                
+                # Index in ZVec if text was extracted
+                if extracted_text and len(extracted_text) > 50:
+                    zvec = get_zvec_service()
+                    doc_id = f"chat_upload_{file_id}"
+                    metadata = {
+                        'name': file.filename,
+                        'source': 'chat_upload',
+                        'mime_type': mime_type,
+                        'user_id': str(current_user.id),
+                        'content_preview': extracted_text[:500],
+                        'file_id': file_id,
+                    }
+                    zvec.add_document(doc_id, extracted_text, metadata)
+                    
+            except Exception as e:
+                logger.warning(f"Text extraction failed for {file.filename}: {e}")
+                extracted_text = None
+        
+        # Generate file URL
+        file_url = f"/api/v1/documents/upload/chat/{file_id}"
+        
+        return {
+            "success": True,
+            "file_id": file_id,
+            "filename": file.filename,
+            "size": len(file_content),
+            "mime_type": mime_type,
+            "category": file_category,
+            "url": file_url,
+            "text_extracted": extracted_text is not None,
+            "text_length": len(extracted_text) if extracted_text else 0,
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Chat file upload failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+
+@router.get("/upload/chat/{file_id}")
+async def get_chat_file(
+    file_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """Retrieve an uploaded chat file."""
+    # Security check: file_id should start with user's ID
+    if not file_id.startswith(str(current_user.id)):
+        raise HTTPException(status_code=403, detail="Not authorized to access this file")
+    
+    # Find file with any extension
+    for ext in ['.pdf', '.txt', '.md', '.doc', '.docx', '.png', '.jpg', '.jpeg', 
+                '.mp3', '.mp4', '.mov', '.webm', '']:
+        file_path = os.path.join(UPLOAD_DIR, f"{file_id}{ext}")
+        if os.path.exists(file_path):
+            return FileResponse(file_path)
+    
+    raise HTTPException(status_code=404, detail="File not found")
+
+
 # Health Check
 @router.get("/health")
 async def health_check() -> Dict[str, Any]:

@@ -27,9 +27,11 @@ export function MobileChat({ projectName, sessionToken }: MobileChatProps) {
     inputValue,
     setInputValue,
     isLoading,
+    isUploading,
     attachments,
     messagesEndRef,
     sendMessage,
+    addAttachment,
     removeAttachment,
   } = useChat();
 
@@ -195,9 +197,11 @@ export function MobileChat({ projectName, sessionToken }: MobileChatProps) {
           value={inputValue}
           onChange={setInputValue}
           onSend={sendMessage}
+          onAttachFile={addAttachment}
           attachments={attachments}
           onRemoveAttachment={removeAttachment}
           isLoading={isLoading}
+          isUploading={isUploading}
           placeholder="Type a message..."
         />
       </div>

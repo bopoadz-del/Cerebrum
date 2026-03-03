@@ -9,6 +9,7 @@ import {
   Globe,
   X,
   FileText,
+  Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -18,7 +19,7 @@ interface ChatInputV2Props {
   value: string;
   onChange: (value: string) => void;
   onSend: () => void;
-  onAttachFile?: () => void;
+  onAttachFile?: (file: File) => void;
   onOpenCamera?: () => void;
   onOpenMic?: () => void;
   onInternetSearch?: () => void;
@@ -26,6 +27,7 @@ interface ChatInputV2Props {
   onRemoveAttachment?: (id: string) => void;
   isLoading?: boolean;
   placeholder?: string;
+  isUploading?: boolean;
 }
 
 const menuItems = [
@@ -47,14 +49,20 @@ export function ChatInputV2({
   onRemoveAttachment,
   isLoading = false,
   placeholder = 'Type a message...',
+  isUploading = false,
 }: ChatInputV2Props) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      onSend();
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && onAttachFile) {
+      onAttachFile(file);
+    }
+    // Reset input so same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
@@ -62,7 +70,7 @@ export function ChatInputV2({
     setIsMenuOpen(false);
     switch (id) {
       case 'file':
-        onAttachFile?.();
+        fileInputRef.current?.click();
         break;
       case 'camera':
         onOpenCamera?.();
@@ -76,6 +84,13 @@ export function ChatInputV2({
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      onSend();
+    }
+  };
+
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 B';
     const k = 1024;
@@ -86,9 +101,18 @@ export function ChatInputV2({
 
   return (
     <div className="bg-white border-t border-gray-200 px-4 py-4">
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        onChange={handleFileSelect}
+        className="hidden"
+        accept=".pdf,.txt,.md,.doc,.docx,.png,.jpg,.jpeg,.tiff,.csv,.json,.xml,.html,.mp3,.mp4,.mov,.webm"
+      />
+
       {/* Attachments Preview */}
       <AnimatePresence>
-        {attachments.length > 0 && (
+        {(attachments.length > 0 || isUploading) && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
@@ -118,6 +142,16 @@ export function ChatInputV2({
                 )}
               </motion.div>
             ))}
+            {isUploading && (
+              <motion.div
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-100 rounded-lg"
+              >
+                <Loader2 className="w-4 h-4 text-amber-600 animate-spin" />
+                <span className="text-sm text-amber-700">Uploading...</span>
+              </motion.div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

@@ -318,3 +318,109 @@ async def list_drive_files(
             else:
                 print(f"Failed to list files: {resp.status}")
                 return []
+
+
+async def extract_text_from_upload(
+    file_content: bytes,
+    mime_type: str,
+    file_ext: str
+) -> Optional[str]:
+    """
+    Extract text from uploaded file content.
+    
+    Supports PDF, images (OCR), and text files.
+    
+    Args:
+        file_content: Raw file bytes
+        mime_type: MIME type of the file
+        file_ext: File extension (e.g., '.pdf', '.txt')
+    
+    Returns:
+        Extracted text or None if extraction fails
+    """
+    import io
+    
+    # Handle PDF files
+    if mime_type == 'application/pdf' or file_ext == '.pdf':
+        try:
+            import PyPDF2
+            pdf_file = io.BytesIO(file_content)
+            reader = PyPDF2.PdfReader(pdf_file)
+            
+            text_parts = []
+            for page in reader.pages:
+                try:
+                    page_text = page.extract_text()
+                    if page_text:
+                        text_parts.append(page_text)
+                except Exception as e:
+                    print(f"Error extracting PDF page: {e}")
+                    continue
+            
+            full_text = "\n".join(text_parts)
+            return full_text[:MAX_CONTENT_LENGTH] if full_text else None
+            
+        except ImportError:
+            print("PyPDF2 not available for PDF extraction")
+            return None
+        except Exception as e:
+            print(f"PDF extraction error: {e}")
+            return None
+    
+    # Handle images (OCR)
+    if mime_type.startswith('image/') or file_ext in ['.png', '.jpg', '.jpeg', '.tiff', '.bmp']:
+        try:
+            from app.pipelines.ocr import extract_text_from_image
+            result = await extract_text_from_image(file_content)
+            return result.text if result.text else None
+        except ImportError:
+            print("OCR not available for image extraction")
+            return None
+        except Exception as e:
+            print(f"Image OCR error: {e}")
+            return None
+    
+    # Handle text files
+    if mime_type.startswith('text/') or file_ext in ['.txt', '.md', '.csv', '.json', '.xml', '.html', '.htm']:
+        try:
+            # Try UTF-8 first, fallback to latin-1
+            try:
+                text = file_content.decode('utf-8')
+            except UnicodeDecodeError:
+                text = file_content.decode('latin-1')
+            return text[:MAX_CONTENT_LENGTH] if text else None
+        except Exception as e:
+            print(f"Text extraction error: {e}")
+            return None
+    
+    # Handle Word documents (basic text extraction)
+    if file_ext in ['.docx', '.doc']:
+        try:
+            import zipfile
+            from xml.etree import ElementTree
+            
+            # docx is a zip file with XML inside
+            if file_ext == '.docx':
+                docx_file = io.BytesIO(file_content)
+                with zipfile.ZipFile(docx_file) as zf:
+                    xml_content = zf.read('word/document.xml')
+                
+                tree = ElementTree.fromstring(xml_content)
+                # Extract all text nodes
+                texts = []
+                for elem in tree.iter():
+                    if elem.text:
+                        texts.append(elem.text)
+                
+                full_text = " ".join(texts)
+                return full_text[:MAX_CONTENT_LENGTH] if full_text else None
+            else:
+                # .doc files are harder, would need antiword or similar
+                return None
+                
+        except Exception as e:
+            print(f"Word document extraction error: {e}")
+            return None
+    
+    print(f"Unsupported file type for text extraction: {mime_type} / {file_ext}")
+    return None

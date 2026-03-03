@@ -28,6 +28,7 @@ export function ChatInterfaceV2({ projectName, chatTitle, onNewChat, sessionToke
     inputValue,
     setInputValue,
     isLoading,
+    isUploading,
     attachments,
     messagesEndRef,
     sendMessage,
@@ -40,18 +41,9 @@ export function ChatInterfaceV2({ projectName, chatTitle, onNewChat, sessionToke
   const hasMessages = messages.length > 0;
   const isProjectSelected = projectName && projectName !== 'Select a project';
 
-  // Handler for file attachment
-  const handleAttachFile = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.multiple = true;
-    input.onchange = (e) => {
-      const files = (e.target as HTMLInputElement).files;
-      if (files) {
-        Array.from(files).forEach(file => addAttachment(file));
-      }
-    };
-    input.click();
+  // Handler for file attachment - now directly passes file to addAttachment which handles upload
+  const handleAttachFile = (file: File) => {
+    addAttachment(file);
   };
 
   // Handler for camera (placeholder - would open camera modal)
@@ -240,6 +232,7 @@ export function ChatInterfaceV2({ projectName, chatTitle, onNewChat, sessionToke
             attachments={attachments}
             onRemoveAttachment={removeAttachment}
             isLoading={isLoading}
+            isUploading={isUploading}
             placeholder={isProjectSelected ? 'Type /help for commands or ask anything...' : 'Select a project first'}
           />
         </div>

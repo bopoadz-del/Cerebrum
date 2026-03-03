@@ -8,6 +8,9 @@ interface UseChatOptions {
   apiBaseUrl?: string;
 }
 
+// Get auth token from localStorage
+const getAuthToken = () => localStorage.getItem('cerebrum_auth_token') || '';
+
 // Command parser
 interface ParsedCommand {
   isCommand: boolean;
@@ -33,6 +36,8 @@ const parseCommand = (input: string): ParsedCommand => {
 
 export function useChat(options: UseChatOptions = {}) {
   const { initialMessages = [], onSendMessage, apiBaseUrl = '/api/v1' } = options;
+  
+  const [isUploading, setIsUploading] = useState(false);
   
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -380,15 +385,94 @@ This is a simulated result showing how ZVec offline semantic search would work. 
     }
   }, [inputValue, attachments, onSendMessage, apiBaseUrl]);
 
-  const addAttachment = useCallback((file: File) => {
-    const attachment: Attachment = {
-      id: uuidv4(),
-      name: file.name,
-      type: file.type,
-      size: file.size,
-    };
-    setAttachments((prev) => [...prev, attachment]);
-  }, []);
+  const addAttachment = useCallback(async (file: File) => {
+    setIsUploading(true);
+    
+    try {
+      // Create temporary attachment
+      const tempAttachment: Attachment = {
+        id: uuidv4(),
+        name: file.name,
+        type: file.type,
+        size: file.size,
+      };
+      setAttachments((prev) => [...prev, tempAttachment]);
+      
+      // Upload file to backend
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const token = getAuthToken();
+      const response = await fetch(`${apiBaseUrl}/documents/upload/chat`, {
+        method: 'POST',
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : '',
+        },
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        // Remove temp attachment on error
+        setAttachments((prev) => prev.filter((a) => a.id !== tempAttachment.id));
+        
+        let errorMsg = 'Upload failed';
+        try {
+          const errorData = await response.json();
+          errorMsg = errorData.detail || errorData.message || `Upload failed: ${response.status}`;
+        } catch {
+          errorMsg = `Upload failed: ${response.status}`;
+        }
+        
+        // Show error message in chat
+        const errorMessage: Message = {
+          id: uuidv4(),
+          role: 'assistant',
+          content: `❌ **File Upload Failed**\n\n${errorMsg}`,
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, errorMessage]);
+        return;
+      }
+      
+      const data = await response.json();
+      
+      // Update attachment with server info
+      const finalAttachment: Attachment = {
+        ...tempAttachment,
+        url: data.url,
+      };
+      
+      setAttachments((prev) =>
+        prev.map((a) => (a.id === tempAttachment.id ? finalAttachment : a))
+      );
+      
+      // Show success message with extracted text info
+      const successMsg = data.text_extracted
+        ? `✅ **File uploaded and indexed!**\n\n📄 **${file.name}**\n📊 Size: ${(file.size / 1024).toFixed(1)} KB\n📝 Text extracted: ${data.text_length} characters\n\nThe file is now available in chat and searchable via ZVec AI.`
+        : `✅ **File uploaded!**\n\n📄 **${file.name}**\n📊 Size: ${(file.size / 1024).toFixed(1)} KB\n\nThe file is now available in chat.`;
+      
+      const successMessage: Message = {
+        id: uuidv4(),
+        role: 'assistant',
+        content: successMsg,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, successMessage]);
+      
+    } catch (error) {
+      console.error('File upload error:', error);
+      
+      const errorMessage: Message = {
+        id: uuidv4(),
+        role: 'assistant',
+        content: `❌ **File Upload Failed**\n\n${error instanceof Error ? error.message : 'Network error. Please try again.'}`,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
+      setIsUploading(false);
+    }
+  }, [apiBaseUrl]);
 
   const removeAttachment = useCallback((id: string) => {
     setAttachments((prev) => prev.filter((a) => a.id !== id));
@@ -403,6 +487,7 @@ This is a simulated result showing how ZVec offline semantic search would work. 
     inputValue,
     setInputValue,
     isLoading,
+    isUploading,
     attachments,
     messagesEndRef,
     sendMessage,
