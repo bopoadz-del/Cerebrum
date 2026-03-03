@@ -737,7 +737,8 @@ async def scan_google_drive(
                 AND service = 'google_drive'
                 AND is_active = true
                 LIMIT 1
-            """).bindparams(user_id=user_id_str)
+            """),
+            {"user_id": user_id_str}
         )
         logger.info(f"Token query executed for user {user_id_str}")
         row = result.fetchone()
@@ -794,11 +795,12 @@ async def scan_google_drive(
                             updated_at = NOW()
                         WHERE user_id = :user_id::UUID 
                         AND service = 'google_drive'
-                    """).bindparams(
-                        access_token=token_data['access_token'],
-                        expiry=new_expiry,
-                        user_id=user_id_str
-                    )
+                    """),
+                    {
+                        "access_token": token_data['access_token'],
+                        "expiry": new_expiry,
+                        "user_id": user_id_str
+                    }
                 )
                 await db.commit()
                 logger.info(f"Token refreshed successfully for user {user_id}")
