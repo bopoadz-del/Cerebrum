@@ -1336,6 +1336,19 @@ async def upload_chat_health(
     }
 
 
+@router.post("/upload/test")
+async def upload_test(
+    current_user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """Simple test endpoint that doesn't process files."""
+    return {
+        "status": "ok",
+        "message": "Test endpoint works",
+        "user_id": str(current_user.id),
+        "timestamp": datetime.now().isoformat()
+    }
+
+
 @router.post("/upload/chat")
 async def upload_chat_file_simple(
     file: FastAPIUploadFile = FastAPIFile(...),
@@ -1351,6 +1364,24 @@ async def upload_chat_file_simple(
     
     logger.info(f"Upload request received from user {current_user.id}, file: {file.filename}")
     
+    # Return immediate response for debugging
+    try:
+        # Just return success without processing to test if endpoint is reachable
+        return JSONResponse(
+            content={
+                "success": True,
+                "message": "Endpoint reached",
+                "user_id": str(current_user.id),
+                "filename": file.filename,
+                "content_type": file.content_type,
+            },
+            status_code=200
+        )
+    except Exception as quick_err:
+        logger.error(f"Quick response failed: {quick_err}")
+        raise
+    
+    # Full processing (commented out for testing)
     try:
         # Validate file size (max 50MB)
         max_size = 50 * 1024 * 1024  # 50MB
