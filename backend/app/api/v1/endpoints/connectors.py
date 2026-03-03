@@ -1320,6 +1320,21 @@ UPLOAD_DIR_CONNECTORS = "/tmp/chat_uploads"
 os.makedirs(UPLOAD_DIR_CONNECTORS, exist_ok=True)
 
 
+@router.get("/upload/chat")
+async def upload_chat_health(
+    current_user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """Health check for upload endpoint."""
+    return {
+        "status": "ok",
+        "message": "Upload endpoint is available",
+        "user_id": str(current_user.id),
+        "upload_dir": UPLOAD_DIR_CONNECTORS,
+        "dir_exists": os.path.exists(UPLOAD_DIR_CONNECTORS),
+        "max_file_size": "50MB"
+    }
+
+
 @router.post("/upload/chat")
 async def upload_chat_file_simple(
     file: FastAPIUploadFile = FastAPIFile(...),
