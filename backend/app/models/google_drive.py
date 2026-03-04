@@ -23,5 +23,10 @@ class GoogleDriveToken(Base):
     last_used_at = Column(DateTime, nullable=True)
     
     def is_expired(self):
-        from datetime import timedelta
-        return datetime.utcnow() >= (self.expires_at - timedelta(minutes=5))
+        from datetime import timedelta, timezone
+        # Handle both offset-naive and offset-aware datetimes
+        now = datetime.now(timezone.utc)
+        expires_at = self.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        return now >= (expires_at - timedelta(minutes=5))
