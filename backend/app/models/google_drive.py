@@ -6,7 +6,6 @@ from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Bool
 from sqlalchemy.dialects.postgresql import UUID
 from app.db.base_class import Base
 
-
 class GoogleDriveToken(Base):
     __tablename__ = "google_drive_tokens"
     
@@ -24,9 +23,6 @@ class GoogleDriveToken(Base):
     
     def is_expired(self):
         from datetime import timedelta, timezone
-        # Handle both offset-naive and offset-aware datetimes
-        now = datetime.now(timezone.utc)
-        expires_at = self.expires_at
-        if expires_at.tzinfo is None:
-            expires_at = expires_at.replace(tzinfo=timezone.utc)
-        return now >= (expires_at - timedelta(minutes=5))
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        expires = self.expires_at.replace(tzinfo=None) if self.expires_at.tzinfo else self.expires_at
+        return now >= (expires - timedelta(minutes=5))
