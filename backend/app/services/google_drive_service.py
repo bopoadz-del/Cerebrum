@@ -337,7 +337,11 @@ class GoogleDriveService:
             # Check expiry and refresh if needed
             is_expired = False
             if expiry:
-                is_expired = datetime.utcnow() >= (expiry - timedelta(minutes=5))
+                from datetime import timezone
+                # Handle both offset-naive and offset-aware datetimes
+                now = datetime.utcnow().replace(tzinfo=timezone.utc) if expiry.tzinfo else datetime.utcnow()
+                expires = expiry.replace(tzinfo=timezone.utc) if expiry.tzinfo else expiry
+                is_expired = now >= (expires - timedelta(minutes=5))
             
             if is_expired and creds.refresh_token:
                 self._logger.info(f"Token expired for user {user_id}, refreshing")
@@ -404,7 +408,11 @@ class GoogleDriveService:
             # Check if token expires soon (within 10 minutes)
             expires_soon = False
             if expiry:
-                expires_soon = datetime.utcnow() >= (expiry - timedelta(minutes=10))
+                from datetime import timezone
+                # Handle both offset-naive and offset-aware datetimes
+                now = datetime.utcnow().replace(tzinfo=timezone.utc) if expiry.tzinfo else datetime.utcnow()
+                expires = expiry.replace(tzinfo=timezone.utc) if expiry.tzinfo else expiry
+                expires_soon = now >= (expires - timedelta(minutes=10))
             
             return {
                 "connected": is_active and bool(access_token),
