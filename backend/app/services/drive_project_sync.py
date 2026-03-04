@@ -241,6 +241,8 @@ def discover_and_upsert_drive_projects(
                     {"access_token": creds.token, "user_id": str(user_id)}
                 )
                 db.commit()
+                # IMPORTANT: Update tok.access_token so subsequent code uses the refreshed token
+                tok.access_token = creds.token
                 logger.info(f"Token refreshed for user {user_id}")
             except Exception as e:
                 logger.error(f"Failed to refresh token: {e}")
@@ -395,8 +397,10 @@ def discover_and_upsert_drive_projects(
                 indexed_count = 0
                 indexing_error = None
                 try:
+                    # Use creds.token which is the refreshed token
+                    current_token = creds.token if creds.valid else tok.access_token
                     indexed_count = _index_files_sync(
-                        db, file_ids, file_info_map, user_id, tok.access_token
+                        db, file_ids, file_info_map, user_id, current_token
                     )
                     mapping.indexing_status = "done"
                     mapping.indexing_progress = {"indexed": indexed_count, "total": len(file_ids)}
@@ -408,10 +412,12 @@ def discover_and_upsert_drive_projects(
                     mapping.indexing_status = "queued"
                     try:
                         from app.tasks import process_drive_file_batch
+                        # Use creds.token which is the refreshed token
+                        current_token = creds.token if creds.valid else tok.access_token
                         process_drive_file_batch.delay(
                             file_ids=file_ids,
                             user_id=str(user_id),
-                            access_token=tok.access_token,
+                            access_token=current_token,
                         )
                     except Exception as celery_err:
                         print(f"Celery also failed: {celery_err}")

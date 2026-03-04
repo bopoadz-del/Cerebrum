@@ -250,8 +250,14 @@ class GoogleDriveService:
         
         if existing:
             existing.access_token = token_data['access_token']
-            # refresh_token only comes on first auth; don't erase existing
-            existing.refresh_token = token_data.get('refresh_token') or existing.refresh_token
+            # refresh_token only comes on first auth; NEVER erase existing refresh_token
+            new_refresh = token_data.get('refresh_token')
+            if new_refresh:
+                existing.refresh_token = new_refresh
+                self._logger.info(f"Updated refresh_token for user {user_id}")
+            elif not existing.refresh_token:
+                self._logger.warning(f"No refresh_token available for user {user_id} - re-auth with prompt='consent' needed")
+            # else: keep existing refresh_token (don't change it)
             existing.scopes = scopes
             existing.expiry = expiry
             existing.client_id = self.client_id
