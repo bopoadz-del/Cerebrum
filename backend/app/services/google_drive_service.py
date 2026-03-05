@@ -316,14 +316,14 @@ class GoogleDriveService:
             
             if not row:
                 self._logger.info(f"No active token found for user {user_id}")
-                return None
+                raise GoogleDriveAuthError("Google Drive not connected. Please connect your account.")
             
             (access_token, refresh_token, expiry, scopes, 
              token_uri, client_id, client_secret) = row
             
             if not access_token:
                 self._logger.error(f"Access token is empty for user {user_id}")
-                return None
+                raise GoogleDriveAuthError("Invalid Google Drive token. Please reconnect your account.")
             
             creds = Credentials(
                 token=access_token,
@@ -346,6 +346,18 @@ class GoogleDriveService:
             if is_expired and creds.refresh_token:
                 self._logger.info(f"Token expired for user {user_id}, refreshing")
                 try:
+                    # Ensure client_id and client_secret are set before refreshing
+                    effective_client_id = client_id or self.client_id
+                    effective_client_secret = client_secret or self.client_secret
+                    
+                    if not effective_client_id or not effective_client_secret:
+                        self._logger.error(f"Cannot refresh token: missing client_id or client_secret for user {user_id}")
+                        raise GoogleDriveAuthError("OAuth credentials not configured. Please reconnect Google Drive.")
+                    
+                    # Update credentials with effective client_id/secret for refresh
+                    creds._client_id = effective_client_id
+                    creds._client_secret = effective_client_secret
+                    
                     creds.refresh(Request())
                     # Update in database
                     self.db.execute(
@@ -360,9 +372,17 @@ class GoogleDriveService:
                     )
                     self.db.commit()
                     self._logger.info(f"Token refreshed for user {user_id}")
+                except GoogleDriveAuthError:
+                    raise
                 except Exception as e:
-                    self._logger.error(f"Failed to refresh token: {e}")
-                    return None
+                    error_msg = str(e)
+                    self._logger.error(f"Failed to refresh token for user {user_id}: {error_msg}")
+                    if "invalid_grant" in error_msg.lower():
+                        raise GoogleDriveAuthError("Google Drive authorization expired or revoked. Please reconnect.")
+                    raise GoogleDriveAuthError(f"Token refresh failed: {error_msg}")
+            elif is_expired and not creds.refresh_token:
+                self._logger.error(f"Token expired for user {user_id} but no refresh_token available")
+                raise GoogleDriveAuthError("Session expired and no refresh token available. Please reconnect Google Drive.")
             
             return creds
             
@@ -484,9 +504,13 @@ class GoogleDriveService:
             List of file metadata dicts
         """
         def _run():
-            creds = self.get_credentials(user_id)
-            if not creds:
-                raise GoogleDriveAuthError("Not authenticated with Google Drive")
+            try:
+                creds = self.get_credentials(user_id)
+            except GoogleDriveAuthError:
+                raise
+            except Exception as e:
+                self._logger.error(f"Unexpected error getting credentials: {e}")
+                raise GoogleDriveAuthError(f"Authentication error: {str(e)}")
             
             try:
                 svc = build('drive', 'v3', credentials=creds, cache_discovery=False)
