@@ -752,6 +752,12 @@ async def scan_google_drive(
         # Refresh if expired
         if is_expired and refresh_token:
             logger.info(f"Refreshing expired token for user {user_id}")
+            
+            # Validate credentials are configured
+            if not settings.GOOGLE_CLIENT_ID or not settings.GOOGLE_CLIENT_SECRET:
+                logger.error("GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET not configured")
+                raise HTTPException(status_code=500, detail="Google OAuth credentials not configured on server")
+            
             async with httpx.AsyncClient(timeout=30) as client:
                 resp = await client.post(
                     "https://oauth2.googleapis.com/token",
@@ -763,7 +769,12 @@ async def scan_google_drive(
                     },
                     headers={"Content-Type": "application/x-www-form-urlencoded"},
                 )
-                resp.raise_for_status()
+                if resp.status_code != 200:
+                    error_detail = resp.text
+                    logger.error(f"Token refresh failed: {resp.status_code} - {error_detail}")
+                    if "invalid_grant" in error_detail:
+                        raise HTTPException(status_code=401, detail="Google Drive authorization expired. Please reconnect your account.")
+                    raise HTTPException(status_code=400, detail=f"Google token refresh failed: {error_detail}")
                 token_data = resp.json()
             
             new_expires_in = int(token_data.get('expires_in', 3600) or 3600)

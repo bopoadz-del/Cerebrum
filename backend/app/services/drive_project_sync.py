@@ -12,6 +12,7 @@ from app.models.integration import IntegrationProvider, IntegrationToken
 from app.models.project import Project, ProjectType
 from app.services.drive_project_detector import DetectedProjectType, FolderSummary, detect_project
 from app.services.google_drive_service import GoogleDriveService
+from app.core.config import settings
 
 
 def _map_project_type(t: DetectedProjectType) -> ProjectType:
@@ -216,8 +217,8 @@ def discover_and_upsert_drive_projects(
         token=tok.access_token,
         refresh_token=tok.refresh_token,
         token_uri=tok.token_uri,
-        client_id=tok.client_id or os.environ.get('GOOGLE_CLIENT_ID'),
-        client_secret=tok.client_secret or os.environ.get('GOOGLE_CLIENT_SECRET'),
+        client_id=tok.client_id or settings.GOOGLE_CLIENT_ID,
+        client_secret=tok.client_secret or settings.GOOGLE_CLIENT_SECRET,
         scopes=['https://www.googleapis.com/auth/drive.readonly', 'https://www.googleapis.com/auth/drive.file', 'https://www.googleapis.com/auth/drive.metadata.readonly']
     )
     
