@@ -292,104 +292,64 @@ class GoogleDriveService:
     def get_credentials(self, user_id: uuid.UUID) -> Optional[Credentials]:
         """
         Get Google Credentials for user, refreshing if needed.
-        
-        Args:
-            user_id: User UUID
-            
-        Returns:
-            Google Credentials or None if not found/invalid
+        Uses same approach as drive_project_sync.py which works.
         """
         try:
-            result = self.db.execute(
-                text("""
-                    SELECT access_token, refresh_token, expiry, scopes, 
-                           token_uri, client_id, client_secret
-                    FROM integration_tokens 
-                    WHERE user_id = :user_id 
-                    AND service = 'google_drive' 
-                    AND is_active = true
-                    LIMIT 1
-                """),
-                {"user_id": str(user_id)}
-            )
-            row = result.fetchone()
+            from app.models.integration import IntegrationToken
             
-            if not row:
-                self._logger.info(f"No active token found for user {user_id}")
-                raise GoogleDriveAuthError("Google Drive not connected. Please connect your account.")
+            tok = self.db.query(IntegrationToken).filter(
+                IntegrationToken.user_id == user_id,
+                IntegrationToken.service == 'google_drive',
+                IntegrationToken.is_active == True
+            ).first()
             
-            (access_token, refresh_token, expiry, scopes, 
-             token_uri, client_id, client_secret) = row
+            if not tok:
+                self._logger.warning(f"No token found for user {user_id}")
+                return None
             
-            if not access_token:
-                self._logger.error(f"Access token is empty for user {user_id}")
-                raise GoogleDriveAuthError("Invalid Google Drive token. Please reconnect your account.")
-            
-            creds = Credentials(
-                token=access_token,
-                refresh_token=refresh_token,
-                token_uri=token_uri or 'https://oauth2.googleapis.com/token',
-                client_id=client_id or self.client_id,
-                client_secret=client_secret or self.client_secret,
-                scopes=self.SCOPES
-            )
+            from google.oauth2.credentials import Credentials
             
             # Check expiry and refresh if needed
-            is_expired = False
-            if expiry:
-                from datetime import timezone
-                # Handle both offset-naive and offset-aware datetimes
-                now = datetime.utcnow().replace(tzinfo=timezone.utc) if expiry.tzinfo else datetime.utcnow()
-                expires = expiry.replace(tzinfo=timezone.utc) if expiry.tzinfo else expiry
-                is_expired = now >= (expires - timedelta(minutes=5))
+            if tok.expiry:
+                from datetime import datetime, timezone, timedelta
+                now = datetime.now(timezone.utc)
+                expires = tok.expiry if tok.expiry.tzinfo else tok.expiry.replace(tzinfo=timezone.utc)
+                
+                if now >= (expires - timedelta(minutes=5)):
+                    self._logger.info(f"Token expired for user {user_id}, refreshing")
+                    import asyncio
+                    try:
+                        loop = asyncio.get_event_loop()
+                        new_token = loop.run_until_complete(self.refresh_access_token(user_id))
+                        
+                        if not new_token:
+                            return None
+                        
+                        # Reload token after refresh
+                        self.db.refresh(tok)
+                        self._logger.info(f"Token refreshed for user {user_id}")
+                    except Exception as e:
+                        self._logger.error(f"Token refresh failed: {e}")
+                        return None
             
-            if is_expired and creds.refresh_token:
-                self._logger.info(f"Token expired for user {user_id}, refreshing")
-                try:
-                    # Ensure client_id and client_secret are set before refreshing
-                    effective_client_id = client_id or self.client_id
-                    effective_client_secret = client_secret or self.client_secret
-                    
-                    if not effective_client_id or not effective_client_secret:
-                        self._logger.error(f"Cannot refresh token: missing client_id or client_secret for user {user_id}")
-                        raise GoogleDriveAuthError("OAuth credentials not configured. Please reconnect Google Drive.")
-                    
-                    # Update credentials with effective client_id/secret for refresh
-                    creds._client_id = effective_client_id
-                    creds._client_secret = effective_client_secret
-                    
-                    creds.refresh(Request())
-                    # Update in database
-                    self.db.execute(
-                        text("""
-                            UPDATE integration_tokens 
-                            SET access_token = :access_token,
-                                updated_at = NOW()
-                            WHERE user_id = :user_id 
-                            AND service = 'google_drive'
-                        """),
-                        {"access_token": creds.token, "user_id": str(user_id)}
-                    )
-                    self.db.commit()
-                    self._logger.info(f"Token refreshed for user {user_id}")
-                except GoogleDriveAuthError:
-                    raise
-                except Exception as e:
-                    error_msg = str(e)
-                    self._logger.error(f"Failed to refresh token for user {user_id}: {error_msg}")
-                    if "invalid_grant" in error_msg.lower():
-                        raise GoogleDriveAuthError("Google Drive authorization expired or revoked. Please reconnect.")
-                    raise GoogleDriveAuthError(f"Token refresh failed: {error_msg}")
-            elif is_expired and not creds.refresh_token:
-                self._logger.error(f"Token expired for user {user_id} but no refresh_token available")
-                raise GoogleDriveAuthError("Session expired and no refresh token available. Please reconnect Google Drive.")
+            # Build credentials from token data (same as drive_project_sync.py)
+            creds = Credentials(
+                token=tok.access_token,
+                refresh_token=tok.refresh_token,
+                token_uri=tok.token_uri or "https://oauth2.googleapis.com/token",
+                client_id=tok.client_id or self.client_id,
+                client_secret=tok.client_secret or self.client_secret,
+                scopes=['https://www.googleapis.com/auth/drive.readonly', 
+                       'https://www.googleapis.com/auth/drive.file',
+                       'https://www.googleapis.com/auth/drive.metadata.readonly']
+            )
             
             return creds
             
         except Exception as e:
             self._logger.error(f"Error getting credentials: {e}", exc_info=True)
             return None
-    
+
     def get_status(self, user_id: uuid.UUID) -> Dict[str, Any]:
         """
         Get Google Drive connection status for user.
