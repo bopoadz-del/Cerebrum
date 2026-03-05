@@ -512,6 +512,9 @@ class GoogleDriveService:
                 self._logger.error(f"Unexpected error getting credentials: {e}")
                 raise GoogleDriveAuthError(f"Authentication error: {str(e)}")
             
+            if creds is None:
+                raise GoogleDriveAuthError("No Google Drive credentials found for user")
+            
             try:
                 svc = build('drive', 'v3', credentials=creds, cache_discovery=False)
             except Exception as e:
