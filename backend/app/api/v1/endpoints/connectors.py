@@ -806,10 +806,12 @@ async def scan_google_drive(
     sync_db = SessionLocal()
     
     try:
+        # Pass the refreshed access token to avoid double refresh
         result = discover_and_upsert_drive_projects(
             sync_db, user_id,
             min_score=0.5, max_root_folders=200, max_children_per_folder=500,
-            index_now=True, max_files_per_project=100
+            index_now=True, max_files_per_project=100,
+            access_token=token_data.get('access_token') if is_expired else None
         )
         sync_db.close()
         

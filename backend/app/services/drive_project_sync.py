@@ -156,6 +156,7 @@ def discover_and_upsert_drive_projects(
     max_children_per_folder: int = 250,
     index_now: bool = True,
     max_files_per_project: int = 50,
+    access_token: str = None,
 ) -> Dict[str, Any]:
     """
     Folder-first metadata scan:
@@ -167,6 +168,9 @@ def discover_and_upsert_drive_projects(
     If index_now=True:
       - select indexable child files (capped)
       - queue Celery batch indexing using existing process_drive_file_batch()
+
+    Args:
+        access_token: Optional pre-refreshed access token to avoid double refresh
 
     Returns counts + ids for UI/debug.
     """
@@ -201,13 +205,19 @@ def discover_and_upsert_drive_projects(
         pass
     
     tok = SimpleToken()
-    tok.access_token = row[0]
+    # Use pre-refreshed access_token if provided, otherwise use from DB
+    tok.access_token = access_token if access_token else row[0]
     tok.refresh_token = row[1]
     tok.expiry = row[2]
     tok.scopes = row[3]
     tok.token_uri = row[4] or "https://oauth2.googleapis.com/token"
     tok.client_id = row[5]
     tok.client_secret = row[6]
+    
+    # If we have a pre-refreshed token, treat it as not expired
+    if access_token:
+        logger.info(f"Using pre-refreshed access token for user {user_id}")
+        tok.expiry = None  # Skip expiry check since we already refreshed
 
     # Build credentials directly from token data (avoid get_credentials which may fail on refresh)
     from google.oauth2.credentials import Credentials
@@ -229,6 +239,16 @@ def discover_and_upsert_drive_projects(
         if expiry.tzinfo is None:
             expiry = expiry.replace(tzinfo=timezone.utc)
         if datetime.now(timezone.utc) >= expiry - timedelta(minutes=5):
+            if not tok.refresh_token:
+                logger.error(f"Token expired for user {user_id} but no refresh_token available")
+                return {
+                    "status": "error", 
+                    "message": "Google Drive session expired. Please disconnect and reconnect your Google Drive account to enable offline access.", 
+                    "detected": 0, 
+                    "updated": 0,
+                    "requires_reconnect": True
+                }
+            
             logger.info(f"Token expired for user {user_id}, refreshing...")
             try:
                 creds.refresh(Request())
@@ -247,7 +267,16 @@ def discover_and_upsert_drive_projects(
                 logger.info(f"Token refreshed for user {user_id}")
             except Exception as e:
                 logger.error(f"Failed to refresh token: {e}")
-                return {"status": "error", "message": f"Google Drive auth failed: {str(e)}", "detected": 0, "updated": 0}
+                error_msg = str(e)
+                if "invalid_grant" in error_msg.lower():
+                    return {
+                        "status": "error", 
+                        "message": "Google Drive authorization revoked or expired. Please reconnect your account.", 
+                        "detected": 0, 
+                        "updated": 0,
+                        "requires_reconnect": True
+                    }
+                return {"status": "error", "message": f"Google Drive auth failed: {error_msg}", "detected": 0, "updated": 0}
     
     logger.info(f"Got valid credentials for user {user_id}")
 
