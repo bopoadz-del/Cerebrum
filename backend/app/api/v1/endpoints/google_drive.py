@@ -453,7 +453,7 @@ async def scan_drive(
     """Scan Google Drive for all files (legacy endpoint)."""
     service = GoogleDriveService(db)
     try:
-        files = await service.list_files(current_user.id, page_size=100)
+        files = await service.list_files(current_user.id, page_size=5000)
         return {
             "success": True,
             "files_scanned": len(files),
@@ -473,7 +473,7 @@ async def get_projects(
     """Get Google Drive folders as projects (legacy endpoint)."""
     service = GoogleDriveService(db)
     try:
-        files = await service.list_files(current_user.id, page_size=100)
+        files = await service.list_files(current_user.id, page_size=5000)
         folders = [f for f in files if f.get("is_folder")]
         projects = [
             {
@@ -507,7 +507,7 @@ async def get_project_files(
         files = await service.list_files(
             current_user.id, 
             folder_id=project_id, 
-            page_size=100
+            page_size=5000
         )
         files_only = [f for f in files if not f.get("is_folder")]
         return {
