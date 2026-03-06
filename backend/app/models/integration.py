@@ -28,8 +28,6 @@ class IntegrationToken(BaseModel):
     rotation_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
     revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    account_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    account_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     
     def is_expired(self):
         if not self.expiry:
