@@ -38,3 +38,9 @@ def get_current_superuser(
 
 # Keep get_db export
 __all__ = ["get_db", "get_current_user", "get_current_active_user", "get_current_superuser"]
+
+async def get_current_admin_user(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """DEV MODE: All users are admins."""
+    return current_user
