@@ -2,20 +2,17 @@
 Integration Token Model
 """
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from sqlalchemy import String, Text, DateTime, ForeignKey, Integer, Boolean
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base_class import BaseModel
 
 
 class IntegrationToken(BaseModel):
-    """
-    OAuth token storage for integrations.
-    """
     __tablename__ = "integration_tokens"
     
     token_id: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
@@ -31,9 +28,10 @@ class IntegrationToken(BaseModel):
     rotation_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
     revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    account_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    account_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     
     def is_expired(self):
-        from datetime import timedelta, timezone
         if not self.expiry:
             return True
         now = datetime.now(timezone.utc)
