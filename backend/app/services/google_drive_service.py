@@ -313,25 +313,9 @@ class GoogleDriveService:
             if tok.expiry:
                 from datetime import datetime, timezone, timedelta
                 now = datetime.now(timezone.utc)
-                expires = tok.expiry if tok.expiry.tzinfo else tok.expiry.replace(tzinfo=timezone.utc)
-                
-                if now >= (expires - timedelta(minutes=5)):
-                    self._logger.info(f"Token expired for user {user_id}, refreshing")
-                    import asyncio
-                    try:
-                        loop = asyncio.get_event_loop()
-                        new_token = loop.run_until_complete(self.refresh_access_token(user_id))
-                        
-                        if not new_token:
-                            return None
-                        
-                        # Reload token after refresh
-                        self.db.refresh(tok)
-                        self._logger.info(f"Token refreshed for user {user_id}")
-                    except Exception as e:
-                        self._logger.error(f"Token refresh failed: {e}")
-                        return None
-            
+                # Token expired - return None to signal caller to refresh
+                self._logger.info(f"Token expired for user {user_id}, refresh required")
+                return None
             # Build credentials from token data (same as drive_project_sync.py)
             creds = Credentials(
                 token=tok.access_token,
