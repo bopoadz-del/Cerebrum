@@ -490,14 +490,24 @@ class GoogleDriveService:
             q = " and ".join(q_parts)
             
             try:
-                results = svc.files().list(
-                    pageSize=min(page_size, 1000),
-                    fields="files(id, name, mimeType, modifiedTime, size, webViewLink, createdTime, description)",
-                    q=q,
-                    orderBy="modifiedTime desc"
-                ).execute()
+                files = []
+                page_token = None
+                remaining = page_size
                 
-                files = results.get("files", [])
+                while remaining > 0:
+                    results = svc.files().list(
+                        pageSize=min(1000, remaining),
+                        fields="nextPageToken, files(id, name, mimeType, modifiedTime, size, webViewLink, createdTime, description)",
+                        q=q,
+                        orderBy="modifiedTime desc",
+                        pageToken=page_token
+                    ).execute()
+                    batch = results.get("files", [])
+                    files.extend(batch)
+                    remaining -= len(batch)
+                    page_token = results.get("nextPageToken")
+                    if not page_token:
+                        break
                 
             except HttpError as e:
                 error_code = e.resp.status if hasattr(e, 'resp') else 0
