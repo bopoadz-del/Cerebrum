@@ -5,6 +5,7 @@ from fastapi.security import OAuth2PasswordBearer
 import uuid
 
 from app.db.session import get_db_session as get_db
+from app.db.session import get_db_session
 from app.models.user import User
 
 # OAuth2 scheme (kept for compatibility but not enforced)
@@ -37,7 +38,14 @@ def get_current_superuser(
     return current_user
 
 # Keep get_db export
-__all__ = ["get_db", "get_current_user", "get_current_active_user", "get_current_superuser"]
+__all__ = ["get_db", "get_db_session", "get_current_user", "get_current_user_id", "get_current_active_user", "get_current_superuser"]
+
+
+async def get_current_user_id(
+    current_user: User = Depends(get_current_user),
+) -> str:
+    """Get current user ID as string."""
+    return str(current_user.id)
 
 async def get_current_admin_user(
     current_user: User = Depends(get_current_user),
