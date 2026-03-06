@@ -503,15 +503,6 @@ async def get_project_files(
 ):
     """Get files within a specific folder/project (legacy endpoint)."""
     service = GoogleDriveService(db)
-    
-    # Check credentials and refresh if needed
-    creds = service.get_credentials(current_user.id)
-    if not creds:
-        refreshed = await service.refresh_access_token(current_user.id)
-        if not refreshed:
-            raise HTTPException(status_code=401, detail="Google Drive not connected or token expired")
-    
-    # Check credentials and refresh if needed
     creds = service.get_credentials(current_user.id)
     if not creds:
         refreshed = await service.refresh_access_token(current_user.id)
