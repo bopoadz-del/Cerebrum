@@ -2,7 +2,7 @@
 
 Revision ID: 008
 Revises: 007
-Create Date: 2024-03-05
+Create Date: 2024-03-06
 
 """
 from alembic import op
@@ -24,13 +24,10 @@ def upgrade():
     
     if 'account_email' not in columns:
         op.add_column('integration_tokens', sa.Column('account_email', sa.String(255), nullable=True))
-        print("Added account_email column")
     
     if 'account_name' not in columns:
         op.add_column('integration_tokens', sa.Column('account_name', sa.String(255), nullable=True))
-        print("Added account_name column")
 
 
 def downgrade():
-    op.drop_column('integration_tokens', 'account_email')
-    op.drop_column('integration_tokens', 'account_name')
+    pass
