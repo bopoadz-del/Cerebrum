@@ -613,3 +613,62 @@ async def debug_token_details(
         "created_at": token.created_at.isoformat() if token.created_at else None,
         "updated_at": token.updated_at.isoformat() if token.updated_at else None,
     }
+
+
+@router.get("/indexing-status")
+async def get_indexing_status(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get Google Drive indexing status."""
+    from app.models.google_drive import GoogleDriveToken
+    
+    # Check if user has a token
+    token = db.query(GoogleDriveToken).filter(
+        GoogleDriveToken.user_id == current_user.id
+    ).first()
+    
+    if not token:
+        return {
+            "status": "disconnected",
+            "total_files": 0,
+            "indexed_files": 0,
+            "progress": 0
+        }
+    
+    if token.is_expired():
+        return {
+            "status": "expired",
+            "total_files": 0,
+            "indexed_files": 0,
+            "progress": 0
+        }
+    
+    # Get file count from Google Drive
+    service = GoogleDriveService(db)
+    try:
+        creds = service.get_credentials(current_user.id)
+        if not creds:
+            return {
+                "status": "disconnected",
+                "total_files": 0,
+                "indexed_files": 0,
+                "progress": 0
+            }
+        
+        files = await service.list_files(current_user.id, page_size=1)
+        return {
+            "status": "connected",
+            "total_files": len(files),
+            "indexed_files": 0,
+            "progress": 0
+        }
+    except Exception as e:
+        logger.error(f"Error getting indexing status: {str(e)}", exc_info=True)
+        return {
+            "status": "error",
+            "error": str(e),
+            "total_files": 0,
+            "indexed_files": 0,
+            "progress": 0
+        }
