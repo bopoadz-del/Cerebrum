@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 import httpx
 
 from app.api.deps import get_current_user, User, get_db
+from app.core.logging import get_logger
 from app.services.google_drive_service import (
     GoogleDriveService, 
     GoogleDriveAuthError,
@@ -25,6 +26,9 @@ from app.services.google_drive_service import (
 from app.core.config import settings
 
 router = APIRouter(prefix="/google-drive", tags=["Google Drive"])
+
+# Module-level logger
+logger = get_logger(__name__)
 
 
 # =============================================================================
