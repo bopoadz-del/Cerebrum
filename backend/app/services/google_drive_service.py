@@ -310,12 +310,14 @@ class GoogleDriveService:
             from google.oauth2.credentials import Credentials
             
             # Check expiry and refresh if needed
+            # Check expiry and refresh if needed
             if tok.expiry:
                 from datetime import datetime, timezone, timedelta
                 now = datetime.now(timezone.utc)
-                # Token expired - return None to signal caller to refresh
-                self._logger.info(f"Token expired for user {user_id}, refresh required")
-                return None
+                expires = tok.expiry if tok.expiry.tzinfo else tok.expiry.replace(tzinfo=timezone.utc)
+                if now >= (expires - timedelta(minutes=5)):
+                    self._logger.info(f"Token expired for user {user_id}, refresh required")
+                    return None
             # Build credentials from token data (same as drive_project_sync.py)
             creds = Credentials(
                 token=tok.access_token,
