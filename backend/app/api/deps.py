@@ -4,7 +4,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 import uuid
 
-from app.db.session import get_db
+from app.db.session import get_db_session as get_db
 from app.models.user import User
 
 # OAuth2 scheme (kept for compatibility but not enforced)
