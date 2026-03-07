@@ -1528,6 +1528,49 @@ async def debug_google_drive(
         }
 
 
+@router.get("/google-drive/zvec-debug")
+async def zvec_debug(
+    current_user: User = Depends(get_current_user),
+    query: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Debug endpoint to check ZVec status and test search.
+    
+    Args:
+        query: Optional search query to test (e.g., "contract", "invoice")
+    
+    Returns:
+        ZVec stats and optional search results
+    """
+    from app.services.zvec_service import get_zvec_service
+    
+    zvec = get_zvec_service()
+    stats = zvec.get_stats_sync()
+    
+    result = {
+        "zvec_stats": stats,
+        "user_id": str(current_user.id),
+    }
+    
+    # If query provided, run a test search
+    if query:
+        search_results = zvec.search_similar(query, top_k=5)
+        result["test_search"] = {
+            "query": query,
+            "results_count": len(search_results),
+            "results": [
+                {
+                    "id": r["id"],
+                    "score": r["score"],
+                    "name": r["metadata"].get("name", "Unknown"),
+                }
+                for r in search_results
+            ]
+        }
+    
+    return result
+
+
 @router.get("/google-drive/debug/credentials")
 async def debug_google_drive_credentials(
     current_user: User = Depends(get_current_user),
