@@ -164,22 +164,32 @@ class GoogleDriveService:
             # Get refresh token from database
             result = self.db.execute(
                 text("""
-                    SELECT refresh_token, client_id, client_secret
+                    SELECT refresh_token, client_id, client_secret, is_active
                     FROM integration_tokens 
                     WHERE user_id = :user_id 
-                    AND service = 'google_drive' 
-                    AND is_active = true
+                    AND service = 'google_drive'
                     LIMIT 1
                 """),
                 {"user_id": str(user_id)}
             )
             row = result.fetchone()
             
-            if not row or not row[0]:  # No refresh token
-                self._logger.error(f"No refresh token found for user {user_id}")
+            # Debug logging
+            if not row:
+                self._logger.error(f"No token row found for user {user_id}")
                 return None
             
-            refresh_token, client_id, client_secret = row
+            refresh_token, client_id, client_secret, is_active = row
+            self._logger.info(f"Token query for {user_id}: refresh_token={'PRESENT' if refresh_token else 'MISSING'}, is_active={is_active}")
+            
+            if not refresh_token:  # No refresh token
+                self._logger.error(f"Refresh token is empty/None for user {user_id}")
+                return None
+            
+            # Check if token is active
+            if not is_active:
+                self._logger.error(f"Token is not active for user {user_id}")
+                return None
             
             self._logger.info(f"Refreshing token for user {user_id}...")
             
@@ -309,7 +319,33 @@ class GoogleDriveService:
         """
         try:
             from app.models.integration import IntegrationToken
+            from sqlalchemy import text
             
+            # Use raw query to check what's in the database
+            result = self.db.execute(
+                text("""
+                    SELECT access_token, refresh_token, expiry, is_active
+                    FROM integration_tokens
+                    WHERE user_id = :user_id
+                    AND service = 'google_drive'
+                    LIMIT 1
+                """),
+                {"user_id": str(user_id)}
+            )
+            row = result.fetchone()
+            
+            if not row:
+                self._logger.warning(f"No token row found for user {user_id}")
+                return None
+            
+            access_token, refresh_token, expiry, is_active = row
+            self._logger.info(f"Token status for {user_id}: access={'YES' if access_token else 'NO'}, refresh={'YES' if refresh_token else 'NO'}, active={is_active}")
+            
+            if not access_token:
+                self._logger.warning(f"No access token for user {user_id}")
+                return None
+            
+            # For ORM compatibility, still query the ORM object
             tok = self.db.query(IntegrationToken).filter(
                 IntegrationToken.user_id == user_id,
                 IntegrationToken.service == 'google_drive',
@@ -317,7 +353,7 @@ class GoogleDriveService:
             ).first()
             
             if not tok:
-                self._logger.warning(f"No token found for user {user_id}")
+                self._logger.warning(f"ORM query failed for user {user_id} (token may be inactive)")
                 return None
             
             from google.oauth2.credentials import Credentials
