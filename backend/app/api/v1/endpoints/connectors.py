@@ -749,6 +749,8 @@ async def scan_google_drive(
                 expiry = expiry.replace(tzinfo=timezone.utc)
             is_expired = expiry < datetime.now(timezone.utc)
         
+        token_data = {}
+        
         # Refresh if expired
         if is_expired and refresh_token:
             logger.info(f"Refreshing expired token for user {user_id}")
@@ -807,11 +809,14 @@ async def scan_google_drive(
     
     try:
         # Pass the refreshed access token to avoid double refresh
+        # Use refreshed token if available, otherwise None (service will use stored token)
+        refreshed_access_token = token_data.get('access_token') if is_expired and token_data else None
+        
         result = discover_and_upsert_drive_projects(
             sync_db, user_id,
             min_score=0.5, max_root_folders=200, max_children_per_folder=500,
             index_now=True, max_files_per_project=100,
-            access_token=token_data.get('access_token') if is_expired else None
+            access_token=refreshed_access_token
         )
         sync_db.close()
         
