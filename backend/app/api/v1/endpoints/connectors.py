@@ -1159,11 +1159,16 @@ async def get_folder_contents(
             
             logger.info(f"Retrieved {len(files)} files and {len(subfolders)} subfolders from folder {folder_id}")
             
+            # Add type field for frontend compatibility
+            for item in items:
+                item["type"] = "folder" if item.get("is_folder") else "file"
+            
             sync_db.close()
             return {
                 "folder_id": folder_id,
                 "files": files,
                 "subfolders": subfolders,
+                "items": items,  # Flat list with type field for frontend
                 "total_count": len(items)
             }
             
