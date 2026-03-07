@@ -16,10 +16,30 @@ from app.core.config import settings
 
 
 def _map_project_type(t: DetectedProjectType) -> ProjectType:
-    try:
-        return ProjectType(str(t))
-    except Exception:
-        return ProjectType.UNKNOWN
+    """Map detected project type to database enum."""
+    type_str = str(t).lower().strip()
+    
+    # Map common variations to valid enum values
+    mapping = {
+        'software_repo': ProjectType.SOFTWARE_REPO,
+        'client_consulting': ProjectType.CLIENT_CONSULTING,
+        'job_application': ProjectType.JOB_APPLICATION,
+        'legal_finance': ProjectType.LEGAL_FINANCE,
+        'research_notes': ProjectType.RESEARCH_NOTES,
+        'design_media': ProjectType.DESIGN_MEDIA,
+        'general_project': ProjectType.GENERAL_PROJECT,
+        'unknown': ProjectType.UNKNOWN,
+        # Handle legacy/incorrect values
+        'construction': ProjectType.GENERAL_PROJECT,
+        'renovation': ProjectType.GENERAL_PROJECT,
+        'consulting': ProjectType.CLIENT_CONSULTING,
+        'finance': ProjectType.LEGAL_FINANCE,
+        'legal': ProjectType.LEGAL_FINANCE,
+        'research': ProjectType.RESEARCH_NOTES,
+        'design': ProjectType.DESIGN_MEDIA,
+    }
+    
+    return mapping.get(type_str, ProjectType.UNKNOWN)
 
 
 def _list_folders_root(drive) -> List[Dict[str, Any]]:
