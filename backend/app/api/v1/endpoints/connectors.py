@@ -837,8 +837,10 @@ async def scan_google_drive(
         raise
     except Exception as e:
         sync_db.close()
-        logger.error(f"Scan failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Scan failed: {str(e)}")
+        import traceback
+        tb_str = traceback.format_exc()
+        logger.error(f"Scan failed: {e}\nTraceback: {tb_str}")
+        raise HTTPException(status_code=500, detail=f"Scan failed: {type(e).__name__}: {str(e)}")
 
 
 @router.post("/google-drive/search")
