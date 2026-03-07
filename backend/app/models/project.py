@@ -33,9 +33,9 @@ class Project(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(512), nullable=False)
 
-    # SQLAlchemy Enum stored as text (Postgres enum handling depends on your setup;
-    # this is the safest default for mixed environments).
-    type = Column(Enum(ProjectType, name="project_type"), nullable=False, default=ProjectType.UNKNOWN)
+    # Store as String to avoid PostgreSQL enum validation issues
+    # Values are still validated by Python enum in application code
+    type = Column(String(50), nullable=False, default=ProjectType.UNKNOWN.value)
 
     tags = Column(JSON, nullable=False, default=list)
     meta = Column("metadata", JSON, nullable=False, default=dict)
