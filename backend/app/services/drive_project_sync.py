@@ -325,6 +325,13 @@ def discover_and_upsert_drive_projects(
     for folder in root_folders:
         folder_id = folder.get("id")
         folder_name = folder.get("name") or "Untitled"
+        
+        # Ensure fresh transaction state for each folder
+        # If previous iteration failed, rollback to clear aborted state
+        try:
+            db.rollback()
+        except Exception:
+            pass  # No active transaction to rollback
 
         children = _list_children(drive, folder_id, page_size=max_children_per_folder)
         child_names = tuple(c.get("name", "") for c in children if c.get("name"))
@@ -491,9 +498,12 @@ def discover_and_upsert_drive_projects(
             db.commit()
         except Exception as e:
             logger.error(f"Failed to commit folder {folder_id}: {e}")
-            db.rollback()
-            # Return error so caller knows something went wrong
-            return {"status": "error", "message": f"Failed to save project '{folder_name}': {str(e)}", "detected": detected, "updated": updated_mappings}
+            try:
+                db.rollback()
+            except Exception:
+                pass  # Ignore rollback errors
+            # Continue with next folder instead of failing completely
+            continue
 
     logger.info(f"Discovery complete for user {user_id}: detected={detected}, created={created_projects}")
     
