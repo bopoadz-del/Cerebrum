@@ -344,6 +344,14 @@ def discover_and_upsert_drive_projects(
 
         detected += 1
         ptype = _map_project_type(dp.project_type)
+        
+        # Ensure ptype is a valid ProjectType enum, not a string
+        if isinstance(ptype, str):
+            logger.warning(f"Project type mapping returned string '{ptype}' instead of enum, using UNKNOWN")
+            ptype = ProjectType.UNKNOWN
+        elif not isinstance(ptype, ProjectType):
+            logger.warning(f"Project type mapping returned unexpected type {type(ptype)}, using UNKNOWN")
+            ptype = ProjectType.UNKNOWN
 
         mapping: Optional[GoogleDriveProject] = db.query(GoogleDriveProject).filter(
             GoogleDriveProject.user_id == user_id,
@@ -484,7 +492,8 @@ def discover_and_upsert_drive_projects(
         except Exception as e:
             logger.error(f"Failed to commit folder {folder_id}: {e}")
             db.rollback()
-            continue
+            # Return error so caller knows something went wrong
+            return {"status": "error", "message": f"Failed to save project '{folder_name}': {str(e)}", "detected": detected, "updated": updated_mappings}
 
     logger.info(f"Discovery complete for user {user_id}: detected={detected}, created={created_projects}")
     
