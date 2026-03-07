@@ -725,6 +725,11 @@ async def scan_google_drive(
     
     logger.info(f"Scan requested by user {user_id}")
     
+    # Initialize variables to avoid UnboundLocalError
+    is_expired = False
+    token_data = {}
+    refreshed_access_token = None
+    
     # Pre-flight: Check and refresh token if needed
     try:
         result = await db.execute(
@@ -743,13 +748,10 @@ async def scan_google_drive(
         refresh_token, expiry = row
         
         # Check if expired
-        is_expired = False
         if expiry:
             if expiry.tzinfo is None:
                 expiry = expiry.replace(tzinfo=timezone.utc)
             is_expired = expiry < datetime.now(timezone.utc)
-        
-        token_data = {}
         
         # Refresh if expired
         if is_expired and refresh_token:
@@ -791,6 +793,7 @@ async def scan_google_drive(
             )
             await db.commit()
             logger.info(f"Token refreshed for user {user_id}")
+            refreshed_access_token = token_data.get('access_token')
         elif is_expired and not refresh_token:
             raise HTTPException(status_code=400, detail="Google Drive credentials expired. Please reconnect.")
             
@@ -808,10 +811,6 @@ async def scan_google_drive(
     sync_db = SessionLocal()
     
     try:
-        # Pass the refreshed access token to avoid double refresh
-        # Use refreshed token if available, otherwise None (service will use stored token)
-        refreshed_access_token = token_data.get('access_token') if is_expired and token_data else None
-        
         result = discover_and_upsert_drive_projects(
             sync_db, user_id,
             min_score=0.5, max_root_folders=200, max_children_per_folder=500,
