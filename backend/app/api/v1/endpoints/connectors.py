@@ -804,11 +804,17 @@ async def scan_google_drive(
         raise HTTPException(status_code=400, detail=f"Google Drive auth failed: {str(e)}")
     
     # Use sync database session for the service
-    from app.db.session import db_manager
-    from sqlalchemy.orm import sessionmaker
-    db_manager.initialize()
-    SessionLocal = sessionmaker(bind=db_manager._sync_engine)
-    sync_db = SessionLocal()
+    try:
+        from app.db.session import db_manager
+        from sqlalchemy.orm import sessionmaker
+        db_manager.initialize()
+        if not db_manager._sync_engine:
+            raise HTTPException(status_code=500, detail="Database not initialized")
+        SessionLocal = sessionmaker(bind=db_manager._sync_engine)
+        sync_db = SessionLocal()
+    except Exception as e:
+        logger.error(f"Failed to initialize database: {e}")
+        raise HTTPException(status_code=500, detail=f"Database initialization failed: {str(e)}")
     
     try:
         result = discover_and_upsert_drive_projects(

@@ -176,7 +176,7 @@ def discover_and_upsert_drive_projects(
     max_children_per_folder: int = 250,
     index_now: bool = True,
     max_files_per_project: int = 50,
-    access_token: str = None,
+    access_token: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Folder-first metadata scan:
@@ -197,7 +197,54 @@ def discover_and_upsert_drive_projects(
     import logging
     logger = logging.getLogger(__name__)
     
+    # Wrap everything in try-except to catch any unexpected errors
+    try:
+        return _discover_and_upsert_drive_projects_impl(
+            db, user_id,
+            min_score=min_score,
+            max_root_folders=max_root_folders,
+            max_children_per_folder=max_children_per_folder,
+            index_now=index_now,
+            max_files_per_project=max_files_per_project,
+            access_token=access_token
+        )
+    except Exception as e:
+        import traceback
+        logger.error(f"CRITICAL ERROR in discover_and_upsert_drive_projects: {e}\n{traceback.format_exc()}")
+        return {
+            "status": "error",
+            "message": f"Internal error: {type(e).__name__}: {str(e)}",
+            "detected": 0,
+            "updated": 0,
+            "created_projects": 0
+        }
+
+
+def _discover_and_upsert_drive_projects_impl(
+    db: Session,
+    user_id: uuid.UUID,
+    *,
+    min_score: float = 2.0,
+    max_root_folders: int = 200,
+    max_children_per_folder: int = 250,
+    index_now: bool = True,
+    max_files_per_project: int = 50,
+    access_token: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Internal implementation - wrapped by discover_and_upsert_drive_projects"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
     logger.info(f"Starting drive project discovery for user {user_id}")
+    
+    # Validate inputs
+    if not user_id:
+        logger.error("user_id is required")
+        return {"status": "error", "message": "User ID is required", "detected": 0, "updated": 0}
+    
+    if not db:
+        logger.error("Database session is required")
+        return {"status": "error", "message": "Database session is required", "detected": 0, "updated": 0}
     
     # Use raw query to avoid column mismatch issues during migrations
     from sqlalchemy import text
@@ -226,13 +273,19 @@ def discover_and_upsert_drive_projects(
     
     tok = SimpleToken()
     # Use pre-refreshed access_token if provided, otherwise use from DB
-    tok.access_token = access_token if access_token else row[0]
+    db_access_token = row[0]
+    tok.access_token = access_token if access_token else db_access_token
     tok.refresh_token = row[1]
     tok.expiry = row[2]
     tok.scopes = row[3]
     tok.token_uri = row[4] or "https://oauth2.googleapis.com/token"
     tok.client_id = row[5]
     tok.client_secret = row[6]
+    
+    # Validate we have an access token
+    if not tok.access_token:
+        logger.error(f"No access token available for user {user_id}")
+        return {"status": "error", "message": "No access token available. Please reconnect Google Drive.", "detected": 0, "updated": 0, "requires_reconnect": True}
     
     # If we have a pre-refreshed token, treat it as not expired
     if access_token:
