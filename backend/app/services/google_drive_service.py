@@ -186,12 +186,11 @@ class GoogleDriveService:
                 self._logger.error(f"Refresh token is empty/None for user {user_id}")
                 return None
             
-            # Check if token is active
+            # Warn if token is inactive but still try to refresh
             if not is_active:
-                self._logger.error(f"Token is not active for user {user_id}")
-                return None
+                self._logger.warning(f"Token is not active for user {user_id}, but attempting refresh anyway")
             
-            self._logger.info(f"Refreshing token for user {user_id}...")
+            self._logger.info(f"Refreshing token for user {user_id} using client_id={client_id or self.client_id}...")
             
             async with httpx.AsyncClient(timeout=30) as client:
                 resp = await client.post(
@@ -345,16 +344,25 @@ class GoogleDriveService:
                 self._logger.warning(f"No access token for user {user_id}")
                 return None
             
-            # For ORM compatibility, still query the ORM object
-            tok = self.db.query(IntegrationToken).filter(
-                IntegrationToken.user_id == user_id,
-                IntegrationToken.service == 'google_drive',
-                IntegrationToken.is_active == True
-            ).first()
+            # For ORM compatibility - use the row data directly instead of re-querying
+            from app.models.integration import IntegrationToken, IntegrationProvider
             
-            if not tok:
-                self._logger.warning(f"ORM query failed for user {user_id} (token may be inactive)")
-                return None
+            # Create a mock token object from the row data
+            class MockToken:
+                pass
+            
+            tok = MockToken()
+            tok.access_token = access_token
+            tok.refresh_token = refresh_token
+            tok.expiry = expiry
+            tok.is_active = is_active
+            tok.token_uri = 'https://oauth2.googleapis.com/token'
+            tok.client_id = None
+            tok.client_secret = None
+            
+            # If not active, still try to use it but log a warning
+            if not is_active:
+                self._logger.warning(f"Token for user {user_id} is inactive but attempting to use anyway")
             
             from google.oauth2.credentials import Credentials
             
