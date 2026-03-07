@@ -285,11 +285,15 @@ async def get_google_drive_status(
     Returns connected=True if we have valid tokens or can refresh them.
     """
     import logging
+    import traceback
     from sqlalchemy import text
     from datetime import datetime, timezone, timedelta
     import httpx
     
     logger = logging.getLogger(__name__)
+    
+    # Debug: log entry
+    logger.info(f"get_google_drive_status called, current_user type: {type(current_user)}")
     
     try:
         user_id = str(current_user.id)
@@ -713,13 +717,19 @@ async def scan_google_drive(
     """
     import uuid
     import logging
+    import traceback
     from app.services.drive_project_sync import discover_and_upsert_drive_projects
     from app.services.zvec_service import get_zvec_service
     
     logger = logging.getLogger(__name__)
-    user_id = uuid.UUID(str(current_user.id))
     
-    logger.info(f"Scan requested by user {user_id}")
+    # Debug: log the current_user
+    try:
+        logger.info(f"Scan requested by user_id={current_user.id}, email={getattr(current_user, 'email', 'N/A')}")
+        user_id = uuid.UUID(str(current_user.id))
+    except Exception as e:
+        logger.error(f"Failed to get user_id from current_user: {e}")
+        raise HTTPException(status_code=401, detail="Invalid user authentication")
     
     # Use sync database session for the service
     try:
