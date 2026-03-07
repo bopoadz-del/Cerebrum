@@ -320,6 +320,16 @@ async def get_google_drive_status(
         
         account_email, is_active, expiry, updated_at, scopes, refresh_token, access_token, client_id, client_secret = row
         
+        # Check if token has minimum required credentials
+        has_credentials = bool(refresh_token or access_token)
+        if not has_credentials:
+            logger.warning(f"Drive token incomplete for user {user_id} - missing both access and refresh tokens")
+            return GoogleDriveStatusResponse(
+                connected=False,
+                email=account_email or current_user.email or "",
+                last_sync="",
+            )
+        
         # Check if token is expired
         is_expired = False
         if expiry:
@@ -330,7 +340,7 @@ async def get_google_drive_status(
             except:
                 pass
         
-        logger.info(f"Drive token found for user {user_id}, expired={is_expired}, active={is_active}")
+        logger.info(f"Drive token found for user {user_id}, expired={is_expired}, active={is_active}, has_refresh={bool(refresh_token)}, has_access={bool(access_token)}")
         
         # If token is expired but we have a refresh token, auto-refresh it
         if is_expired and refresh_token:
@@ -738,9 +748,14 @@ async def scan_google_drive(
         row = result.fetchone()
         
         if not row:
-            raise HTTPException(status_code=400, detail="Google Drive not connected")
+            raise HTTPException(status_code=400, detail="Google Drive not connected - no token found")
         
-        refresh_token, access_token, expiry = row
+        # Check if we have minimum required credentials
+        if not refresh_token and not access_token:
+            raise HTTPException(
+                status_code=400, 
+                detail="Google Drive token incomplete - missing both access and refresh tokens. Please reconnect."
+            )
         
         # Check if expired
         is_expired = False
