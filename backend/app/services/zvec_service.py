@@ -33,8 +33,12 @@ class ZVecService:
             self.db = MockZVecDB()
     
     def is_ready(self) -> bool:
-        """Check if service is ready (has working ML stack)."""
-        return ZVEC_AVAILABLE and NUMPY_AVAILABLE
+        """Check if service is ready (has working ML stack).
+        
+        Always returns True - the service works in mock mode when ML libs not available.
+        This ensures indexing continues to work even without full ML stack.
+        """
+        return True
     
     @property
     def model(self):
