@@ -67,6 +67,7 @@ class ZVecService:
                 vector=embedding,
                 metadata=json.dumps(metadata)
             )
+            logger.info(f"✅ ZVec indexed: {metadata.get('name', doc_id)} (total: {self._index.count()})")
             return True
         except Exception as e:
             logger.error(f"ZVec add error: {e}")
@@ -81,6 +82,8 @@ class ZVecService:
         try:
             query_vec = self.embed_text(query)
             results = self._index.search(vector=query_vec, top_k=top_k)
+            
+            logger.info(f"🔍 ZVec search: '{query}' -> {len(results)} results (total docs: {self._index.count()})")
             
             return [
                 {
