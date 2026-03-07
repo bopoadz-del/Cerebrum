@@ -30,3 +30,6 @@ get_current_admin_user = get_current_superuser
 
 # DB dependency still needed for other endpoints
 from app.db.session import get_db_session as get_db
+
+# Export User model for compatibility
+from app.models.user import User
