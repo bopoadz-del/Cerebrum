@@ -566,16 +566,29 @@ export function useDrive() {
   const getProjectFiles = useCallback(async (projectId: string): Promise<DriveFile[]> => {
     try {
       console.log('[Drive] Fetching files for project:', projectId);
-      const res = await fetch(`${API_URL}/connectors/google-drive/projects/${projectId}/files`, {
+      const url = `${API_URL}/connectors/google-drive/projects/${projectId}/files`;
+      console.log('[Drive] Request URL:', url);
+      
+      const res = await fetch(url, {
         headers: getHeaders(),
         signal: AbortSignal.timeout(15000) // Increased timeout
       });
       
+      console.log('[Drive] Response status:', res.status);
+      
       if (res.ok) {
         // Reset retry count on success
         retryAttempts.current[projectId] = 0;
-        const files = await res.json();
-        console.log('[Drive] Files retrieved:', files.length);
+        const data = await res.json();
+        
+        // Handle both direct array response and wrapped object response
+        const files = Array.isArray(data) ? data : (data.files || []);
+        console.log('[Drive] Files retrieved:', files.length, 'Response type:', Array.isArray(data) ? 'array' : 'object');
+        
+        if (files.length === 0) {
+          console.log('[Drive] No files found in folder. Raw response:', data);
+        }
+        
         return files;
       } else if (res.status === 401) {
         const error = await res.json().catch(() => ({ detail: 'Unauthorized' }));
