@@ -213,7 +213,7 @@ class GoogleDriveService:
                 
                 token_data = resp.json()
                 
-                # Update token in database
+                # Update token in database - also reactivate if it was inactive
                 expires_in = int(token_data.get('expires_in', 3600) or 3600)
                 new_expiry = datetime.utcnow() + timedelta(seconds=expires_in)
                 
@@ -222,6 +222,7 @@ class GoogleDriveService:
                         UPDATE integration_tokens 
                         SET access_token = :access_token,
                             expiry = :expiry,
+                            is_active = true,
                             updated_at = NOW()
                         WHERE user_id = :user_id 
                         AND service = 'google_drive'
@@ -234,7 +235,7 @@ class GoogleDriveService:
                 )
                 self.db.commit()
                 
-                self._logger.info(f"Token refreshed successfully for user {user_id}")
+                self._logger.info(f"Token refreshed and reactivated for user {user_id}")
                 return token_data
                 
         except Exception as e:
