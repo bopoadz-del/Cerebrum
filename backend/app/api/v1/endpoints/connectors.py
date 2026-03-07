@@ -981,7 +981,10 @@ async def list_project_files(
 ):
     """List files within a specific Google Drive project (folder).
     
-    Accepts either the mapping id (id column) or project_id (project_id column).
+    Accepts three forms of project identifier (in order of priority):
+    1. Cerebrum project_id (project_id column in google_drive_projects table)
+    2. Mapping row id (id column in google_drive_projects table)  
+    3. Google Drive folder ID directly (e.g., "1c3Bhvq5rnxiqaXAnv2gqZ-ZHj1bWsuFo")
     """
     import uuid
     import logging
@@ -1026,12 +1029,21 @@ async def list_project_files(
             row = result.fetchone()
             lookup_method = "id"
         
+        # If not found, try using the project_id as a Drive folder ID directly
         if not row:
-            logger.error(f"Project not found: project_id={project_id}, user_id={user_id}")
-            raise HTTPException(status_code=404, detail="Project not found")
-        
-        root_folder_id, root_folder_name = row
-        logger.info(f"Found project via {lookup_method}: folder_id={root_folder_id}, folder_name={root_folder_name}")
+            # Check if project_id looks like a Drive folder ID (alphanumeric with dashes/underscores, ~25-44 chars)
+            # Drive folder IDs are typically 25-44 characters like "1c3Bhvq5rnxiqaXAnv2gqZ-ZHj1bWsuFo"
+            if len(project_id) >= 20 and all(c.isalnum() or c in '-_' for c in project_id):
+                lookup_method = "drive_folder_id"
+                root_folder_id = project_id
+                root_folder_name = "Unknown Folder"
+                logger.info(f"Using project_id as Drive folder ID: {root_folder_id}")
+            else:
+                logger.error(f"Project not found: project_id={project_id}, user_id={user_id}")
+                raise HTTPException(status_code=404, detail="Project not found")
+        else:
+            root_folder_id, root_folder_name = row
+            logger.info(f"Found project via {lookup_method}: folder_id={root_folder_id}, folder_name={root_folder_name}")
     except HTTPException:
         raise
     except Exception as db_err:
