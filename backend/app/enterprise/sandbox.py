@@ -252,8 +252,8 @@ class SandboxService:
         
         # Create sample projects
         sample_projects = [
-            {'name': 'Sample Construction Project', 'type': 'construction'},
-            {'name': 'Demo Renovation', 'type': 'renovation'}
+            {'name': 'Sample Construction Project', 'type': 'general_project'},
+            {'name': 'Demo Renovation', 'type': 'general_project'}
         ]
         
         # This would create actual records in the sandbox database
