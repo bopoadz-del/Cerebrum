@@ -1238,10 +1238,17 @@ async def get_indexing_status(
     Shows progress of document indexing across all projects.
     """
     import uuid
+    import logging
     from sqlalchemy import text
     from app.services.zvec_service import get_zvec_service
     
-    user_id = uuid.UUID(str(current_user.id))
+    logger = logging.getLogger(__name__)
+    
+    try:
+        user_id = uuid.UUID(str(current_user.id))
+    except Exception as e:
+        logger.error(f"Invalid user ID: {e}")
+        raise HTTPException(status_code=401, detail="Invalid authentication")
     
     # Get project indexing statuses
     result = await db.execute(
@@ -1287,8 +1294,12 @@ async def get_indexing_status(
         })
     
     # Get ZVec stats
-    zvec = get_zvec_service()
-    zvec_stats = zvec.get_stats()
+    try:
+        zvec = get_zvec_service()
+        zvec_stats = zvec.get_stats()
+    except Exception as e:
+        logger.error(f"Failed to get ZVec stats: {e}")
+        zvec_stats = {'ready': False, 'count': 0}
     
     return {
         "projects": projects_status,
