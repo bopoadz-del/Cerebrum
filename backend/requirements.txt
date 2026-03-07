@@ -56,10 +56,10 @@ pytest-asyncio==0.23.7
 
 # Force rebuild: Wed Feb 19 10:15:00 UTC 2026
 
-# ML/Vector Search (optional - disabled on Render due to AVX/SIGILL issues)
-# sentence-transformers>=2.2.0
-# numpy<2.0.0
-# zvec>=0.1.0
+# ML/Vector Search
+# sentence-transformers>=2.2.0  # Disabled - requires AVX
+# numpy<2.0.0  # Disabled - requires AVX
+zvec>=0.1.0  # Vector database for semantic search
 
 # Use pure Python alternatives
 aiohttp>=3.9.0
