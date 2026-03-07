@@ -1223,33 +1223,43 @@ async def get_folder_contents(
     summary="Disconnect Google Drive",
 )
 async def disconnect_google_drive(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_async),
     db: AsyncSession = Depends(get_async_db),
 ) -> Dict[str, Any]:
     """Disconnect Google Drive and revoke tokens."""
     import uuid
-    from app.db.session import db_manager
-    from app.services.google_drive_service import GoogleDriveService
+    import logging
+    from sqlalchemy import text
     
-    db_manager.initialize()
-    from sqlalchemy.orm import sessionmaker
-    SessionLocal = sessionmaker(bind=db_manager._sync_engine)
-    sync_db = SessionLocal()
+    logger = logging.getLogger(__name__)
+    user_id = uuid.UUID(str(current_user.id))
     
     try:
-        svc = GoogleDriveService(sync_db)
-        success = svc.disconnect(uuid.UUID(str(current_user.id)))
-        sync_db.close()
+        # Simply mark the token as inactive - don't use sync session
+        result = await db.execute(
+            text("""
+                UPDATE integration_tokens 
+                SET is_active = false,
+                    revoked_at = NOW(),
+                    updated_at = NOW()
+                WHERE user_id = :user_id 
+                AND service = 'google_drive'
+            """),
+            {"user_id": str(user_id)}
+        )
+        await db.commit()
         
-        if success:
-            return {
-                "success": True,
-                "message": "Google Drive disconnected",
-            }
-        else:
-            raise HTTPException(status_code=500, detail="Failed to disconnect")
+        rows_affected = result.rowcount if hasattr(result, 'rowcount') else 0
+        logger.info(f"Google Drive disconnected for user {user_id}, rows affected: {rows_affected}")
+        
+        return {
+            "success": True,
+            "message": "Google Drive disconnected",
+            "rows_affected": rows_affected,
+        }
     except Exception as e:
-        sync_db.close()
+        await db.rollback()
+        logger.error(f"Failed to disconnect Google Drive: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to disconnect: {str(e)}")
 
 
