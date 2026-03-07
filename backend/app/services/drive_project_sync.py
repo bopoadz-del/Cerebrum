@@ -363,7 +363,7 @@ def discover_and_upsert_drive_projects(
         if mapping is None:
             proj = Project(
                 name=folder_name,
-                type=ptype,
+                type=ptype.value if isinstance(ptype, ProjectType) else str(ptype),
                 tags=list(dp.tags),
                 meta={
                     "source": "google_drive",
@@ -410,7 +410,7 @@ def discover_and_upsert_drive_projects(
             proj = db.query(Project).filter(Project.id == mapping.project_id).first()
             if proj:
                 proj.name = folder_name
-                proj.type = ptype
+                proj.type = ptype.value if isinstance(ptype, ProjectType) else str(ptype)
                 proj.tags = list(dp.tags)
                 meta = dict(proj.meta or {})
                 meta.update(
