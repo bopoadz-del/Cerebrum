@@ -322,24 +322,38 @@ def _discover_and_upsert_drive_projects_impl(
                     "requires_reconnect": True
                 }
             
-            logger.info(f"Token expired for user {user_id}, refreshing...")
+            logger.info(f"Token expired for user {user_id}, refreshing using Google auth library...")
             try:
-                creds.refresh(Request())
+                # Use Google's Request class for the refresh
+                from google.auth.transport.requests import Request as GoogleRequest
+                creds.refresh(GoogleRequest())
+                
                 # Update token in DB
+                new_token = creds.token
                 db.execute(
                     text("""
                         UPDATE integration_tokens 
                         SET access_token = :access_token, updated_at = NOW()
                         WHERE user_id = :user_id AND service = 'google_drive'
                     """),
-                    {"access_token": creds.token, "user_id": str(user_id)}
+                    {"access_token": new_token, "user_id": str(user_id)}
                 )
                 db.commit()
                 # IMPORTANT: Update tok.access_token so subsequent code uses the refreshed token
-                tok.access_token = creds.token
-                logger.info(f"Token refreshed for user {user_id}")
+                tok.access_token = new_token
+                # Also update the creds object we built earlier
+                creds = Credentials(
+                    token=new_token,
+                    refresh_token=tok.refresh_token,
+                    token_uri=tok.token_uri,
+                    client_id=tok.client_id or settings.GOOGLE_CLIENT_ID,
+                    client_secret=tok.client_secret or settings.GOOGLE_CLIENT_SECRET,
+                    scopes=['https://www.googleapis.com/auth/drive.readonly', 'https://www.googleapis.com/auth/drive.file', 'https://www.googleapis.com/auth/drive.metadata.readonly']
+                )
+                logger.info(f"Token refreshed successfully for user {user_id}, new token: {new_token[:20]}...")
             except Exception as e:
-                logger.error(f"Failed to refresh token: {e}")
+                import traceback
+                logger.error(f"Failed to refresh token: {e}\n{traceback.format_exc()}")
                 error_msg = str(e)
                 if "invalid_grant" in error_msg.lower():
                     return {

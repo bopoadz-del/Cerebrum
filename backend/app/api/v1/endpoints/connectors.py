@@ -709,99 +709,17 @@ async def scan_google_drive(
 ) -> Dict[str, Any]:
     """
     Scan Google Drive, detect projects, and trigger ZVec indexing.
+    The sync function handles token refresh internally.
     """
     import uuid
     import logging
-    from datetime import datetime, timezone, timedelta
-    from sqlalchemy import text
-    import httpx
     from app.services.drive_project_sync import discover_and_upsert_drive_projects
     from app.services.zvec_service import get_zvec_service
-    from app.core.config import settings
     
     logger = logging.getLogger(__name__)
-    user_id_str = str(current_user.id)
-    user_id = uuid.UUID(user_id_str)
+    user_id = uuid.UUID(str(current_user.id))
     
     logger.info(f"Scan requested by user {user_id}")
-    
-    # Initialize variables to avoid UnboundLocalError
-    is_expired = False
-    token_data = {}
-    refreshed_access_token = None
-    
-    # Pre-flight: Check and refresh token if needed
-    try:
-        result = await db.execute(
-            text("""
-                SELECT refresh_token, expiry 
-                FROM integration_tokens 
-                WHERE user_id = :user_id AND service = 'google_drive' AND is_active = true
-                LIMIT 1
-            """), {"user_id": user_id_str}
-        )
-        row = result.fetchone()
-        
-        if not row:
-            raise HTTPException(status_code=400, detail="Google Drive not connected")
-        
-        refresh_token, expiry = row
-        
-        # Check if expired
-        if expiry:
-            if expiry.tzinfo is None:
-                expiry = expiry.replace(tzinfo=timezone.utc)
-            is_expired = expiry < datetime.now(timezone.utc)
-        
-        # Refresh if expired
-        if is_expired and refresh_token:
-            logger.info(f"Refreshing expired token for user {user_id}")
-            
-            # Validate credentials are configured
-            if not settings.GOOGLE_CLIENT_ID or not settings.GOOGLE_CLIENT_SECRET:
-                logger.error("GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET not configured")
-                raise HTTPException(status_code=500, detail="Google OAuth credentials not configured on server")
-            
-            async with httpx.AsyncClient(timeout=30) as client:
-                resp = await client.post(
-                    "https://oauth2.googleapis.com/token",
-                    data={
-                        "refresh_token": refresh_token,
-                        "client_id": settings.GOOGLE_CLIENT_ID,
-                        "client_secret": settings.GOOGLE_CLIENT_SECRET,
-                        "grant_type": "refresh_token",
-                    },
-                    headers={"Content-Type": "application/x-www-form-urlencoded"},
-                )
-                if resp.status_code != 200:
-                    error_detail = resp.text
-                    logger.error(f"Token refresh failed: {resp.status_code} - {error_detail}")
-                    if "invalid_grant" in error_detail:
-                        raise HTTPException(status_code=401, detail="Google Drive authorization expired. Please reconnect your account.")
-                    raise HTTPException(status_code=400, detail=f"Google token refresh failed: {error_detail}")
-                token_data = resp.json()
-            
-            new_expires_in = int(token_data.get('expires_in', 3600) or 3600)
-            new_expiry = datetime.utcnow() + timedelta(seconds=new_expires_in)
-            
-            await db.execute(
-                text("""
-                    UPDATE integration_tokens 
-                    SET access_token = :access_token, expiry = :expiry, updated_at = NOW()
-                    WHERE user_id = :user_id AND service = 'google_drive'
-                """), {"access_token": token_data['access_token'], "expiry": new_expiry, "user_id": user_id_str}
-            )
-            await db.commit()
-            logger.info(f"Token refreshed for user {user_id}")
-            refreshed_access_token = token_data.get('access_token')
-        elif is_expired and not refresh_token:
-            raise HTTPException(status_code=400, detail="Google Drive credentials expired. Please reconnect.")
-            
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Token refresh failed: {e}")
-        raise HTTPException(status_code=400, detail=f"Google Drive auth failed: {str(e)}")
     
     # Use sync database session for the service
     try:
@@ -817,15 +735,18 @@ async def scan_google_drive(
         raise HTTPException(status_code=500, detail=f"Database initialization failed: {str(e)}")
     
     try:
+        # Let the sync function handle everything including token refresh
         result = discover_and_upsert_drive_projects(
             sync_db, user_id,
             min_score=0.5, max_root_folders=200, max_children_per_folder=500,
-            index_now=True, max_files_per_project=100,
-            access_token=refreshed_access_token
+            index_now=True, max_files_per_project=100
         )
         sync_db.close()
         
         if result.get("status") == "error":
+            # Check if it's an auth error
+            if result.get("requires_reconnect"):
+                raise HTTPException(status_code=401, detail=result.get("message"))
             raise HTTPException(status_code=400, detail=result.get("message", "Scan failed"))
         
         zvec = get_zvec_service()
@@ -839,13 +760,11 @@ async def scan_google_drive(
         }
         
     except HTTPException:
-        sync_db.close()
         raise
     except Exception as e:
         sync_db.close()
         import traceback
-        tb_str = traceback.format_exc()
-        logger.error(f"Scan failed: {e}\nTraceback: {tb_str}")
+        logger.error(f"Scan failed: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Scan failed: {type(e).__name__}: {str(e)}")
 
 

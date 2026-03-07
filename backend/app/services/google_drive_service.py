@@ -160,65 +160,77 @@ class GoogleDriveService:
         Returns:
             New token data or None if refresh fails
         """
-        # Get refresh token from database
-        result = self.db.execute(
-            text("""
-                SELECT refresh_token, client_id, client_secret
-                FROM integration_tokens 
-                WHERE user_id = :user_id 
-                AND service = 'google_drive' 
-                AND is_active = true
-                LIMIT 1
-            """),
-            {"user_id": str(user_id)}
-        )
-        row = result.fetchone()
-        
-        if not row or not row[0]:  # No refresh token
-            return None
-        
-        refresh_token, client_id, client_secret = row
-        
-        async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.post(
-                "https://oauth2.googleapis.com/token",
-                data={
-                    "refresh_token": refresh_token,
-                    "client_id": client_id or self.client_id,
-                    "client_secret": client_secret or self.client_secret,
-                    "grant_type": "refresh_token",
-                },
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
+        try:
+            # Get refresh token from database
+            result = self.db.execute(
+                text("""
+                    SELECT refresh_token, client_id, client_secret
+                    FROM integration_tokens 
+                    WHERE user_id = :user_id 
+                    AND service = 'google_drive' 
+                    AND is_active = true
+                    LIMIT 1
+                """),
+                {"user_id": str(user_id)}
             )
+            row = result.fetchone()
             
-            if resp.status_code != 200:
-                self._logger.error(f"Token refresh failed: {resp.text}")
+            if not row or not row[0]:  # No refresh token
+                self._logger.error(f"No refresh token found for user {user_id}")
                 return None
             
-            token_data = resp.json()
+            refresh_token, client_id, client_secret = row
             
-            # Update token in database
-            expires_in = int(token_data.get('expires_in', 3600) or 3600)
-            new_expiry = datetime.utcnow() + timedelta(seconds=expires_in)
+            self._logger.info(f"Refreshing token for user {user_id}...")
             
-            self.db.execute(
-                text("""
-                    UPDATE integration_tokens 
-                    SET access_token = :access_token,
-                        expiry = :expiry,
-                        updated_at = NOW()
-                    WHERE user_id = :user_id 
-                    AND service = 'google_drive'
-                """),
-                {
-                    "access_token": token_data['access_token'],
-                    "expiry": new_expiry,
-                    "user_id": str(user_id)
-                }
-            )
-            self.db.commit()
-            
-            return token_data
+            async with httpx.AsyncClient(timeout=30) as client:
+                resp = await client.post(
+                    "https://oauth2.googleapis.com/token",
+                    data={
+                        "refresh_token": refresh_token,
+                        "client_id": client_id or self.client_id,
+                        "client_secret": client_secret or self.client_secret,
+                        "grant_type": "refresh_token",
+                    },
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                )
+                
+                if resp.status_code != 200:
+                    error_text = resp.text
+                    self._logger.error(f"Token refresh failed: HTTP {resp.status_code} - {error_text}")
+                    # Log the request details (without sensitive data)
+                    self._logger.error(f"Refresh request: client_id={client_id or self.client_id}, client_secret={'*' * 10 if (client_secret or self.client_secret) else 'MISSING'}")
+                    return None
+                
+                token_data = resp.json()
+                
+                # Update token in database
+                expires_in = int(token_data.get('expires_in', 3600) or 3600)
+                new_expiry = datetime.utcnow() + timedelta(seconds=expires_in)
+                
+                self.db.execute(
+                    text("""
+                        UPDATE integration_tokens 
+                        SET access_token = :access_token,
+                            expiry = :expiry,
+                            updated_at = NOW()
+                        WHERE user_id = :user_id 
+                        AND service = 'google_drive'
+                    """),
+                    {
+                        "access_token": token_data['access_token'],
+                        "expiry": new_expiry,
+                        "user_id": str(user_id)
+                    }
+                )
+                self.db.commit()
+                
+                self._logger.info(f"Token refreshed successfully for user {user_id}")
+                return token_data
+                
+        except Exception as e:
+            self._logger.error(f"Exception during token refresh for user {user_id}: {e}", exc_info=True)
+            return None
     
     def save_tokens(
         self, 
@@ -291,8 +303,9 @@ class GoogleDriveService:
     
     def get_credentials(self, user_id: uuid.UUID) -> Optional[Credentials]:
         """
-        Get Google Credentials for user, refreshing if needed.
-        Uses same approach as drive_project_sync.py which works.
+        Get Google Credentials for user.
+        NOTE: This does NOT auto-refresh. Callers must handle refresh separately
+        or use PermanentGoogleDrive which auto-refreshes.
         """
         try:
             from app.models.integration import IntegrationToken
@@ -309,16 +322,17 @@ class GoogleDriveService:
             
             from google.oauth2.credentials import Credentials
             
-            # Check expiry and refresh if needed
-            # Check expiry and refresh if needed
+            # Check expiry - log warning if expired but still return credentials
+            # (caller should refresh before using)
             if tok.expiry:
                 from datetime import datetime, timezone, timedelta
                 now = datetime.now(timezone.utc)
                 expires = tok.expiry if tok.expiry.tzinfo else tok.expiry.replace(tzinfo=timezone.utc)
                 if now >= (expires - timedelta(minutes=5)):
-                    self._logger.info(f"Token expired for user {user_id}, refresh required")
-                    return None
-            # Build credentials from token data (same as drive_project_sync.py)
+                    self._logger.warning(f"Token EXPIRED for user {user_id} - refresh needed before use")
+                    # Still return credentials - caller should refresh
+            
+            # Build credentials from token data
             creds = Credentials(
                 token=tok.access_token,
                 refresh_token=tok.refresh_token,
