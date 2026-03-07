@@ -31,15 +31,21 @@ class PermanentGoogleDrive:
             # First check if current token is still good
             creds = self.service.get_credentials(self.user_id)
             if creds:
+                self.service._logger.debug(f"Token still valid for user {self.user_id}")
                 return True
             
-            # Try to refresh
+            # Token expired or not found - try to refresh
+            self.service._logger.info(f"Token expired or missing for user {self.user_id}, attempting refresh...")
             token_data = await self.service.refresh_access_token(self.user_id)
             if token_data:
+                self.service._logger.info(f"Token refreshed successfully for user {self.user_id}")
                 return True
             
+            # Refresh failed - no refresh token or refresh failed
+            self.service._logger.error(f"Token refresh failed for user {self.user_id} - no refresh token or invalid grant")
             return False
         except Exception as e:
+            self.service._logger.error(f"Error in ensure_fresh_token for user {self.user_id}: {e}", exc_info=True)
             return False
     
     async def list_files(
