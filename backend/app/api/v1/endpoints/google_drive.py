@@ -23,6 +23,7 @@ from app.services.google_drive_service import (
     GoogleDriveNotFoundError,
     GoogleDriveError
 )
+from app.services.gdrive_persistent import get_permanent_drive, PermanentGoogleDrive
 from app.core.config import settings
 
 router = APIRouter(prefix="/google-drive", tags=["Google Drive"])
@@ -283,12 +284,11 @@ async def list_files(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """List files from Google Drive."""
-    service = GoogleDriveService(db)
+    """List files from Google Drive with auto-refresh."""
+    service = get_permanent_drive(db, current_user.id)
     
     try:
         files = await service.list_files(
-            current_user.id, 
             folder_id=folder_id, 
             page_size=page_size
         )
@@ -307,11 +307,11 @@ async def get_file(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get detailed file metadata."""
-    service = GoogleDriveService(db)
+    """Get detailed file metadata with auto-refresh."""
+    service = get_permanent_drive(db, current_user.id)
     
     try:
-        file = await service.get_file(current_user.id, file_id)
+        file = await service.get_file(file_id)
         return DriveFileResponse(**file)
     except GoogleDriveAuthError as e:
         raise HTTPException(status_code=401, detail=str(e))
@@ -329,7 +329,7 @@ async def download_file(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Download file from Google Drive.
+    Download file from Google Drive with auto-refresh.
     
     For Google Workspace files (Docs, Sheets, etc.), use export_format:
     - Google Docs: application/pdf, text/plain
@@ -337,11 +337,10 @@ async def download_file(
     - Google Slides: application/vnd.openxmlformats-officedocument.presentationml.presentation
     """
     import json
-    service = GoogleDriveService(db)
+    service = get_permanent_drive(db, current_user.id)
     
     try:
         content, filename, mime_type = await service.download_file(
-            current_user.id, 
             file_id, 
             export_format=export_format
         )
@@ -372,12 +371,11 @@ async def search_files(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Search files in Google Drive by name."""
-    service = GoogleDriveService(db)
+    """Search files in Google Drive by name with auto-refresh."""
+    service = get_permanent_drive(db, current_user.id)
     
     try:
         files = await service.search_files(
-            current_user.id,
             query=query,
             file_type=file_type,
             page_size=page_size
@@ -399,12 +397,11 @@ async def create_folder(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Create a new folder in Google Drive."""
-    service = GoogleDriveService(db)
+    """Create a new folder in Google Drive with auto-refresh."""
+    service = get_permanent_drive(db, current_user.id)
     
     try:
         folder = await service.create_folder(
-            current_user.id,
             name=request.name,
             parent_id=request.parent_id
         )
@@ -423,15 +420,15 @@ async def delete_file(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Delete or trash a file.
+    Delete or trash a file with auto-refresh.
     
     - permanent=false (default): Move to trash
     - permanent=true: Permanently delete
     """
-    service = GoogleDriveService(db)
+    service = get_permanent_drive(db, current_user.id)
     
     try:
-        success = await service.delete_file(current_user.id, file_id, permanent=permanent)
+        success = await service.delete_file(file_id, permanent=permanent)
         return {
             "success": success,
             "file_id": file_id,
@@ -454,10 +451,10 @@ async def scan_drive(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Scan Google Drive for all files (legacy endpoint)."""
-    service = GoogleDriveService(db)
+    """Scan Google Drive for all files (legacy endpoint) with auto-refresh."""
+    service = get_permanent_drive(db, current_user.id)
     try:
-        files = await service.list_files(current_user.id, page_size=500000)
+        files = await service.list_files(page_size=500000)
         return {
             "success": True,
             "files_scanned": len(files),
@@ -474,10 +471,10 @@ async def get_projects(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get Google Drive folders as projects (legacy endpoint)."""
-    service = GoogleDriveService(db)
+    """Get Google Drive folders as projects (legacy endpoint) with auto-refresh."""
+    service = get_permanent_drive(db, current_user.id)
     try:
-        files = await service.list_files(current_user.id, page_size=500000)
+        files = await service.list_files(page_size=500000)
         folders = [f for f in files if f.get("is_folder")]
         projects = [
             {
@@ -505,16 +502,10 @@ async def get_project_files(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get files within a specific folder/project (legacy endpoint)."""
-    service = GoogleDriveService(db)
-    creds = service.get_credentials(current_user.id)
-    if not creds:
-        refreshed = await service.refresh_access_token(current_user.id)
-        if not refreshed:
-            raise HTTPException(status_code=401, detail="Google Drive not connected or token expired")
+    """Get files within a specific folder/project (legacy endpoint) with auto-refresh."""
+    service = get_permanent_drive(db, current_user.id)
     try:
         files = await service.list_files(
-            current_user.id, 
             folder_id=project_id, 
             page_size=500000
         )
@@ -624,7 +615,7 @@ async def get_indexing_status(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get Google Drive indexing status."""
+    """Get Google Drive indexing status with auto-refresh."""
     from app.models.google_drive import GoogleDriveToken
     
     # Check if user has a token
@@ -640,30 +631,20 @@ async def get_indexing_status(
             "progress": 0
         }
     
-    if token.is_expired():
-        return {
-            "status": "expired",
-            "total_files": 0,
-            "indexed_files": 0,
-            "progress": 0
-        }
-    
-    # Get file count from Google Drive
-    service = GoogleDriveService(db)
+    # Get file count from Google Drive with auto-refresh
+    service = get_permanent_drive(db, current_user.id)
     try:
-        creds = service.get_credentials(current_user.id)
-        if not creds:
-            return {
-                "status": "disconnected",
-                "total_files": 0,
-                "indexed_files": 0,
-                "progress": 0
-            }
-        
-        files = await service.list_files(current_user.id, page_size=1)
+        files = await service.list_files(page_size=1)
         return {
             "status": "connected",
             "total_files": len(files),
+            "indexed_files": 0,
+            "progress": 0
+        }
+    except GoogleDriveAuthError:
+        return {
+            "status": "expired",
+            "total_files": 0,
             "indexed_files": 0,
             "progress": 0
         }
