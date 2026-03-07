@@ -948,11 +948,11 @@ async def list_google_drive_files(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
 ):
-    """List files from Google Drive for a specific folder."""
+    """List files from Google Drive for a specific folder with auto-refresh."""
     import uuid
     from app.db.session import db_manager
+    from app.services.gdrive_persistent import get_permanent_drive
     from app.services.google_drive_service import (
-        GoogleDriveService, 
         GoogleDriveAuthError,
         GoogleDriveError
     )
@@ -963,8 +963,8 @@ async def list_google_drive_files(
     sync_db = SessionLocal()
     
     try:
-        svc = GoogleDriveService(sync_db)
-        files = await svc.list_files(uuid.UUID(str(current_user.id)), folder_id)
+        drive = get_permanent_drive(sync_db, uuid.UUID(str(current_user.id)))
+        files = await drive.list_files(folder_id=folder_id)
         sync_db.close()
         return files
     except GoogleDriveAuthError as e:
@@ -984,7 +984,7 @@ async def list_project_files(
     current_user: User = Depends(get_current_user_async),
     db: AsyncSession = Depends(get_async_db),
 ):
-    """List files within a specific Google Drive project (folder).
+    """List files within a specific Google Drive project (folder) with auto-refresh.
     
     Accepts three forms of project identifier (in order of priority):
     1. Cerebrum project_id (project_id column in google_drive_projects table)
@@ -993,10 +993,14 @@ async def list_project_files(
     """
     import uuid
     import logging
-    import traceback
     from sqlalchemy import text
     from app.db.session import db_manager
-    from app.services.google_drive_service import GoogleDriveService
+    from app.services.gdrive_persistent import get_permanent_drive
+    from app.services.google_drive_service import (
+        GoogleDriveAuthError,
+        GoogleDriveNotFoundError,
+        GoogleDriveError
+    )
     
     logger = logging.getLogger(__name__)
     user_id = uuid.UUID(str(current_user.id))
@@ -1005,7 +1009,6 @@ async def list_project_files(
     
     try:
         # Try looking up by project_id first, then by id (mapping id)
-        # Note: asyncpg doesn't support :: cast syntax in prepared statements
         result = await db.execute(
             text("""
                 SELECT root_folder_id, root_folder_name 
@@ -1036,8 +1039,6 @@ async def list_project_files(
         
         # If not found, try using the project_id as a Drive folder ID directly
         if not row:
-            # Check if project_id looks like a Drive folder ID (alphanumeric with dashes/underscores, ~25-44 chars)
-            # Drive folder IDs are typically 25-44 characters like "1c3Bhvq5rnxiqaXAnv2gqZ-ZHj1bWsuFo"
             if len(project_id) >= 20 and all(c.isalnum() or c in '-_' for c in project_id):
                 lookup_method = "drive_folder_id"
                 root_folder_id = project_id
@@ -1055,7 +1056,7 @@ async def list_project_files(
         logger.error(f"Database error looking up project: {db_err}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Database error: {str(db_err)}")
     
-    # List files from the project's root folder
+    # Use permanent drive with auto-refresh
     try:
         db_manager.initialize()
         from sqlalchemy.orm import sessionmaker
@@ -1065,63 +1066,35 @@ async def list_project_files(
         logger.error(f"Failed to initialize database session: {db_init_err}", exc_info=True)
         raise HTTPException(status_code=500, detail="Database connection error")
     
-    # Try to get files with automatic token refresh
-    max_retries = 2
-    last_error = None
-    
-    for attempt in range(max_retries):
-        try:
-            from app.services.google_drive_service import (
-                GoogleDriveAuthError,
-                GoogleDriveNotFoundError,
-                GoogleDriveError
-            )
-            
-            svc = GoogleDriveService(sync_db)
-            files = await svc.list_files(user_id, root_folder_id)
-            
-            logger.info(f"Retrieved {len(files)} files from Google Drive for folder {root_folder_id}")
-            
-            sync_db.close()
-            return files
-            
-        except GoogleDriveAuthError as e:
-            error_msg = str(e)
-            last_error = e
-            logger.error(f"Google Drive auth error (attempt {attempt + 1}): {error_msg}")
-            
-            # Check if it's a hard failure (invalid_grant = needs reconnect)
-            if 'invalid_grant' in error_msg or 'revoked' in error_msg.lower():
-                sync_db.close()
-                raise HTTPException(status_code=401, detail=f"Google Drive connection expired. Please reconnect. ({error_msg})")
-            
-            if attempt < max_retries - 1:
-                logger.info(f"Retrying after auth error...")
-                sync_db.close()
-                sync_db = SessionLocal()  # Recreate session
-                continue
-            else:
-                sync_db.close()
-                raise HTTPException(status_code=401, detail=f"Google Drive auth error: {error_msg}")
-                
-        except GoogleDriveNotFoundError as e:
-            sync_db.close()
-            logger.error(f"Google Drive folder not found: {e}")
-            raise HTTPException(status_code=404, detail=str(e))
-        except GoogleDriveError as e:
-            sync_db.close()
-            logger.error(f"Google Drive error: {e}")
-            raise HTTPException(status_code=502, detail=str(e))
-        except Exception as e:
-            sync_db.close()
-            logger.error(f"Unexpected error listing files: {e}", exc_info=True)
-            raise HTTPException(status_code=500, detail=f"Failed to list files: {str(e)}")
-    
-    # Should not reach here, but just in case
-    sync_db.close()
-    if last_error:
-        raise HTTPException(status_code=401, detail=f"Google Drive auth failed after retries: {last_error}")
-    raise HTTPException(status_code=500, detail="Failed to list files after retries")
+    try:
+        # Use PermanentGoogleDrive which auto-refreshes tokens
+        drive = get_permanent_drive(sync_db, user_id)
+        files = await drive.list_files(folder_id=root_folder_id)
+        
+        logger.info(f"Retrieved {len(files)} files from Google Drive for folder {root_folder_id}")
+        
+        sync_db.close()
+        return files
+        
+    except GoogleDriveAuthError as e:
+        sync_db.close()
+        error_msg = str(e)
+        logger.error(f"Google Drive auth error: {error_msg}")
+        if 'invalid_grant' in error_msg or 'revoked' in error_msg.lower():
+            raise HTTPException(status_code=401, detail=f"Google Drive connection expired. Please reconnect. ({error_msg})")
+        raise HTTPException(status_code=401, detail=f"Google Drive auth error: {error_msg}")
+    except GoogleDriveNotFoundError as e:
+        sync_db.close()
+        logger.error(f"Google Drive folder not found: {e}")
+        raise HTTPException(status_code=404, detail=str(e))
+    except GoogleDriveError as e:
+        sync_db.close()
+        logger.error(f"Google Drive error: {e}")
+        raise HTTPException(status_code=502, detail=str(e))
+    except Exception as e:
+        sync_db.close()
+        logger.error(f"Unexpected error listing files: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to list files: {str(e)}")
 
 
 @router.get("/google-drive/folders/{folder_id}/contents")
@@ -1130,15 +1103,15 @@ async def get_folder_contents(
     current_user: User = Depends(get_current_user_async),
     db: AsyncSession = Depends(get_async_db),
 ):
-    """Get contents of a specific folder - files and subfolders for cascading UI.
+    """Get contents of a specific folder - files and subfolders for cascading UI with auto-refresh.
     
     This endpoint returns both files and subfolders to support tree navigation.
     """
     import uuid
     import logging
     from app.db.session import db_manager
+    from app.services.gdrive_persistent import get_permanent_drive
     from app.services.google_drive_service import (
-        GoogleDriveService, 
         GoogleDriveAuthError,
         GoogleDriveNotFoundError,
         GoogleDriveError
@@ -1159,68 +1132,49 @@ async def get_folder_contents(
         logger.error(f"Failed to initialize database session: {db_init_err}", exc_info=True)
         raise HTTPException(status_code=500, detail="Database connection error")
     
-    # Try to get folder contents with automatic token refresh
-    max_retries = 2
-    last_error = None
-    
-    for attempt in range(max_retries):
-        try:
-            svc = GoogleDriveService(sync_db)
-            
-            # Get all items in the folder (files + folders)
-            items = await svc.list_files(user_id, folder_id=folder_id, page_size=1000)
-            
-            # Separate files and folders
-            files = [f for f in items if not f.get("is_folder")]
-            subfolders = [f for f in items if f.get("is_folder")]
-            
-            logger.info(f"Retrieved {len(files)} files and {len(subfolders)} subfolders from folder {folder_id}")
-            
-            # Add type field for frontend compatibility
-            for item in items:
-                item["type"] = "folder" if item.get("is_folder") else "file"
-            
-            sync_db.close()
-            return {
-                "folder_id": folder_id,
-                "files": files,
-                "subfolders": subfolders,
-                "items": items,  # Flat list with type field for frontend
-                "total_count": len(items)
-            }
-            
-        except GoogleDriveAuthError as e:
-            error_msg = str(e)
-            last_error = e
-            logger.error(f"Google Drive auth error (attempt {attempt + 1}): {error_msg}")
-            
-            if 'invalid_grant' in error_msg or 'revoked' in error_msg.lower():
-                sync_db.close()
-                raise HTTPException(status_code=401, detail=f"Google Drive connection expired. Please reconnect.")
-            
-            if attempt < max_retries - 1:
-                sync_db.close()
-                sync_db = SessionLocal()
-                continue
-            else:
-                sync_db.close()
-                raise HTTPException(status_code=401, detail=f"Google Drive auth error: {error_msg}")
-                
-        except GoogleDriveNotFoundError as e:
-            sync_db.close()
-            raise HTTPException(status_code=404, detail=f"Folder not found: {str(e)}")
-        except GoogleDriveError as e:
-            sync_db.close()
-            raise HTTPException(status_code=502, detail=str(e))
-        except Exception as e:
-            sync_db.close()
-            logger.error(f"Unexpected error getting folder contents: {e}", exc_info=True)
-            raise HTTPException(status_code=500, detail=f"Failed to get folder contents: {str(e)}")
-    
-    sync_db.close()
-    if last_error:
-        raise HTTPException(status_code=401, detail=f"Google Drive auth failed: {last_error}")
-    raise HTTPException(status_code=500, detail="Failed to get folder contents")
+    try:
+        # Use PermanentGoogleDrive which auto-refreshes tokens
+        drive = get_permanent_drive(sync_db, user_id)
+        
+        # Get all items in the folder (files + folders)
+        items = await drive.list_files(folder_id=folder_id, page_size=1000)
+        
+        # Separate files and folders
+        files = [f for f in items if not f.get("is_folder")]
+        subfolders = [f for f in items if f.get("is_folder")]
+        
+        logger.info(f"Retrieved {len(files)} files and {len(subfolders)} subfolders from folder {folder_id}")
+        
+        # Add type field for frontend compatibility
+        for item in items:
+            item["type"] = "folder" if item.get("is_folder") else "file"
+        
+        sync_db.close()
+        return {
+            "folder_id": folder_id,
+            "files": files,
+            "subfolders": subfolders,
+            "items": items,  # Flat list with type field for frontend
+            "total_count": len(items)
+        }
+        
+    except GoogleDriveAuthError as e:
+        sync_db.close()
+        error_msg = str(e)
+        logger.error(f"Google Drive auth error: {error_msg}")
+        if 'invalid_grant' in error_msg or 'revoked' in error_msg.lower():
+            raise HTTPException(status_code=401, detail=f"Google Drive connection expired. Please reconnect.")
+        raise HTTPException(status_code=401, detail=f"Google Drive auth error: {error_msg}")
+    except GoogleDriveNotFoundError as e:
+        sync_db.close()
+        raise HTTPException(status_code=404, detail=f"Folder not found: {str(e)}")
+    except GoogleDriveError as e:
+        sync_db.close()
+        raise HTTPException(status_code=502, detail=str(e))
+    except Exception as e:
+        sync_db.close()
+        logger.error(f"Unexpected error getting folder contents: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get folder contents: {str(e)}")
 
 
 @router.post(
