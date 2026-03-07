@@ -978,7 +978,7 @@ async def list_project_files(
     project_id: str,
     current_user: User = Depends(get_current_user_async),
     db: AsyncSession = Depends(get_async_db),
-) -> List[Dict[str, Any]]:
+):
     """List files within a specific Google Drive project (folder).
     
     Accepts either the mapping id (id column) or project_id (project_id column).
