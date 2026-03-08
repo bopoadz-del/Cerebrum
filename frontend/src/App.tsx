@@ -24,19 +24,14 @@ function DesktopLayout() {
   const [showSettings, setShowSettings] = useState(false);
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   
-  // Use Drive integration hook
   const { 
     projects, 
     scanning, 
-    isConnected, 
     loading,
     backendAvailable,
     connectionError,
     indexingStatus,
     scanResults,
-    connectDrive, 
-    disconnectDrive,
-    scanDrive,
     refreshProjects,
     getProjectFiles
 
@@ -63,7 +58,6 @@ function DesktopLayout() {
       <div className="flex h-screen bg-white items-center justify-center">
         <div className="flex items-center gap-3 text-gray-500">
           <Loader2 className="w-6 h-6 animate-spin" />
-          <span>Checking Google Drive connection...</span>
         </div>
       </div>
     );
@@ -79,15 +73,11 @@ function DesktopLayout() {
         onSelectProject={setSelectedProjectId}
         onSelectChat={setSelectedChatId}
         onNewChat={handleNewChat}
-        isDriveConnected={isConnected}
         isScanning={scanning}
         isDemoMode={!backendAvailable}
         connectionError={connectionError}
         indexingStatus={indexingStatus}
         scanResults={scanResults}
-        onConnectDrive={connectDrive}
-        onDisconnectDrive={disconnectDrive}
-        onScanDrive={scanDrive}
         onRefreshProjects={refreshProjects}
         onOpenSettings={() => setShowSettings(true)}
         getProjectFiles={getProjectFiles}
