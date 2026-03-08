@@ -170,7 +170,7 @@ export function useDrive() {
       const token = getAuthToken();
       console.log('[Drive] Token present:', !!token);
       
-      const res = await fetch(`${API_URL}/connectors/google-drive/status`, { 
+      const res = await fetch(`${API_URL}/google-drive/status`, { 
         headers: getHeaders(),
         // Short timeout to quickly detect backend issues
         signal: AbortSignal.timeout(8000)
@@ -309,7 +309,7 @@ export function useDrive() {
     
     try {
       // Try backend auth endpoint first
-      const res = await fetch(`${API_URL}/connectors/google-drive/auth/url`, { 
+      const res = await fetch(`${API_URL}/google-drive/auth/url`, { 
         headers: getHeaders(),
         signal: AbortSignal.timeout(5000)
       });
@@ -407,7 +407,7 @@ export function useDrive() {
   // Fetch indexing status for ZVec polling
   const fetchIndexingStatus = useCallback(async () => {
     try {
-      const res = await fetch(`${API_URL}/connectors/google-drive/indexing-status`, {
+      const res = await fetch(`${API_URL}/google-drive/indexing-status`, {
         headers: getHeaders(),
         signal: AbortSignal.timeout(10000)
       });
@@ -448,7 +448,7 @@ export function useDrive() {
     setConnectionError(null);
     
     try {
-      const res = await fetch(`${API_URL}/connectors/google-drive/scan`, {
+      const res = await fetch(`${API_URL}/google-drive/scan`, {
         method: 'POST',
         headers: getHeaders(),
         signal: AbortSignal.timeout(30000) // 30 second timeout for real scan
@@ -511,7 +511,7 @@ export function useDrive() {
   const refreshProjects = useCallback(async () => {
     try {
       console.log('[Drive] Fetching projects...');
-      const res = await fetch(`${API_URL}/connectors/google-drive/projects`, { 
+      const res = await fetch(`${API_URL}/google-drive/projects`, { 
         headers: getHeaders(),
         signal: AbortSignal.timeout(5000)
       });
@@ -555,7 +555,7 @@ export function useDrive() {
   // Disconnect Drive
   const disconnectDrive = async () => {
     try {
-      await fetch(`${API_URL}/connectors/google-drive/disconnect`, {
+      await fetch(`${API_URL}/google-drive/disconnect`, {
         method: 'POST',
         headers: getHeaders()
       });
@@ -579,7 +579,7 @@ export function useDrive() {
   const getProjectFiles = useCallback(async (projectId: string): Promise<DriveFile[]> => {
     try {
       console.log('[Drive] Fetching files for project:', projectId);
-      const url = `${API_URL}/connectors/google-drive/projects/${projectId}/files`;
+      const url = `${API_URL}/google-drive/projects/${projectId}/files`;
       console.log('[Drive] Request URL:', url);
       
       const res = await fetch(url, {
@@ -665,7 +665,7 @@ export function useDrive() {
       if (project) params.append('project', project);
       
       const res = await fetch(
-        `${API_URL}/connectors/google-drive/search?${params}`,
+        `${API_URL}/google-drive/search?${params}`,
         { 
           method: 'POST',
           headers: getHeaders(),
@@ -767,7 +767,7 @@ export function useDrive() {
       const FIVE_MINUTES = 5 * 60 * 1000;
       const interval = setInterval(() => {
         // Just ping the status endpoint to keep session alive
-        fetch(`${API_URL}/connectors/google-drive/status`, { 
+        fetch(`${API_URL}/google-drive/status`, { 
           headers: getHeaders(),
           signal: AbortSignal.timeout(10000)
         }).catch(() => {}); // Ignore errors
