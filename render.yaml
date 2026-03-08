@@ -36,8 +36,7 @@ services:
         value: "false"
       - key: INITIAL_FORMULAS_PATH
         value: "/app/data/formulas/initial_library.json"
-        sync: false
-        sync: false
+      - key: GOOGLE_REDIRECT_URI
         value: "https://cerebrum-api.onrender.com/api/v1/connectors/google-drive/callback"
       - key: FRONTEND_URL
         value: "https://cerebrum-frontend.onrender.com"
