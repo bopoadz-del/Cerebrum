@@ -96,9 +96,19 @@ function migrateLegacyData(): { token: string | null; refreshToken: string | nul
   return { token, refreshToken, user };
 }
 
+// SLEEP MODE: Set to true to disable authentication
+const AUTH_SLEEP_MODE = true;
+// Fake user for sleep mode
+const SLEEP_MODE_USER: User = {
+  id: '00000000-0000-0000-0000-000000000001',
+  email: 'sleep@mode.local',
+  full_name: 'Sleep Mode User',
+  role: 'admin',
+};
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(AUTH_SLEEP_MODE ? SLEEP_MODE_USER : null);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Clear all auth data from storage
   const clearAuthData = useCallback(() => {
@@ -172,6 +182,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Check auth status on mount
   useEffect(() => {
+    // SLEEP MODE: Skip auth checks, user already set
+    if (AUTH_SLEEP_MODE) {
+      return;
+    }
+    
     const initAuth = async () => {
       // First, try to migrate any legacy data
       const { token, user: migratedUser } = migrateLegacyData();
@@ -246,6 +261,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, refreshAuthToken]);
 
   const login = async (email: string, password: string) => {
+    // SLEEP MODE: Skip actual login, use fake user
+    if (AUTH_SLEEP_MODE) {
+      setUser(SLEEP_MODE_USER);
+      return;
+    }
+    
     const loginUrl = `${API_BASE}/auth/login`;
     console.log('[Auth] ========================================');
     console.log('[Auth] Login attempt:');

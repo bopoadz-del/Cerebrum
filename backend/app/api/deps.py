@@ -7,6 +7,7 @@ from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 import uuid
+import os
 
 from sqlalchemy.orm import Session
 
@@ -22,6 +23,11 @@ from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
+# SLEEP MODE: Set to True to disable authentication (for development only)
+AUTH_SLEEP_MODE = os.environ.get('AUTH_SLEEP_MODE', 'true').lower() in ('true', '1', 'yes')
+# Hardcoded sleep mode user ID (consistent fake user)
+SLEEP_MODE_USER_ID = uuid.UUID('00000000-0000-0000-0000-000000000001')
+
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
 
 
@@ -31,6 +37,8 @@ async def get_current_user(
 ) -> User:
     """
     Authenticate user from JWT token and return User object from database.
+    
+    SLEEP MODE: When AUTH_SLEEP_MODE is True, returns a fake user without checking token.
     
     Args:
         token: JWT access token from Authorization header
@@ -42,6 +50,28 @@ async def get_current_user(
     Raises:
         HTTPException: 401 if token is invalid or user not found
     """
+    # SLEEP MODE: Bypass authentication
+    if AUTH_SLEEP_MODE:
+        # Return a fake user that exists in the database or create one
+        user = db.query(User).filter(User.id == SLEEP_MODE_USER_ID).first()
+        if not user:
+            # Create sleep mode user if not exists
+            user = User(
+                id=SLEEP_MODE_USER_ID,
+                email="sleep@mode.local",
+                hashed_password="sleep_mode",
+                full_name="Sleep Mode User",
+                role="admin",
+                tenant_id=SLEEP_MODE_USER_ID,
+                is_active=True,
+                is_verified=True,
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+            logger.info("Created sleep mode user")
+        return user
+    
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

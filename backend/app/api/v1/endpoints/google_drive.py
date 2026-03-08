@@ -452,9 +452,10 @@ async def scan_drive(
     current_user: User = Depends(get_current_user)
 ):
     """Scan Google Drive for all files (legacy endpoint) with auto-refresh."""
-    service = get_permanent_drive(db, current_user.id)
+    from app.services.google_drive_service import GoogleDriveService
+    service = GoogleDriveService(db)
     try:
-        files = await service.list_files(page_size=500000)
+        files = await service.list_files(current_user.id, page_size=1000)
         return {
             "success": True,
             "files_scanned": len(files),
@@ -472,9 +473,10 @@ async def get_projects(
     current_user: User = Depends(get_current_user)
 ):
     """Get Google Drive folders as projects (legacy endpoint) with auto-refresh."""
-    service = get_permanent_drive(db, current_user.id)
+    from app.services.google_drive_service import GoogleDriveService
+    service = GoogleDriveService(db)
     try:
-        files = await service.list_files(page_size=500000)
+        files = await service.list_files(current_user.id, page_size=1000)
         folders = [f for f in files if f.get("is_folder")]
         projects = [
             {
@@ -632,9 +634,10 @@ async def get_indexing_status(
         }
     
     # Get file count from Google Drive with auto-refresh
-    service = get_permanent_drive(db, current_user.id)
+    from app.services.google_drive_service import GoogleDriveService
+    service = GoogleDriveService(db)
     try:
-        files = await service.list_files(page_size=1)
+        files = await service.list_files(current_user.id, page_size=1)
         return {
             "status": "connected",
             "total_files": len(files),

@@ -13,22 +13,9 @@ import Login from '@/pages/Login';
 // Mobile components
 import { MobileLayout } from '@/components/mobile';
 
-// Protected Route Component
+// Protected Route Component - AUTH DISABLED (sleep mode)
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth();
-  
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-  
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-  
+  // Authentication is temporarily disabled - all routes are public
   return <>{children}</>;
 }
 

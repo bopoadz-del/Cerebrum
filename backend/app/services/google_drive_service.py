@@ -910,3 +910,63 @@ class GoogleDriveService:
         
         search_q = " and ".join(q_parts)
         return await self.list_files(user_id, query=search_q, page_size=page_size)
+
+
+async def get_drive_files_sync(user_id_str: str, folder_id: str = None):
+    """Synchronous helper to get Drive files for a user.
+    
+    Args:
+        user_id_str: User ID as string
+        folder_id: Optional folder ID to list files from
+        
+    Returns:
+        List of file metadata dicts
+    """
+    from app.db.session import SessionLocal
+    import uuid
+    
+    db = SessionLocal()
+    try:
+        user_id = uuid.UUID(user_id_str) if isinstance(user_id_str, str) else user_id_str
+        service = GoogleDriveService(db)
+        
+        # Get credentials
+        creds = service.get_credentials(user_id)
+        if not creds:
+            # Try to refresh
+            token_data = await service.refresh_access_token(user_id)
+            if not token_data:
+                raise GoogleDriveAuthError("No valid credentials")
+            creds = service.get_credentials(user_id)
+        
+        # Build Drive service
+        drive = build("drive", "v3", credentials=creds, cache_discovery=False)
+        
+        # List files
+        q = "trashed=false"
+        if folder_id:
+            q += f" and '{folder_id}' in parents"
+        else:
+            q += " and 'root' in parents"
+        
+        results = drive.files().list(
+            q=q,
+            pageSize=100,
+            fields="files(id,name,mimeType,modifiedTime,size,webViewLink)"
+        ).execute()
+        
+        files = results.get("files", [])
+        return [
+            {
+                "id": f["id"],
+                "name": f["name"],
+                "mime_type": f["mimeType"],
+                "modified_time": f.get("modifiedTime"),
+                "size": f.get("size"),
+                "web_view_link": f.get("webViewLink"),
+                "is_folder": f["mimeType"] == "application/vnd.google-apps.folder"
+            }
+            for f in files
+        ]
+    finally:
+        db.close()

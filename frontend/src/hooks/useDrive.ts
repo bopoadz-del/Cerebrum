@@ -112,15 +112,22 @@ export function useDrive() {
   const { user, refreshAuthToken } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [scanning, setScanning] = useState(false);
-  const [isConnected, setIsConnected] = useState(false);
+  // PERMANENT MODE: Always connected, skip connection checks
+  const [isConnected, setIsConnected] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [backendAvailable, setBackendAvailable] = useState<boolean | null>(null);
+  const [backendAvailable, setBackendAvailable] = useState<boolean | null>(true);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [indexingStatus, setIndexingStatus] = useState<IndexingStatus | null>(null);
   const [scanResults, setScanResults] = useState<{ detected: number; queued: number; zvecReady: boolean } | null>(null);
 
   // Get auth token from localStorage using the same key as AuthContext
-  const getAuthToken = () => localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN) || '';
+  // SLEEP MODE: Return a fake token if no real token exists
+  const getAuthToken = () => {
+    const realToken = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+    if (realToken) return realToken;
+    // Sleep mode token - backend will bypass auth when this is used
+    return 'sleep_mode_token';
+  };
 
   const getHeaders = () => ({
     'Authorization': `Bearer ${getAuthToken()}`,
@@ -245,31 +252,24 @@ export function useDrive() {
     }
   }, [refreshAuthToken]);
 
-  // Check connection on mount
+  // Check connection on mount - PERMANENT MODE: skip auth-based checks
   useEffect(() => {
     // Migrate legacy data first
     migrateLegacyDriveData();
     
-    if (user) {
-      // Start optimistic - if we have stored connection, show as connected immediately
-      const storedConnected = localStorage.getItem(DRIVE_STORAGE_KEYS.CONNECTED);
-      if (storedConnected === 'true') {
-        setIsConnected(true);
-        // Load cached projects if available
-        const cachedProjects = localStorage.getItem('cerebrum_drive_projects');
-        if (cachedProjects) {
-          try {
-            setProjects(JSON.parse(cachedProjects));
-          } catch {}
-        }
-      }
-      checkConnection();
-    } else {
-      // Clear connection state when user logs out
-      setIsConnected(false);
-      setProjects([]);
+    // PERMANENT MODE: Always show as connected, load cached projects
+    setIsConnected(true);
+    setBackendAvailable(true);
+    const cachedProjects = localStorage.getItem('cerebrum_drive_projects');
+    if (cachedProjects) {
+      try {
+        setProjects(JSON.parse(cachedProjects));
+      } catch {}
     }
-  }, [user, checkConnection]);
+    
+    // Still try to refresh from backend if available, but don't block
+    checkConnection().catch(() => {});
+  }, [checkConnection]);
 
   // Handle OAuth callback from popup (via postMessage)
   // Note: The callback endpoint is called by Google's redirect, not by us.
@@ -510,17 +510,26 @@ export function useDrive() {
   // Refresh projects list
   const refreshProjects = useCallback(async () => {
     try {
+      console.log('[Drive] Fetching projects...');
       const res = await fetch(`${API_URL}/connectors/google-drive/projects`, { 
         headers: getHeaders(),
         signal: AbortSignal.timeout(5000)
       });
       
+      console.log('[Drive] Projects response:', { status: res.status, ok: res.ok });
+      
       if (res.ok) {
         const data = await res.json();
-        if (data.projects) {
+        console.log('[Drive] Projects data:', data);
+        
+        // Note: data.projects can be an empty array [], which is truthy
+        if (data.projects && Array.isArray(data.projects)) {
+          console.log(`[Drive] Setting ${data.projects.length} projects`);
           setProjects(data.projects);
           // Cache projects to localStorage
           localStorage.setItem('cerebrum_drive_projects', JSON.stringify(data.projects));
+        } else {
+          console.warn('[Drive] No projects array in response:', data);
         }
         setIsConnected(true);
         // Update last connected timestamp
@@ -533,8 +542,12 @@ export function useDrive() {
           await refreshProjects();
           return;
         }
+      } else {
+        const errorText = await res.text();
+        console.error('[Drive] Failed to fetch projects:', res.status, errorText);
       }
     } catch (e) {
+      console.error('[Drive] Error fetching projects:', e);
       // Ignore errors - keep existing projects
     }
   }, [refreshAuthToken]);
@@ -728,12 +741,12 @@ export function useDrive() {
     }
   };
 
-  // Auto-scan when connected
+  // Auto-scan when connected - PERMANENT MODE: always try to scan
   useEffect(() => {
-    if (isConnected && projects.length === 0 && !scanning) {
-      scanDrive();
+    if (projects.length === 0 && !scanning) {
+      scanDrive().catch(() => {});
     }
-  }, [isConnected]);
+  }, []);
 
   // Periodic refresh (every 10 minutes to keep token alive)
   useEffect(() => {

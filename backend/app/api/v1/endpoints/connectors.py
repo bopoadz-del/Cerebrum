@@ -1,4 +1,5 @@
 import os
+import logging
 """
 Connectors API Endpoints
 
@@ -246,7 +247,7 @@ async def get_google_drive_token(
             SELECT access_token, refresh_token, expiry, scopes, token_uri, 
                    client_id, client_secret, account_email, is_active, updated_at
             FROM integration_tokens 
-            WHERE user_id = :user_id 
+            WHERE user_id = :user_id::uuid 
             AND service = 'google_drive'
             AND is_active = true
             LIMIT 1
@@ -305,7 +306,7 @@ async def get_google_drive_status(
                 SELECT account_email, is_active, expiry, updated_at, scopes,
                        refresh_token, access_token, client_id, client_secret
                 FROM integration_tokens 
-                WHERE user_id = :user_id 
+                WHERE user_id = :user_id::uuid 
                 AND service = 'google_drive'
                 AND is_active = true
                 LIMIT 1
@@ -950,7 +951,7 @@ async def list_project_files(
                 SELECT root_folder_id, root_folder_name 
                 FROM google_drive_projects 
                 WHERE CAST(project_id AS TEXT) = :project_id 
-                AND CAST(user_id AS TEXT) = :user_id
+                AND user_id = :user_id::uuid
                 LIMIT 1
             """),
             {"project_id": project_id, "user_id": str(user_id)}
@@ -965,7 +966,7 @@ async def list_project_files(
                     SELECT root_folder_id, root_folder_name 
                     FROM google_drive_projects 
                     WHERE CAST(id AS TEXT) = :project_id 
-                    AND CAST(user_id AS TEXT) = :user_id
+                    AND user_id = :user_id::uuid
                     LIMIT 1
                 """),
                 {"project_id": project_id, "user_id": str(user_id)}
@@ -1137,7 +1138,7 @@ async def disconnect_google_drive(
                 SET is_active = false,
                     revoked_at = NOW(),
                     updated_at = NOW()
-                WHERE user_id = :user_id 
+                WHERE user_id = :user_id::uuid
                 AND service = 'google_drive'
             """),
             {"user_id": str(user_id)}
@@ -1197,6 +1198,7 @@ async def list_google_drive_projects(
     user_id = uuid.UUID(str(current_user.id))
     
     # Use raw query with proper bindparams - include indexing_progress
+    # Convert UUID to string for the query to ensure proper comparison
     result = await db.execute(
         text("""
             SELECT 
@@ -1208,12 +1210,16 @@ async def list_google_drive_projects(
                 score,
                 confidence
             FROM google_drive_projects
-            WHERE user_id = :user_id
+            WHERE user_id = :user_id::uuid
             AND deleted = false
             ORDER BY updated_at DESC
-        """), {"user_id": user_id}
+        """), {"user_id": str(user_id)}
     )
     rows = result.fetchall()
+    
+    # Debug logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"list_google_drive_projects: user_id={user_id}, rows found={len(rows)}")
 
     projects: List[GoogleDriveProject] = []
     for row in rows:
@@ -1272,10 +1278,10 @@ async def get_indexing_status(
                 score,
                 confidence
             FROM google_drive_projects
-            WHERE user_id = :user_id
+            WHERE user_id = :user_id::uuid
             AND deleted = false
             ORDER BY updated_at DESC
-        """), {"user_id": user_id}
+        """), {"user_id": str(user_id)}
     )
     
     projects_status = []
