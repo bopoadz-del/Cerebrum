@@ -22,7 +22,6 @@ except Exception as e:
     logger.warning(f"Documents endpoints not available: {e}")
 
 try:
-    from app.api.v1.endpoints import google_drive
     GOOGLE_DRIVE_AVAILABLE = True
     logger.info("Google Drive endpoints loaded")
 except Exception as e:
@@ -51,7 +50,6 @@ if DOCUMENTS_AVAILABLE:
 # Note: connectors.py also provides /connectors/google-drive/* endpoints
 if GOOGLE_DRIVE_AVAILABLE:
     api_v1_router.include_router(
-        google_drive.router, 
         prefix="/google-drive", 
         tags=["google-drive"]
     )
