@@ -1,0 +1,12 @@
+"""ghost
+
+Revision ID: cf3ec9cca1a4
+Revises: 
+Create Date: 2024-03-08
+
+"""
+revision = 'cf3ec9cca1a4'
+down_revision = None
+
+def upgrade(): pass
+def downgrade(): pass
