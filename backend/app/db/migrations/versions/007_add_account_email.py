@@ -1,7 +1,7 @@
 """Add account_email to integration_tokens
 
 Revision ID: 007
-Revises: cf3ec9cca1a4
+Revises: 004
 Create Date: 2026-03-01 01:30:00.000000
 
 """
@@ -9,7 +9,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision = '007'
-down_revision = 'cf3ec9cca1a4'
+down_revision = '004'
 branch_labels = None
 depends_on = None
 
