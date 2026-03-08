@@ -17,8 +17,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# Cache-bust: always copy fresh source files (do not move this line)
-ARG CACHE_BUST=20260308_1130
+# Cache-bust layer: copy this first to invalidate COPY . . cache
+COPY .docker_nocache /tmp/.docker_nocache
 COPY . .
 
 EXPOSE 8000
