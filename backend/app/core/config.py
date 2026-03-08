@@ -205,9 +205,6 @@ class Settings(BaseSettings):
     # =================================================================
     # Google OAuth Settings
     # =================================================================
-    GOOGLE_CLIENT_ID: Optional[str] = Field(default=None, description="Google OAuth client ID")
-    GOOGLE_CLIENT_SECRET: Optional[str] = Field(default=None, description="Google OAuth client secret")
-    GOOGLE_REDIRECT_URI: str = Field(
         default="http://localhost:8000/api/v1/drive/auth/callback",
         description="Google OAuth redirect URI"
     )
