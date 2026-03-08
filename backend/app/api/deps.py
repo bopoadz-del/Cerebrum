@@ -53,7 +53,7 @@ async def get_current_user(
     # SLEEP MODE: Bypass authentication
     if AUTH_SLEEP_MODE:
         # Return a fake user that exists in the database or create one
-        user = db.query(User).filter(User.id == SLEEP_MODE_USER_ID).first()
+        from sqlalchemy import select; result = await db.execute(select(User).where(User.id == SLEEP_MODE_USER_ID)); user = result.scalar_one_or_none()
         if not user:
             # Create sleep mode user if not exists
             user = User(
