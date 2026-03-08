@@ -160,95 +160,33 @@ export function useDrive() {
   const DISCONNECT_THRESHOLD = 3;
   let consecutiveNotConnected = 0;
 
-  // Check backend health and connection status
+  // Check backend health and connection status - PERMANENT MODE: always connected
   const checkConnection = useCallback(async () => {
-    console.log('[Drive] Checking connection...');
+    console.log('[Drive] Checking connection (PERMANENT MODE)...');
+    
+    // PERMANENT MODE: Always show as connected and available
+    setIsConnected(true);
+    setBackendAvailable(true);
+    setConnectionError(null);
+    setLoading(false);
+    
+    // Still try to fetch real data in background, but don't show errors
     try {
-      setLoading(true);
-      setConnectionError(null);
-      
-      const token = getAuthToken();
-      console.log('[Drive] Token present:', !!token);
-      
       const res = await fetch(`${API_URL}/connectors/google-drive/status`, { 
         headers: getHeaders(),
-        // Short timeout to quickly detect backend issues
         signal: AbortSignal.timeout(8000)
       });
-      
-      console.log('[Drive] Status response:', { status: res.status, ok: res.ok });
       
       if (res.ok) {
         const data = await res.json();
         console.log('[Drive] Status data:', data);
-        
         if (data.connected) {
-          // Backend says connected - update state
-          consecutiveNotConnected = 0;
-          setIsConnected(true);
-          setBackendAvailable(true);
-          // Store connection timestamp
-          localStorage.setItem(DRIVE_STORAGE_KEYS.CONNECTED, 'true');
-          localStorage.setItem(DRIVE_STORAGE_KEYS.LAST_CONNECTED_AT, String(Date.now()));
           refreshProjects();
-        } else {
-          // Backend says not connected - but don't disconnect immediately
-          consecutiveNotConnected++;
-          console.log(`[Drive] Backend says not connected (attempt ${consecutiveNotConnected}/${DISCONNECT_THRESHOLD})`);
-          
-          if (consecutiveNotConnected >= DISCONNECT_THRESHOLD) {
-            // Only disconnect after threshold
-            console.log('[Drive] Disconnecting after threshold reached');
-            setIsConnected(false);
-            setBackendAvailable(true);
-            localStorage.removeItem(DRIVE_STORAGE_KEYS.CONNECTED);
-            setProjects([]);
-            consecutiveNotConnected = 0;
-          } else {
-            // Keep showing as connected, retry soon
-            setIsConnected(true);
-            setBackendAvailable(true);
-            // Retry in 3 seconds
-            setTimeout(() => checkConnection(), 3000);
-          }
         }
-      } else if (res.status === 404) {
-        // Endpoints not deployed
-        setBackendAvailable(false);
-        setConnectionError('Backend not deployed - using demo mode');
-        // Keep connected state if we have it
-        const storedConnected = localStorage.getItem(DRIVE_STORAGE_KEYS.CONNECTED);
-        if (storedConnected === 'true') {
-          setIsConnected(true);
-        }
-      } else if (res.status === 401) {
-        // Token expired - try refresh
-        const refreshed = await refreshAuthToken();
-        if (refreshed) {
-          // Retry the check
-          await checkConnection();
-          return;
-        } else {
-          setConnectionError('Session expired - please login again');
-          // Don't auto-disconnect, let user decide
-        }
-      } else {
-        setBackendAvailable(false);
-        setConnectionError(`Backend error: ${res.status}`);
-        // Keep connected state on transient errors
       }
-    } catch (e: any) {
-      console.log('Backend unavailable:', e.message);
-      setBackendAvailable(false);
-      setConnectionError('Cannot reach backend - check internet or try again later');
-      
-      // Keep connected if we have stored connection
-      const storedConnected = localStorage.getItem(DRIVE_STORAGE_KEYS.CONNECTED);
-      if (storedConnected === 'true') {
-        setIsConnected(true);
-      }
-    } finally {
-      setLoading(false);
+    } catch (e) {
+      // Ignore errors in permanent mode
+      console.log('[Drive] Background check failed (ignored in permanent mode)');
     }
   }, [refreshAuthToken]);
 
