@@ -13,13 +13,12 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Cache-busting: ensure COPY . . is not cached
-ARG CACHE_BUST=1
-
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
+# Cache-bust: always copy fresh source files (do not move this line)
+ARG CACHE_BUST=20260308_1130
 COPY . .
 
 EXPOSE 8000
