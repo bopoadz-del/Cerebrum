@@ -285,7 +285,7 @@ async def list_files(
     current_user: User = Depends(get_current_user)
 ):
     """List files from Google Drive with auto-refresh."""
-    service = get_permanent_drive(db, current_user.id)
+    from app.services.google_drive_service import GoogleDriveService; service = GoogleDriveService(db)
     
     try:
         files = await service.list_files(
@@ -308,7 +308,7 @@ async def get_file(
     current_user: User = Depends(get_current_user)
 ):
     """Get detailed file metadata with auto-refresh."""
-    service = get_permanent_drive(db, current_user.id)
+    from app.services.google_drive_service import GoogleDriveService; service = GoogleDriveService(db)
     
     try:
         file = await service.get_file(file_id)
@@ -337,7 +337,7 @@ async def download_file(
     - Google Slides: application/vnd.openxmlformats-officedocument.presentationml.presentation
     """
     import json
-    service = get_permanent_drive(db, current_user.id)
+    from app.services.google_drive_service import GoogleDriveService; service = GoogleDriveService(db)
     
     try:
         content, filename, mime_type = await service.download_file(
@@ -372,7 +372,7 @@ async def search_files(
     current_user: User = Depends(get_current_user)
 ):
     """Search files in Google Drive by name with auto-refresh."""
-    service = get_permanent_drive(db, current_user.id)
+    from app.services.google_drive_service import GoogleDriveService; service = GoogleDriveService(db)
     
     try:
         files = await service.search_files(
@@ -398,7 +398,7 @@ async def create_folder(
     current_user: User = Depends(get_current_user)
 ):
     """Create a new folder in Google Drive with auto-refresh."""
-    service = get_permanent_drive(db, current_user.id)
+    from app.services.google_drive_service import GoogleDriveService; service = GoogleDriveService(db)
     
     try:
         folder = await service.create_folder(
@@ -425,7 +425,7 @@ async def delete_file(
     - permanent=false (default): Move to trash
     - permanent=true: Permanently delete
     """
-    service = get_permanent_drive(db, current_user.id)
+    from app.services.google_drive_service import GoogleDriveService; service = GoogleDriveService(db)
     
     try:
         success = await service.delete_file(file_id, permanent=permanent)
@@ -505,7 +505,7 @@ async def get_project_files(
     current_user: User = Depends(get_current_user)
 ):
     """Get files within a specific folder/project (legacy endpoint) with auto-refresh."""
-    service = get_permanent_drive(db, current_user.id)
+    from app.services.google_drive_service import GoogleDriveService; service = GoogleDriveService(db)
     try:
         files = await service.list_files(
             folder_id=project_id, 

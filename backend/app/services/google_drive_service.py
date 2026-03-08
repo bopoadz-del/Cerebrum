@@ -970,3 +970,14 @@ async def get_drive_files_sync(user_id_str: str, folder_id: str = None):
         ]
     finally:
         db.close()
+
+async def get_drive_files_sync(user_id_str: str, folder_id: str = None):
+    from app.db.session import SessionLocal
+    import uuid
+    db = SessionLocal()
+    try:
+        user_id = uuid.UUID(user_id_str) if isinstance(user_id_str, str) else user_id_str
+        svc = GoogleDriveService(db)
+        return await svc.list_files(user_id, folder_id=folder_id)
+    finally:
+        db.close()
