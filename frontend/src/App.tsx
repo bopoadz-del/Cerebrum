@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, MessageSquare, Loader2 } from 'lucide-react';
 import { ProjectSidebar } from '@/components/ProjectSidebar';
