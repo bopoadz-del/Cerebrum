@@ -13,7 +13,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 from app.api.deps import get_current_user, User, get_db
-from app.services.google_drive_service import GoogleDriveService, GoogleDriveAuthError, GoogleDriveError
+# GOOGLE DRIVE REMOVED: from app.services.google_drive_service import GoogleDriveService, GoogleDriveAuthError, GoogleDriveError
 from sqlalchemy.orm import Session
 from app.core.logging import get_logger
 from app.pipelines.ocr import extract_text_from_image, OCRLanguage, OCRMode
@@ -559,7 +559,7 @@ async def process_drive_file(
     from app.models.document import Document
     import time
 
-    drive_service = GoogleDriveService(db)
+    drive_service = None  # GoogleDriveService removed
 
     try:
         # 1. Get metadata
@@ -703,10 +703,10 @@ async def process_drive_file(
             results=results
         )
 
-    except GoogleDriveAuthError as e:
-        raise HTTPException(status_code=401, detail=str(e))
-    except GoogleDriveError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+# GOOGLE DRIVE REMOVED:     except GoogleDriveAuthError as e:
+# GOOGLE DRIVE REMOVED:         raise HTTPException(status_code=401, detail=str(e))
+# GOOGLE DRIVE REMOVED:     except GoogleDriveError as e:
+# GOOGLE DRIVE REMOVED:         raise HTTPException(status_code=400, detail=str(e))
     except HTTPException:
         raise
     except Exception as e:
