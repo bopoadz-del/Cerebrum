@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useProjects } from "@/hooks/useProjects";
 import { AnimatePresence } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
 import { MobileProjectSidebar } from './MobileProjectSidebar';
@@ -31,6 +32,7 @@ export function MobileLayout() {
     getProjectFiles
 
   // Update selected project when projects load
+  } = useProjects();
   useEffect(() => {
     if (projects.length > 0 && !selectedProjectId) {
       setSelectedProjectId(projects[0].id);

@@ -70,15 +70,15 @@ interface ProjectSidebarProps {
   onSelectProject: (projectId: string) => void;
   onSelectChat: (chatId: string) => void;
   onNewChat: () => void;
-  isDriveConnected: boolean;
+  isDriveConnected?: boolean;
   isScanning: boolean;
   isDemoMode?: boolean;
   connectionError?: string | null;
   indexingStatus?: IndexingStatus | null;
   scanResults?: { detected: number; queued: number; zvecReady: boolean } | null;
-  onConnectDrive: () => void;
+  onConnectDrive?: () => void;
   onDisconnectDrive?: () => void;
-  onScanDrive: () => void;
+  onScanDrive?: () => void;
   onRefreshProjects: () => void;
   onOpenSettings: () => void;
   getProjectFiles?: (projectId: string) => Promise<DriveFile[]>;

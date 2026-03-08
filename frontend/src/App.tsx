@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
 import Login from '@/pages/Login';
 
+import { useProjects } from "@/hooks/useProjects";
 // Mobile components
 import { MobileLayout } from '@/components/mobile';
 
@@ -36,6 +37,7 @@ function DesktopLayout() {
     getProjectFiles
 
   // Update selected project to use real data from Drive
+  } = useProjects();
   const selectedProject = projects.find(p => p.id === selectedProjectId) || projects[0];
 
   const selectedChat = {
