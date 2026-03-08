@@ -49,7 +49,7 @@ export function useChat(options: UseChatOptions = {}) {
 I can help you with construction management tasks. Try these commands:
 
 **Integrations:**
-• \`/connect drive\` - Connect Google Drive
+• \`/connect drive\` - Connect OneDrive
 • \`/connect procore\` - Connect Procore
 • \`/connect slack\` - Connect Slack
 
@@ -96,7 +96,7 @@ I can help you with construction management tasks. Try these commands:
           const response = await fetch(`${apiBaseUrl}/drive/auth/url`);
           
           if (response.status === 404) {
-            return `⚠️ **Google Drive API endpoint not found**\n\nThe backend API is currently deploying or the endpoint is not available yet.\n\nTo connect Google Drive manually:\n1. Go to Google Cloud Console\n2. Create OAuth 2.0 credentials\n3. Set redirect URI: \`${window.location.origin}/api/drive/auth/callback\`\n\n**Client ID:**\n\`382554705937-v3s8kpvl7h0em2aekud73fro8rig0cvu.apps.googleusercontent.com\``;
+            return `⚠️ **OneDrive API endpoint not found**\n\nThe backend API is currently deploying or the endpoint is not available yet.\n\nTo connect OneDrive manually:\n1. Go to Google Cloud Console\n2. Create OAuth 2.0 credentials\n3. Set redirect URI: \`${window.location.origin}/api/drive/auth/callback\`\n\n**Client ID:**\n\`382554705937-v3s8kpvl7h0em2aekud73fro8rig0cvu.apps.googleusercontent.com\``;
           }
           
           if (!response.ok) {
@@ -119,11 +119,11 @@ I can help you with construction management tasks. Try these commands:
               `width=${width},height=${height},left=${left},top=${top}`
             );
             
-            return '🔐 Opening Google Drive authorization... Please complete the OAuth flow in the popup.';
+            return '🔐 Opening OneDrive authorization... Please complete the OAuth flow in the popup.';
           }
           return '❌ Failed to get authorization URL';
         } catch (error) {
-          return `❌ Failed to initiate Google Drive connection: ${error instanceof Error ? error.message : 'Unknown error'}`;
+          return `❌ Failed to initiate OneDrive connection: ${error instanceof Error ? error.message : 'Unknown error'}`;
         }
         
       case 'procore':
@@ -145,7 +145,7 @@ I can help you with construction management tasks. Try these commands:
         const response = await fetch(`${apiBaseUrl}/documents/process-invoice`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ source: 'google_drive', auto_detect: true }),
+          body: JSON.stringify({ source: 'onedrive', auto_detect: true }),
         });
         
         if (response.status === 404) {
@@ -159,13 +159,13 @@ I can help you with construction management tasks. Try these commands:
         return '❌ Failed to start invoice processing';
       } catch (error) {
         // Fallback for demo
-        return `📄 Invoice processing queued.\n\nProcessing last invoice from Google Drive...\n• Extracting line items\n• Validating against PO #2847\n• Flagging discrepancies\n\n⏱️ ETA: ~2 minutes`;
+        return `📄 Invoice processing queued.\n\nProcessing last invoice from OneDrive...\n• Extracting line items\n• Validating against PO #2847\n• Flagging discrepancies\n\n⏱️ ETA: ~2 minutes`;
       }
     }
     
     if (target.includes('document')) {
       const docName = args.slice(1).join(' ');
-      return `📄 Processing document: "${docName}"...\n\nSearching Google Drive for matching documents...`;
+      return `📄 Processing document: "${docName}"...\n\nSearching OneDrive for matching documents...`;
     }
     
     return '❓ Usage: /process last invoice | /process document <name>';
@@ -264,7 +264,7 @@ This is a simulated result showing how ZVec offline semantic search would work. 
     return `📚 **Available Commands:**
 
 **Integrations:**
-• \`/connect drive\` - Connect Google Drive
+• \`/connect drive\` - Connect OneDrive
 • \`/connect procore\` - Connect Procore  
 • \`/connect slack\` - Connect Slack
 

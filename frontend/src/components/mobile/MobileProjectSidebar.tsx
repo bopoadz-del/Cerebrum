@@ -214,7 +214,7 @@ export function MobileProjectSidebar({
               {/* Scanning Indicator */}
               {isScanning && !scanResults && (
                 <div className="text-xs text-indigo-600 mb-2 animate-pulse">
-                  Scanning Google Drive for projects...
+                  Scanning OneDrive for projects...
                 </div>
               )}
               
@@ -257,7 +257,7 @@ export function MobileProjectSidebar({
             {!isDriveConnected ? (
               <div className="px-3 py-6 text-center border border-dashed border-gray-300 rounded-lg mx-2">
                 <Cloud className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                <p className="text-sm text-gray-500 mb-1">Connect Google Drive</p>
+                <p className="text-sm text-gray-500 mb-1">Connect OneDrive</p>
                 <p className="text-xs text-gray-400 mb-3">to auto-discover projects</p>
                 <button
                   onClick={onConnectDrive}
@@ -421,7 +421,7 @@ export function MobileProjectSidebar({
           </div>
         )}
         
-        {/* Google Drive Status */}
+        {/* OneDrive Status */}
         <div className="p-3">
           {isDriveConnected ? (
             <div className="relative group">
@@ -442,7 +442,7 @@ export function MobileProjectSidebar({
                   <Check className="w-3 h-3 text-white" />
                 </div>
                 <div className="flex-1 text-left">
-                  <span className="text-sm font-medium">Google Drive</span>
+                  <span className="text-sm font-medium">OneDrive</span>
                   <p className={cn(
                     'text-xs flex items-center gap-1',
                     isDemoMode ? 'text-amber-600' : 'text-emerald-600'
@@ -467,7 +467,7 @@ export function MobileProjectSidebar({
                 <button
                   onClick={onDisconnectDrive}
                   className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-sm hover:bg-red-600"
-                  title="Disconnect Google Drive"
+                  title="Disconnect OneDrive"
                 >
                   <span className="text-xs">×</span>
                 </button>
@@ -488,7 +488,7 @@ export function MobileProjectSidebar({
                 <CloudOff className="w-5 h-5" />
               )}
               <div className="flex-1 text-left">
-                <span className="text-sm font-medium">Google Drive</span>
+                <span className="text-sm font-medium">OneDrive</span>
                 <p className="text-xs text-gray-500">
                   {isScanning ? 'Connecting...' : 'Click to connect'}
                 </p>
