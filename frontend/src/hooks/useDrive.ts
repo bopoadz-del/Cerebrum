@@ -158,7 +158,7 @@ export function useDrive() {
 
   // Number of consecutive "not connected" responses before actually disconnecting
 //   const DISCONNECT_THRESHOLD = 3;
-//   // let consecutiveNotConnected = 0;
+//   // // let consecutiveNotConnected = 0;  // unused
 
   // Check backend health and connection status - PERMANENT MODE: always connected
   const checkConnection = useCallback(async () => {
