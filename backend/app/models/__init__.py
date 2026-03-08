@@ -15,5 +15,4 @@ __all__ = [
     "IntegrationToken",
     "Document",
     "DocumentChunk",
-    "GoogleDriveToken",
 ]

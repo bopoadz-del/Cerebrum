@@ -47,7 +47,6 @@ if DOCUMENTS_AVAILABLE:
     api_v1_router.include_router(documents.router, prefix="/documents", tags=["documents"])
 
 # Include Google Drive router for direct /google-drive/* endpoints
-# Note: connectors.py also provides /connectors/google-drive/* endpoints
 if GOOGLE_DRIVE_AVAILABLE:
     api_v1_router.include_router(
         prefix="/google-drive", 
