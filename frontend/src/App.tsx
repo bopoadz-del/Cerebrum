@@ -7,7 +7,6 @@ import { ChatInterfaceV2 } from '@/components/ChatInterfaceV2';
 import { OutcomesPanel } from '@/components/OutcomesPanel';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
-import { useDrive } from '@/hooks/useDrive';
 import Login from '@/pages/Login';
 
 // Mobile components
@@ -40,7 +39,6 @@ function DesktopLayout() {
     scanDrive,
     refreshProjects,
     getProjectFiles
-  } = useDrive();
 
   // Update selected project to use real data from Drive
   const selectedProject = projects.find(p => p.id === selectedProjectId) || projects[0];

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
-import { useDrive } from '@/hooks/useDrive';
 import { MobileProjectSidebar } from './MobileProjectSidebar';
 import { MobileChat } from './MobileChat';
 import { MobileOutcomes } from './MobileOutcomes';
@@ -30,7 +29,6 @@ export function MobileLayout() {
     scanDrive,
     refreshProjects,
     getProjectFiles
-  } = useDrive();
 
   // Update selected project when projects load
   useEffect(() => {
