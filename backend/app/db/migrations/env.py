@@ -103,6 +103,7 @@ def run_migrations_online() -> None:
 
     with connectable.connect() as connection:
         do_run_migrations(connection)
+        connection.commit()
 
 
 if context.is_offline_mode():
