@@ -211,7 +211,7 @@ I can help you with construction management tasks. Try these commands:
     
     try {
       // Call ZVec semantic search endpoint
-      const response = await fetch(`${apiBaseUrl}/google-drive/search?query=${encodeURIComponent(query)}&top_k=5`, {
+      const response = await fetch(`${apiBaseUrl}/connectors/google-drive/search?query=${encodeURIComponent(query)}&top_k=5`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
