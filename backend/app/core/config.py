@@ -203,11 +203,12 @@ class Settings(BaseSettings):
     S3_BACKUP_PREFIX: str = Field(default="backups/", description="S3 backup prefix")
     
     # =================================================================
-    # Google OAuth Settings
+    # Google OAuth Settings (REMOVED)
     # =================================================================
-        default="http://localhost:8000/api/v1/drive/auth/callback",
-        description="Google OAuth redirect URI"
-    )
+    # GOOGLE_DRIVE_REDIRECT_URI: str = Field(
+    #     default="http://localhost:8000/api/v1/drive/auth/callback",
+    #     description="Google OAuth redirect URI"
+    # )
     FRONTEND_URL: str = Field(default="http://localhost:3000", description="Frontend URL for OAuth origins")
     
     # =================================================================
