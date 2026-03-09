@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/data  # Mount local folder for documents
+      - ./backend:/app  # Hot reload for development
+    environment:
+      - DATABASE_URL=sqlite:///data/cerebrum.db
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=local-dev-key-change-in-production
+      - DEBUG=true
+      - ENVIRONMENT=local
+      - USE_STUB_CONNECTORS=true
+      - LOCAL_DATA_PATH=/data/diriyah_docs
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    depends_on:
+      - redis
+      - zvec
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  zvec:
+    image: alpine:latest  # Placeholder - ZVec runs in-process
+    command: echo "ZVec runs inside API container (in-process Rust lib)"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: npm run dev -- --host
+
+volumes:
+  redis_data:
