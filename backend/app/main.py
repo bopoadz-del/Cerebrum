@@ -134,7 +134,20 @@ async def lifespan(app: FastAPI):
         audit_triggers=True,
     )
     
+    # Initialize local filesystem watcher (if enabled)
+    local_watcher = None
+    if os.getenv("WATCH_LOCAL_FILES", "false").lower() == "true":
+        from app.platform.local_filesystem.watcher import init_watcher
+        local_watcher = init_watcher()
+        if local_watcher:
+            logger.info("Local filesystem watcher active")
+    
     yield
+    
+    # Shutdown local watcher
+    if local_watcher:
+        from app.platform.local_filesystem.watcher import stop_watcher
+        stop_watcher()
     
     # Shutdown
     logger.info("Shutting down Cerebrum AI Platform")

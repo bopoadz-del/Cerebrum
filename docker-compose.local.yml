@@ -1,43 +1,146 @@
 version: '3.8'
 
 services:
+  # PostgreSQL Database for Local Development
+  postgres:
+    image: postgres:15-alpine
+    container_name: cerebrum-local-postgres
+    environment:
+      POSTGRES_USER: cerebrum
+      POSTGRES_PASSWORD: cerebrum_local_dev
+      POSTGRES_DB: cerebrum_local
+    volumes:
+      - postgres_local_data:/var/lib/postgresql/data
+      - ./data/diriyah_docs:/data/diriyah_docs:ro  # Mount documents for processing
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cerebrum"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache & Queue
+  redis:
+    image: redis:7-alpine
+    container_name: cerebrum-local-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_local_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Backend API - Local Development Mode
   api:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    container_name: cerebrum-local-api
     ports:
       - "8000:8000"
     volumes:
-      - ./data:/data  # Mount local folder for documents
-      - ./backend:/app  # Hot reload for development
+      - ./backend:/app
+      - ./data:/data
+      - /app/__pycache__
     environment:
-      - DATABASE_URL=sqlite:///data/cerebrum.db
+      - DATABASE_URL=postgresql+asyncpg://cerebrum:cerebrum_local_dev@postgres:5432/cerebrum_local
       - REDIS_URL=redis://redis:6379/0
-      - SECRET_KEY=local-dev-key-change-in-production
+      - SECRET_KEY=local-development-secret-key-must-be-at-least-32-chars-long
       - DEBUG=true
-      - ENVIRONMENT=local
+      - ENVIRONMENT=development
+      - CORS_ORIGINS=http://localhost:5173,http://localhost:3000
       - USE_STUB_CONNECTORS=true
+      - USE_STUB_ML=true
+      - USE_STUB_NOTIFICATIONS=true
       - LOCAL_DATA_PATH=/data/diriyah_docs
+      - WATCH_LOCAL_FILES=true  # Enable local file watching
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     depends_on:
-      - redis
-      - zvec
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 40s
+      retries: 3
 
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
+  # Celery Worker - Fast Queue (Local)
+  worker-fast:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cerebrum-local-worker-fast
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://cerebrum:cerebrum_local_dev@postgres:5432/cerebrum_local
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=local-development-secret-key-must-be-at-least-32-chars-long
+      - DEBUG=true
+      - ENVIRONMENT=development
+      - USE_STUB_CONNECTORS=true
+      - USE_STUB_ML=true
     volumes:
-      - redis_data:/data
+      - ./backend:/app
+      - ./data:/data
+      - /app/__pycache__
+    depends_on:
+      - postgres
+      - redis
+    command: celery -A app.workers.celery_config worker --loglevel=info -Q celery_fast -n fast_worker@%h --concurrency=2
 
-  zvec:
-    image: alpine:latest  # Placeholder - ZVec runs in-process
-    command: echo "ZVec runs inside API container (in-process Rust lib)"
+  # Celery Worker - Slow Queue (Local)
+  worker-slow:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cerebrum-local-worker-slow
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://cerebrum:cerebrum_local_dev@postgres:5432/cerebrum_local
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=local-development-secret-key-must-be-at-least-32-chars-long
+      - DEBUG=true
+      - ENVIRONMENT=development
+      - USE_STUB_CONNECTORS=true
+      - USE_STUB_ML=true
+    volumes:
+      - ./backend:/app
+      - ./data:/data
+      - /app/__pycache__
+    depends_on:
+      - postgres
+      - redis
+    command: celery -A app.workers.celery_config worker --loglevel=info -Q celery_slow -n slow_worker@%h --concurrency=1
 
+  # Celery Beat Scheduler (Local)
+  scheduler:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cerebrum-local-scheduler
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://cerebrum:cerebrum_local_dev@postgres:5432/cerebrum_local
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=local-development-secret-key-must-be-at-least-32-chars-long
+    volumes:
+      - ./backend:/app
+      - /app/__pycache__
+    depends_on:
+      - postgres
+      - redis
+    command: celery -A app.workers.celery_config beat --loglevel=info
+
+  # Frontend Development Server
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    container_name: cerebrum-local-frontend
     ports:
       - "5173:5173"
     environment:
@@ -46,6 +149,9 @@ services:
       - ./frontend:/app
       - /app/node_modules
     command: npm run dev -- --host
+    depends_on:
+      - api
 
 volumes:
-  redis_data:
+  postgres_local_data:
+  redis_local_data:
