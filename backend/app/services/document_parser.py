@@ -272,7 +272,7 @@ def get_file_metadata(
         content_preview: Preview of content (first 500 chars)
     
     Returns:
-        Metadata dictionary for ZVec indexing
+        Metadata dictionary for ChromaDB indexing
     """
     project = detect_project_from_filename(filename)
     

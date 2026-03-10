@@ -46,7 +46,7 @@ def process_drive_file_batch(
     For each file:
     1. Calls Drive API to extract text (export for Docs, stream for PDFs)
     2. Generates embeddings locally using sentence-transformers
-    3. Indexes in ZVec vector store (local, no cloud DB)
+    3. Indexes in ChromaDB vector store (local, no cloud DB)
     4. Saves metadata to SQL database
     
     Files are never saved to disk - processed entirely in memory.
@@ -66,7 +66,7 @@ def process_drive_file_batch(
         detect_project_from_filename,
         list_drive_files
     )
-    from app.services.zvec_service import get_zvec_service
+    from app.services.chroma_service import get_chroma_service
     from app.models.document import Document
     
     db: Session = SessionLocal()
@@ -74,13 +74,13 @@ def process_drive_file_batch(
     error_count = 0
     
     try:
-        # Get ZVec service
-        zvec = get_zvec_service()
+        # Get ChromaDB service
+        chroma = get_chroma_service()
         
-        if not zvec.is_ready():
+        if not chroma.is_ready():
             return {
                 "status": "error",
-                "message": "ZVec service not ready - embedding model not available",
+                "message": "ChromaDB service not ready - embedding model not available",
                 "processed": 0,
                 "errors": len(file_ids)
             }
@@ -201,18 +201,18 @@ def index_document_chunk(
     metadata: Dict[str, Any]
 ) -> Dict[str, Any]:
     """
-    Index a single document chunk in ZVec (for large documents).
+    Index a single document chunk in ChromaDB (for large documents).
     """
-    from app.services.zvec_service import get_zvec_service
+    from app.services.chroma_service import get_chroma_service
     
     try:
-        zvec = get_zvec_service()
+        chroma = get_chroma_service()
         
-        if not zvec.is_ready():
-            raise RuntimeError("ZVec service not ready")
+        if not chroma.is_ready():
+            raise RuntimeError("ChromaDB service not ready")
         
         chunk_id = f"{document_id}_chunk_{chunk_index}"
-        success = zvec.add_document(chunk_id, chunk_text, metadata)
+        success = chroma.add_document(chunk_id, chunk_text, metadata)
         
         if success:
             return {
@@ -222,7 +222,7 @@ def index_document_chunk(
                 "chunk_index": chunk_index
             }
         else:
-            raise RuntimeError("Failed to add document to ZVec")
+            raise RuntimeError("Failed to add document to ChromaDB")
             
     except Exception as exc:
         retry_count = self.request.retries
@@ -233,7 +233,7 @@ def index_document_chunk(
 @celery_app.task
 def cleanup_old_indexed_files(days: int = 30) -> Dict[str, Any]:
     """
-    Clean up old indexed files from ZVec and database.
+    Clean up old indexed files from ChromaDB and database.
     """
     from sqlalchemy.orm import Session
     from app.db.session import SessionLocal

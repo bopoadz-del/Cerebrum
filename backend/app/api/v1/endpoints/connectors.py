@@ -221,7 +221,7 @@ class GoogleDriveProjectsResponse(BaseModel):
     projects: List[GoogleDriveProject]
 
 
-class ZVecSearchResponse(BaseModel):
+class ChromaSearchResponse(BaseModel):
     """Semantic search response."""
     query: str
     results: List[Dict[str, Any]]
@@ -713,14 +713,14 @@ async def scan_google_drive(
     db: AsyncSession = Depends(get_async_db),
 ) -> Dict[str, Any]:
     """
-    Scan Google Drive, detect projects, and trigger ZVec indexing.
+    Scan Google Drive, detect projects, and trigger ChromaDB indexing.
     The sync function handles token refresh internally.
     """
     import uuid
     import logging
     import traceback
     from app.services.drive_project_sync import discover_and_upsert_drive_projects
-    from app.services.zvec_service import get_zvec_service
+    from app.services.chroma_service import get_chroma_service
     
     logger = logging.getLogger(__name__)
     
@@ -760,13 +760,13 @@ async def scan_google_drive(
                 raise HTTPException(status_code=401, detail=result.get("message"))
             raise HTTPException(status_code=400, detail=result.get("message", "Scan failed"))
         
-        zvec = get_zvec_service()
-        zvec_stats = zvec.get_stats()
+        chroma = get_chroma_service()
+        chroma_stats = chroma.get_stats()
         
         return {
             **result,
             "status": "success",
-            "zvec": {"ready": zvec_stats.get('ready', False), "indexed_documents": zvec_stats.get('count', 0)},
+            "chroma": {"ready": chroma_stats.get('ready', False), "indexed_documents": chroma_stats.get('count', 0)},
             "message": f"Scan complete. Detected {result.get('detected', 0)} projects."
         }
         
@@ -786,10 +786,10 @@ async def search_google_drive(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
 ) -> Dict[str, Any]:
-    """Search files in Google Drive using ZVec semantic search."""
+    """Search files in Google Drive using ChromaDB semantic search."""
     import uuid
     from sqlalchemy import text
-    from app.services.zvec_service import get_zvec_service
+    from app.services.chroma_service import get_chroma_service
     
     user_id_str = str(current_user.id)
     
@@ -852,7 +852,7 @@ async def index_google_drive(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
 ) -> Dict[str, Any]:
-    """Trigger indexing of Google Drive files using ZVec."""
+    """Trigger indexing of Google Drive files using ChromaDB."""
     import uuid
     from app.db.session import db_manager
     from app.services.drive_project_sync import discover_and_upsert_drive_projects
@@ -869,7 +869,7 @@ async def index_google_drive(
             uuid.UUID(str(current_user.id)),
             min_score=1.0,
             max_root_folders=50,
-            index_now=True,  # This triggers ZVec indexing
+            index_now=True,  # This triggers ChromaDB indexing
             max_files_per_project=100,
         )
         sync_db.close()
@@ -1190,7 +1190,7 @@ async def list_google_drive_projects(
 ) -> GoogleDriveProjectsResponse:
     """
     Returns detected Drive projects from the google_drive_projects table.
-    Includes ZVec indexing status and progress.
+    Includes ChromaDB indexing status and progress.
     """
     import uuid
     from sqlalchemy import text
@@ -1256,7 +1256,7 @@ async def get_indexing_status(
     import uuid
     import logging
     from sqlalchemy import text
-    from app.services.zvec_service import get_zvec_service
+    from app.services.chroma_service import get_chroma_service
     
     logger = logging.getLogger(__name__)
     
@@ -1309,13 +1309,13 @@ async def get_indexing_status(
             "confidence": float(confidence) if confidence else 0,
         })
     
-    # Get ZVec stats
+    # Get ChromaDB stats
     try:
-        zvec = get_zvec_service()
-        zvec_stats = zvec.get_stats()
+        chroma = get_chroma_service()
+        chroma_stats = chroma.get_stats()
     except Exception as e:
-        logger.error(f"Failed to get ZVec stats: {e}")
-        zvec_stats = {'ready': False, 'count': 0}
+        logger.error(f"Failed to get ChromaDB stats: {e}")
+        chroma_stats = {'ready': False, 'count': 0}
     
     return {
         "projects": projects_status,
@@ -1324,8 +1324,11 @@ async def get_indexing_status(
             "total_indexed": total_indexed,
             "total_files": total_files,
             "overall_percent": round((total_indexed / total_files * 100), 1) if total_files > 0 else 0,
-            "zvec_ready": zvec_stats.get('ready', False),
-            "zvec_count": zvec_stats.get('count', 0),
+            "chroma_ready": chroma_stats.get('ready', False),
+            "chroma_count": chroma_stats.get('count', 0),
+            # Keep backward compatibility
+            "zvec_ready": chroma_stats.get('ready', False),
+            "zvec_count": chroma_stats.get('count', 0),
         }
     }
 
@@ -1449,19 +1452,19 @@ async def zvec_debug(
     Returns:
         ZVec stats and optional search results
     """
-    from app.services.zvec_service import get_zvec_service
+    from app.services.chroma_service import get_chroma_service
     
-    zvec = get_zvec_service()
-    stats = zvec.get_stats_sync()
+    chroma = get_chroma_service()
+    stats = chroma.get_stats_sync()
     
     result = {
-        "zvec_stats": stats,
+        "chroma_stats": stats,
         "user_id": str(current_user.id),
     }
     
     # If query provided, run a test search
     if query:
-        search_results = zvec.search_similar(query, top_k=5)
+        search_results = chroma.search_similar(query, top_k=5)
         result["test_search"] = {
             "query": query,
             "results_count": len(search_results),
@@ -1743,10 +1746,10 @@ async def upload_chat_file_simple(
                     except Exception as pdf_err:
                         logger.warning(f"PDF extraction failed: {pdf_err}")
                 
-                # Index in ZVec if text was extracted
+                # Index in ChromaDB if text was extracted
                 if extracted_text and len(extracted_text) > 50:
-                    from app.services.zvec_service import get_zvec_service
-                    zvec = get_zvec_service()
+                    from app.services.chroma_service import get_chroma_service
+                    chroma = get_chroma_service()
                     doc_id = f"chat_upload_{file_id}"
                     metadata = {
                         'name': file.filename,
@@ -1756,8 +1759,8 @@ async def upload_chat_file_simple(
                         'content_preview': extracted_text[:500],
                         'file_id': file_id,
                     }
-                    zvec.add_document(doc_id, extracted_text, metadata)
-                    logger.info(f"Document indexed in ZVec: {doc_id}")
+                    chroma.add_document(doc_id, extracted_text, metadata)
+                    logger.info(f"Document indexed in ChromaDB: {doc_id}")
                     
             except Exception as e:
                 logger.warning(f"Text extraction failed for {file.filename}: {e}")

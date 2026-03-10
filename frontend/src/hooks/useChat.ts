@@ -61,7 +61,7 @@ I can help you with construction management tasks. Try these commands:
 • \`/safety check floor 3\` - Analyze floor 3 safety
 • \`/safety report\` - Get safety summary
 
-**Semantic Search (ZVec - Offline):**
+**Semantic Search (ChromaDB):**
 • \`/search <query>\` - Search across Drive files
 • \`/search safety violations\` - Find safety reports
 • \`/search invoice rebar\` - Find invoices with rebar
@@ -210,7 +210,7 @@ I can help you with construction management tasks. Try these commands:
     }
     
     try {
-      // Call ZVec semantic search endpoint
+      // Call ChromaDB semantic search endpoint
       const response = await fetch(`${apiBaseUrl}/connectors/google-drive/search?query=${encodeURIComponent(query)}&top_k=5`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -276,7 +276,7 @@ This is a simulated result showing how ZVec offline semantic search would work. 
 • \`/safety check <location>\` - Run safety analysis
 • \`/safety report\` - View safety summary
 
-**Semantic Search (ZVec - Offline):**
+**Semantic Search (ChromaDB):**
 • \`/search <query>\` - Search across Drive files
 • \`/search safety violations\` - Find safety reports
 • \`/search invoice rebar\` - Find invoices with rebar
@@ -502,7 +502,7 @@ This is a simulated result showing how ZVec offline semantic search would work. 
       
       // Show success message with extracted text info
       const successMsg = data.text_extracted
-        ? `✅ **File uploaded and indexed!**\n\n📄 **${file.name}**\n📊 Size: ${(file.size / 1024).toFixed(1)} KB\n📝 Text extracted: ${data.text_length} characters\n\nThe file is now available in chat and searchable via ZVec AI.`
+        ? `✅ **File uploaded and indexed!**\n\n📄 **${file.name}**\n📊 Size: ${(file.size / 1024).toFixed(1)} KB\n📝 Text extracted: ${data.text_length} characters\n\nThe file is now available in chat and searchable via ChromaDB AI.`
         : `✅ **File uploaded!**\n\n📄 **${file.name}**\n📊 Size: ${(file.size / 1024).toFixed(1)} KB\n\nThe file is now available in chat.`;
       
       const successMessage: Message = {

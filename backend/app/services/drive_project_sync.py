@@ -88,16 +88,16 @@ def _index_files_sync(
     access_token: str
 ) -> int:
     """
-    Synchronously index files into ZVec.
+    Synchronously index files into ChromaDB.
     Returns number of successfully indexed files.
     NOTE: Does NOT commit - caller is responsible for session management.
     """
-    from app.services.zvec_service import get_zvec_service
+    from app.services.chroma_service import get_chroma_service
     from app.services.document_parser import extract_text_from_drive_file
     from app.models.document import Document
     import asyncio
     
-    zvec = get_zvec_service()
+    chroma = get_chroma_service()
     indexed_count = 0
     
     # Process each file
@@ -129,7 +129,7 @@ def _index_files_sync(
             if not text or len(text) < 50:
                 continue
             
-            # Index in ZVec
+            # Index in ChromaDB
             doc_id = f"drive_{file_id}"
             metadata = {
                 'drive_id': file_id,
@@ -139,7 +139,7 @@ def _index_files_sync(
                 'content_preview': text[:500]
             }
             
-            success = zvec.add_document(doc_id, text, metadata)
+            success = chroma.add_document(doc_id, text, metadata)
             
             if success:
                 # Save to database (don't commit - caller manages session)

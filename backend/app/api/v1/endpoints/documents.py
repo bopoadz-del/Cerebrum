@@ -398,7 +398,7 @@ async def upload_chat_file(
     import uuid
     import shutil
     from app.services.document_parser import extract_text_from_upload
-    from app.services.zvec_service import get_zvec_service
+    from app.services.chroma_service import get_chroma_service
     
     try:
         # Validate file size (max 50MB)
@@ -434,9 +434,9 @@ async def upload_chat_file(
             try:
                 extracted_text = await extract_text_from_upload(file_content, mime_type, file_ext)
                 
-                # Index in ZVec if text was extracted
+                # Index in ChromaDB if text was extracted
                 if extracted_text and len(extracted_text) > 50:
-                    zvec = get_zvec_service()
+                    chroma = get_chroma_service()
                     doc_id = f"chat_upload_{file_id}"
                     metadata = {
                         'name': file.filename,
@@ -446,7 +446,7 @@ async def upload_chat_file(
                         'content_preview': extracted_text[:500],
                         'file_id': file_id,
                     }
-                    zvec.add_document(doc_id, extracted_text, metadata)
+                    chroma.add_document(doc_id, extracted_text, metadata)
                     
             except Exception as e:
                 logger.warning(f"Text extraction failed for {file.filename}: {e}")
@@ -651,14 +651,14 @@ async def process_drive_file(
                 logger.warning(f"NER failed: {e}")
                 results["ner_error"] = str(e)
 
-        # ZVec INDEXING - Index document for semantic search
+        # ChromaDB INDEXING - Index document for semantic search
         if text_content and len(text_content) > 50:
             try:
-                from app.services.zvec_service import get_zvec_service
-                zvec = get_zvec_service()
+                from app.services.chroma_service import get_chroma_service
+                chroma = get_chroma_service()
                 
                 doc_id = f"drive_{drive_file_id}"
-                zvec_metadata = {
+                chroma_metadata = {
                     'name': metadata['name'],
                     'source': 'google_drive',
                     'mime_type': metadata.get('mimeType'),
@@ -668,11 +668,11 @@ async def process_drive_file(
                     'document_id': str(doc.id),
                     'entities': results.get('ner', [])[:5],  # Store top 5 entities
                 }
-                zvec.add_document(doc_id, text_content, zvec_metadata)
-                results['zvec_indexed'] = True
+                chroma.add_document(doc_id, text_content, chroma_metadata)
+                results['chroma_indexed'] = True
             except Exception as e:
-                logger.warning(f"ZVec indexing failed for {drive_file_id}: {e}")
-                results['zvec_indexed'] = False
+                logger.warning(f"ChromaDB indexing failed for {drive_file_id}: {e}")
+                results['chroma_indexed'] = False
 
         # 7. Update Document record with results
         processing_time = time.time() - start_time
@@ -786,27 +786,27 @@ async def search_documents(
     current_user: User = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """
-    Semantic search across all indexed documents using ZVec.
+    Semantic search across all indexed documents using ChromaDB.
     
     Searches through documents processed from Google Drive and chat uploads.
     Returns ranked results based on semantic similarity to the query.
     """
     try:
-        from app.services.zvec_service import get_zvec_service
+        from app.services.chroma_service import get_chroma_service
         
-        zvec = get_zvec_service()
+        chroma = get_chroma_service()
         
-        # Check if ZVec is ready
-        if not zvec.is_ready():
+        # Check if ChromaDB is ready
+        if not chroma.is_ready():
             return {
                 "query": query,
                 "results": [],
                 "total": 0,
-                "warning": "ZVec service not available (ML stack not initialized)"
+                "warning": "ChromaDB service not available (vector DB not initialized)"
             }
         
         # Perform search
-        results = zvec.search_similar(query, top_k=top_k)
+        results = chroma.search_similar(query, top_k=top_k)
         
         # Filter by user_id and optionally by source
         filtered_results = []
@@ -840,27 +840,37 @@ async def search_documents(
         raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
 
 
-@router.get("/zvec/stats")
-async def get_zvec_stats(
+@router.get("/chroma/stats")
+async def get_chroma_stats(
     current_user: User = Depends(get_current_user)
 ) -> Dict[str, Any]:
-    """Get ZVec database statistics."""
+    """Get ChromaDB database statistics."""
     try:
-        from app.services.zvec_service import get_zvec_service
+        from app.services.chroma_service import get_chroma_service
         
-        zvec = get_zvec_service()
-        stats = zvec.get_stats()
+        chroma = get_chroma_service()
+        stats = chroma.get_stats()
         
         return {
             "ready": stats.get('ready', False),
             "total_documents": stats.get('count', 0),
-            "service": "ZVec"
+            "service": "ChromaDB",
+            "mode": stats.get('mode', 'unknown')
         }
         
     except Exception as e:
-        logger.error(f"Failed to get ZVec stats: {e}")
+        logger.error(f"Failed to get ChromaDB stats: {e}")
         return {
             "ready": False,
             "total_documents": 0,
             "error": str(e)
         }
+
+
+# Backward compatibility alias
+@router.get("/zvec/stats")
+async def get_zvec_stats_legacy(
+    current_user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """Legacy endpoint - redirects to ChromaDB stats."""
+    return await get_chroma_stats(current_user)

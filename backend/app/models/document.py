@@ -1,7 +1,7 @@
 """
 Document Model
 
-Stores indexed documents from Google Drive for ZVec semantic search.
+Stores indexed documents from Google Drive for ChromaDB semantic search.
 """
 
 import uuid

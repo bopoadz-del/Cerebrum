@@ -224,7 +224,7 @@ export function MobileProjectSidebar({
                   <p>Detected {scanResults.detected} projects</p>
                   <p>Queued {scanResults.queued} files for indexing</p>
                   <p className="text-indigo-500">
-                    ZVec AI: {scanResults.zvecReady ? 'Ready ✓' : 'Initializing...'}
+                    ChromaDB AI: {scanResults.zvecReady ? 'Ready ✓' : 'Initializing...'}
                   </p>
                 </div>
               )}
@@ -245,7 +245,7 @@ export function MobileProjectSidebar({
                   <div className="flex justify-between text-xs text-gray-500 mt-1.5">
                     <span><Database className="w-3 h-3 inline mr-0.5" />{indexingStatus.summary.total_indexed}</span>
                     <span><FileText className="w-3 h-3 inline mr-0.5" />{indexingStatus.summary.total_files}</span>
-                    <span>ZVec: {indexingStatus.summary.zvec_count}</span>
+                    <span>ChromaDB: {indexingStatus.summary.zvec_count}</span>
                   </div>
                 </div>
               )}
