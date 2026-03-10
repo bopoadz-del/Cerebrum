@@ -61,6 +61,8 @@ services:
       - SECRET_KEY=your-secret-key-change-in-production
       - DEBUG=true
       - CORS_ORIGINS=http://localhost:5173,http://localhost:3000
+      - CHROMA_HOST=chroma
+      - CHROMA_PORT=8000
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -75,6 +77,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      chroma:
+        condition: service_started
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
   # Celery Worker - Fast Queue
@@ -87,6 +91,8 @@ services:
       - DATABASE_URL=postgresql+asyncpg://cerebrum:cerebrum_password@postgres:5432/cerebrum
       - REDIS_URL=redis://redis:6379/0
       - SECRET_KEY=your-secret-key-change-in-production
+      - CHROMA_HOST=chroma
+      - CHROMA_PORT=8000
     volumes:
       - ./backend:/app
       - /app/__pycache__
@@ -105,6 +111,8 @@ services:
       - DATABASE_URL=postgresql+asyncpg://cerebrum:cerebrum_password@postgres:5432/cerebrum
       - REDIS_URL=redis://redis:6379/0
       - SECRET_KEY=your-secret-key-change-in-production
+      - CHROMA_HOST=chroma
+      - CHROMA_PORT=8000
     volumes:
       - ./backend:/app
       - /app/__pycache__

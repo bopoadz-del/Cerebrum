@@ -33,18 +33,30 @@ class ChromaService:
         self._client = None
         self._collection = None
         self.is_available = CHROMADB_AVAILABLE
+        self._mode = "fallback"
         
-        # Ensure data directory exists
-        os.makedirs(db_path, exist_ok=True)
+        # Check for external ChromaDB server
+        chroma_host = os.getenv("CHROMA_HOST")
+        chroma_port = os.getenv("CHROMA_PORT", "8000")
         
         if CHROMADB_AVAILABLE:
             try:
-                self._client = chromadb.PersistentClient(path=db_path)
+                if chroma_host:
+                    # Use external ChromaDB server (Docker mode)
+                    self._client = chromadb.HttpClient(host=chroma_host, port=int(chroma_port))
+                    self._mode = "http"
+                    logger.info(f"✅ ChromaDB connected to server at {chroma_host}:{chroma_port}")
+                else:
+                    # Use local persistent client
+                    os.makedirs(db_path, exist_ok=True)
+                    self._client = chromadb.PersistentClient(path=db_path)
+                    self._mode = "persistent"
+                    logger.info(f"✅ ChromaDB initialized at {db_path}")
+                
                 self._collection = self._client.get_or_create_collection(
                     name="documents",
                     metadata={"hnsw:space": "cosine"}
                 )
-                logger.info(f"✅ ChromaDB initialized at {db_path}")
             except Exception as e:
                 logger.error(f"Failed to initialize ChromaDB: {e}")
                 self.is_available = False
@@ -216,7 +228,7 @@ class ChromaService:
                     "status": "active",
                     "count": count,
                     "ready": True,
-                    "mode": "chromadb",
+                    "mode": self._mode,
                     "using": "ChromaDB"
                 }
             else:
@@ -237,7 +249,7 @@ class ChromaService:
                     "using": "Fallback (hash-based)"
                 }
         except Exception as e:
-            return {"status": "error", "error": str(e), "count": 0}
+            return {"status": "error", "error": str(e), "count": 0, "mode": "error"}
     
     async def get_stats(self) -> Dict[str, Any]:
         """Get indexing stats (async)."""

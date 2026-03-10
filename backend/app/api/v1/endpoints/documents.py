@@ -849,7 +849,7 @@ async def get_chroma_stats(
         from app.services.chroma_service import get_chroma_service
         
         chroma = get_chroma_service()
-        stats = chroma.get_stats()
+        stats = await chroma.get_stats()
         
         return {
             "ready": stats.get('ready', False),
