@@ -77,6 +77,15 @@ except Exception as e:
     logger.warning(f"Quality endpoints not available, using stub: {e}")
     from app.api.v1.endpoints.stub_quality import router as quality
 
+# Import agent endpoints
+try:
+    from app.agent.endpoints import router as agent_router
+    AGENT_AVAILABLE = True
+    logger.info("Agent endpoints loaded")
+except Exception as e:
+    AGENT_AVAILABLE = False
+    logger.warning(f"Agent endpoints not available: {e}")
+
 
 # Create main router - MUST BE NAMED api_v1_router for main.py
 api_v1_router = APIRouter()
@@ -117,3 +126,7 @@ if IOT_AVAILABLE:
 
 if SAFETY_AVAILABLE:
     api_v1_router.include_router(safety.router)  # prefix="/safety" already in router
+
+# Include agent endpoints
+if AGENT_AVAILABLE:
+    api_v1_router.include_router(agent_router, prefix="/agent", tags=["agent"])
