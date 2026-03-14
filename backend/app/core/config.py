@@ -203,6 +203,14 @@ class Settings(BaseSettings):
     S3_BACKUP_PREFIX: str = Field(default="backups/", description="S3 backup prefix")
     
     # =================================================================
+    # RSMeans API Settings
+    # =================================================================
+    RSMEANS_API_KEY: Optional[str] = Field(
+        default=None,
+        description="RSMeans API key for construction cost data",
+    )
+    
+    # =================================================================
     # Google OAuth Settings (REMOVED)
     # =================================================================
     # GOOGLE_DRIVE_REDIRECT_URI: str = Field(
