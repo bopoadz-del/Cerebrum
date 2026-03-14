@@ -6,11 +6,11 @@ This is a stub implementation - replace with full implementation as needed.
 
 from typing import Optional, List, Dict, Any
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 from enum import Enum
 
-router = APIRouter(prefix="/coding", tags=["coding"])
+router = APIRouter()
 
 
 class Language(str, Enum):

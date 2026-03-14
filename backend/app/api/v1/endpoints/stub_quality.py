@@ -6,11 +6,11 @@ This is a stub implementation - replace with full implementation as needed.
 
 from typing import Optional, List, Dict, Any
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, HTTPException, status, Query
 from pydantic import BaseModel, Field
 from enum import Enum
 
-router = APIRouter(prefix="/quality", tags=["quality"])
+router = APIRouter()
 
 
 class InspectionStatus(str, Enum):

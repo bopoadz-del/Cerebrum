@@ -6,10 +6,10 @@ This is a stub implementation - replace with full implementation as needed.
 
 from typing import Optional, List
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
-router = APIRouter(prefix="/projects", tags=["projects"])
+router = APIRouter()
 
 
 # Pydantic Models

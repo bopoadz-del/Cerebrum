@@ -5,10 +5,10 @@ This is a stub implementation - replace with full implementation as needed.
 """
 
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, EmailStr, Field
 
-router = APIRouter(prefix="/users", tags=["users"])
+router = APIRouter()
 
 
 # Pydantic Models
@@ -50,7 +50,7 @@ async def list_users(
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_current_user():
+async def get_current_user_stub():
     """Get current authenticated user."""
     return UserResponse(**STUB_USERS[0])
 
