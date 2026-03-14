@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 from app.api.v1.endpoints import auth, admin, dejavu, formulas, sessions, connectors
 from app.api.health import router as health_router
 
-# Import construction/endustry endpoints
+# Import construction/industry endpoints (these have prefixes already)
 from app.api.v1.endpoints import bim, economics, vdc, edge, enterprise, portal
 from app.api.v1.endpoints import integrations, warehouse, ml
 
@@ -41,7 +41,7 @@ except Exception as e:
     SAFETY_AVAILABLE = False
     logger.warning(f"Safety endpoints not available: {e}")
 
-# Import or create stub endpoints for missing routers
+# Import or create stub endpoints for missing routers (no prefix in stubs)
 try:
     from app.api.v1.endpoints import users
     logger.info("Users endpoints loaded")
@@ -81,37 +81,39 @@ except Exception as e:
 # Create main router - MUST BE NAMED api_v1_router for main.py
 api_v1_router = APIRouter()
 
-# Include core endpoints
+# Include core endpoints (auth, admin, dejavu, formulas, sessions, connectors already have prefixes)
 api_v1_router.include_router(health_router, tags=["health"])
-api_v1_router.include_router(auth.router, tags=["authentication"])
+api_v1_router.include_router(auth.router)  # prefix="/auth" already in router
+api_v1_router.include_router(admin.router)  # prefix="/admin" already in router
+api_v1_router.include_router(dejavu.router)  # prefix="/dejavu" already in router
+api_v1_router.include_router(formulas.router)  # prefix="/formulas" already in router
+api_v1_router.include_router(sessions.router)  # prefix="/sessions" already in router
+api_v1_router.include_router(connectors.router)  # prefix="/connectors" already in router
+
+# Include stubs (need prefix added)
 api_v1_router.include_router(users.router, prefix="/users", tags=["users"])
 api_v1_router.include_router(projects.router, prefix="/projects", tags=["projects"])
-api_v1_router.include_router(admin.router, prefix="/admin", tags=["admin"])
-api_v1_router.include_router(dejavu.router, prefix="/dejavu", tags=["dejavu"])
-api_v1_router.include_router(formulas.router, prefix="/formulas", tags=["formulas"])
-api_v1_router.include_router(sessions.router, prefix="/sessions", tags=["sessions"])
-api_v1_router.include_router(connectors.router, tags=["connectors"])
-
-# Include construction/endustry endpoints
-api_v1_router.include_router(bim.router, prefix="/bim", tags=["bim"])
-api_v1_router.include_router(economics.router, prefix="/economics", tags=["economics"])
-api_v1_router.include_router(vdc.router, prefix="/vdc", tags=["vdc"])
-api_v1_router.include_router(integrations.router, prefix="/integrations", tags=["integrations"])
-api_v1_router.include_router(warehouse.router, prefix="/warehouse", tags=["warehouse"])
-api_v1_router.include_router(ml.router, prefix="/ml", tags=["ml"])
-api_v1_router.include_router(edge.router, prefix="/edge", tags=["edge"])
-api_v1_router.include_router(enterprise.router, prefix="/enterprise", tags=["enterprise"])
-api_v1_router.include_router(portal.router, prefix="/portal", tags=["portal"])
 api_v1_router.include_router(registry.router, prefix="/registry", tags=["registry"])
 api_v1_router.include_router(coding.router, prefix="/coding", tags=["coding"])
 api_v1_router.include_router(quality.router, prefix="/quality", tags=["quality"])
 
+# Include construction/industry endpoints (already have prefixes)
+api_v1_router.include_router(bim.router)  # prefix="/bim" already in router
+api_v1_router.include_router(economics.router)  # prefix="/economics" already in router
+api_v1_router.include_router(vdc.router)  # prefix="/vdc" already in router
+api_v1_router.include_router(integrations.router)  # prefix="/integrations" already in router
+api_v1_router.include_router(warehouse.router, prefix="/warehouse", tags=["warehouse"])  # no prefix in router
+api_v1_router.include_router(ml.router)  # prefix="/ml" already in router
+api_v1_router.include_router(edge.router)  # prefix="/edge" already in router
+api_v1_router.include_router(enterprise.router)  # prefix="/enterprise" already in router
+api_v1_router.include_router(portal.router)  # prefix="/portal" already in router
+
 # Include optional endpoints conditionally
 if DOCUMENTS_AVAILABLE:
-    api_v1_router.include_router(documents.router, prefix="/documents", tags=["documents"])
+    api_v1_router.include_router(documents.router)  # prefix="/documents" already in router
 
 if IOT_AVAILABLE:
     api_v1_router.include_router(iot.router, prefix="/iot", tags=["iot"])
 
 if SAFETY_AVAILABLE:
-    api_v1_router.include_router(safety.router, prefix="/safety", tags=["safety"])
+    api_v1_router.include_router(safety.router)  # prefix="/safety" already in router
