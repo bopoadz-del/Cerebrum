@@ -210,6 +210,11 @@ def create_application() -> FastAPI:
     app.include_router(api_v1_router, prefix="/api/v1")
     app.include_router(health_router, prefix="/api/v1", tags=["health"])
     
+    # DEBUG: Test route to verify router inclusion works
+    @app.get("/api/v1/test", tags=["debug"])
+    async def debug_test():
+        return {"message": "Direct route in main.py works"}
+    
     # Root-level health aliases for compatibility
     @app.get("/healthz", tags=["health"])
     async def root_healthz():
