@@ -251,7 +251,7 @@ async def root():
 
 @app.get("/api")
 async def api_info():
-    """API information endpoint."""
+    """API information endpoint - lists all available v1 endpoints."""
     return {
         "name": settings.APP_NAME,
         "version": settings.APP_VERSION,
@@ -260,6 +260,11 @@ async def api_info():
             "auth": "/api/v1/auth",
             "users": "/api/v1/users",
             "projects": "/api/v1/projects",
+            "admin": "/api/v1/admin",
+            "dejavu": "/api/v1/dejavu",
+            "formulas": "/api/v1/formulas",
+            "sessions": "/api/v1/sessions",
+            "connectors": "/api/v1/connectors",
             "documents": "/api/v1/documents",
             "bim": "/api/v1/bim",
             "ml": "/api/v1/ml",
@@ -274,6 +279,8 @@ async def api_info():
             "registry": "/api/v1/registry",
             "coding": "/api/v1/coding",
         },
+        "documentation": "/api/docs" if settings.DEBUG else None,
+        "health": "/health",
     }
 
 
