@@ -1,1 +1,3 @@
-20260308_113646
+# Cache bust timestamp: 2026-03-14T19:14:00Z
+# Force rebuild on every push to backend
+BUILD_ID=db237d2
