@@ -1,0 +1,37 @@
+# Frontend dependencies
+frontend/node_modules/
+node_modules/
+
+# Git
+.git/
+.gitignore
+
+# Local dev
+.env
+.env.local
+.vscode/
+.idea/
+
+# Data files
+*.zip
+*.tar.gz
+*.tar
+*.mp4
+*.mp3
+*.wav
+
+# Python cache
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Tests
+tests/
+*.test.js
+*.test.ts
+*.test.tsx
+
+# Logs
+*.log
+logs/

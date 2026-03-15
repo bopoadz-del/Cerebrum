@@ -5,4 +5,17 @@ tests/
 .git/
 .github/
 *.log
-CACHE_INVALIDATION=1771606385
+
+# Data files that might be large
+*.zip
+*.tar.gz
+*.tar
+
+# Local development files
+.env
+.env.local
+.vscode/
+.idea/
+
+# Cache invalidation marker
+CACHE_INVALIDATION*
