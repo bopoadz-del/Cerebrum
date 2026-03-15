@@ -39,7 +39,7 @@ RUN conda tos accept --override-channels --channel https://repo.anaconda.com/pkg
 # Copy requirements and install Python packages via conda's pip
 COPY requirements.txt .
 RUN /opt/conda/bin/pip install --no-cache-dir --upgrade pip && \
-    grep -v '^Pillow' requirements.txt > /tmp/requirements-no-pillow.txt && \
+    grep -iv '^pillow' requirements.txt > /tmp/requirements-no-pillow.txt && \
     /opt/conda/bin/pip install --no-cache-dir -r /tmp/requirements-no-pillow.txt
 
 # Verify ifcopenshell is available
