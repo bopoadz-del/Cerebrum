@@ -125,7 +125,7 @@ export default function FormulasPage() {
           className="flex items-center justify-center py-16"
         >
           <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
-          <span className="ml-2 text-gray-600">Loading formulas...\u003c/span>
+          <span className="ml-2 text-gray-600">Loading formulas...</span>
         </motion.div>
       )}
 
