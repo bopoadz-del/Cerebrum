@@ -4,12 +4,13 @@ Cerebrum Agent API Endpoints
 Provides REST API for the autonomous agent.
 """
 
-from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 from typing import Dict, List, Optional, Any
 import logging
 
 from app.agent.core import get_agent, CerebrumAgent, AgentLayer, AgentAction
+from app.agent.websocket import get_websocket_manager
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -370,18 +371,263 @@ async def execute_sandbox(code: str, timeout: int = 30):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ============ WebSocket for Real-time Agent (Future) ============
+# ============ WebSocket for Real-time Agent ============
 
-# @router.websocket("/ws")
-# async def agent_websocket(websocket: WebSocket):
-#     """WebSocket for real-time agent interaction."""
-#     await websocket.accept()
-#     agent = get_agent()
-#     
-#     try:
-#         while True:
-#             message = await websocket.receive_text()
-#             result = await agent.run(message)
-#             await websocket.send_json(result.__dict__)
-#     except Exception as e:
-#         await websocket.close()
+@router.websocket("/ws")
+async def agent_websocket(websocket: WebSocket):
+    """
+    WebSocket for real-time agent interaction.
+    
+    Message types:
+    - task: Execute single task
+    - plan: Multi-step plan execution  
+    - stream: Streaming execution with progress
+    - cancel: Cancel current task
+    - ping: Heartbeat
+    """
+    import uuid
+    client_id = str(uuid.uuid4())[:8]
+    
+    agent = get_agent()
+    manager = get_websocket_manager(agent)
+    
+    try:
+        connection = await manager.connect(websocket, client_id)
+        
+        while True:
+            message = await connection.receive()
+            await manager.handle_message(client_id, message)
+            
+    except WebSocketDisconnect:
+        await manager.disconnect(client_id)
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
+        await manager.disconnect(client_id)
+
+
+# ============ Multi-Step Planning Endpoints ============
+
+class CreatePlanRequest(BaseModel):
+    """Request to create a multi-step plan."""
+    goal: str = Field(..., description="The goal to achieve")
+    context: Optional[Dict[str, Any]] = Field(default=None, description="Additional context")
+
+
+class PlanResponse(BaseModel):
+    """Response with plan details."""
+    id: str
+    goal: str
+    steps: List[Dict]
+    status: str
+    progress: Dict
+    created_at: str
+
+
+@router.post("/plan/create", response_model=PlanResponse)
+async def create_plan(request: CreatePlanRequest):
+    """
+    Create a multi-step execution plan.
+    
+    Breaks down complex goals into executable steps with dependencies.
+    """
+    try:
+        agent = get_agent()
+        plan_dict = await agent.create_plan(request.goal, request.context)
+        return PlanResponse(**plan_dict)
+    except Exception as e:
+        logger.error(f"Plan creation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/plan/execute/{plan_id}", response_model=PlanResponse)
+async def execute_plan(plan_id: str, background_tasks: BackgroundTasks):
+    """
+    Execute a previously created plan.
+    
+    Runs all steps with dependency resolution and error recovery.
+    """
+    try:
+        agent = get_agent()
+        # Run in background for long-running plans
+        plan_dict = await agent.execute_plan(plan_id)
+        return PlanResponse(**plan_dict)
+    except Exception as e:
+        logger.error(f"Plan execution failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/plan/run", response_model=PlanResponse)
+async def create_and_run_plan(request: CreatePlanRequest):
+    """
+    Create and execute a plan in one call.
+    
+    Convenience endpoint for simple use cases.
+    """
+    try:
+        agent = get_agent()
+        plan_dict = await agent.run_with_plan(request.goal, request.context)
+        return PlanResponse(**plan_dict)
+    except Exception as e:
+        logger.error(f"Plan run failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/plan/{plan_id}")
+async def get_plan(plan_id: str):
+    """Get plan status and details."""
+    try:
+        agent = get_agent()
+        planner = agent._get_planner()
+        plan = planner.get_plan(plan_id)
+        if plan:
+            return plan.to_dict()
+        raise HTTPException(status_code=404, detail="Plan not found")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Get plan failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/plans")
+async def list_plans():
+    """List all active plans."""
+    try:
+        agent = get_agent()
+        planner = agent._get_planner()
+        return {"plans": planner.list_plans()}
+    except Exception as e:
+        logger.error(f"List plans failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============ Task Scheduling Endpoints ============
+
+class ScheduleTaskRequest(BaseModel):
+    """Request to schedule a recurring task."""
+    name: str = Field(..., description="Task name")
+    description: str = Field(..., description="Task description")
+    task_template: str = Field(..., description="The agent task to execute")
+    schedule_type: str = Field(..., description="once, interval, daily, weekly, cron")
+    schedule_config: Dict[str, Any] = Field(..., description="Schedule configuration")
+    max_runs: Optional[int] = Field(default=None, description="Max executions (None=infinite)")
+
+
+class ScheduledTaskResponse(BaseModel):
+    """Response with scheduled task details."""
+    id: str
+    name: str
+    description: str
+    schedule_type: str
+    status: str
+    next_run: Optional[str]
+    run_count: int
+    max_runs: Optional[int]
+    enabled: bool
+    created_at: str
+
+
+@router.post("/schedule/create", response_model=ScheduledTaskResponse)
+async def schedule_task(request: ScheduleTaskRequest):
+    """
+    Schedule a recurring agent task.
+    
+    Examples:
+    - Daily: {"schedule_type": "daily", "schedule_config": {"at": "09:00"}}
+    - Interval: {"schedule_type": "interval", "schedule_config": {"minutes": 30}}
+    - Weekly: {"schedule_type": "weekly", "schedule_config": {"day": "monday", "at": "10:00"}}
+    """
+    try:
+        agent = get_agent()
+        task_dict = agent.schedule_task(
+            name=request.name,
+            description=request.description,
+            task_template=request.task_template,
+            schedule_type=request.schedule_type,
+            schedule_config=request.schedule_config,
+            max_runs=request.max_runs
+        )
+        
+        # Start scheduler if not running
+        if agent.scheduler:
+            await agent.start_scheduler()
+        
+        return ScheduledTaskResponse(**task_dict)
+    except Exception as e:
+        logger.error(f"Task scheduling failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/schedule/tasks", response_model=List[ScheduledTaskResponse])
+async def list_scheduled_tasks():
+    """List all scheduled tasks."""
+    try:
+        agent = get_agent()
+        tasks = agent.list_scheduled_tasks()
+        return [ScheduledTaskResponse(**t) for t in tasks]
+    except Exception as e:
+        logger.error(f"List tasks failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/schedule/{task_id}/enable")
+async def enable_task(task_id: str):
+    """Enable a scheduled task."""
+    try:
+        agent = get_agent()
+        scheduler = agent._get_scheduler()
+        if scheduler.enable_task(task_id):
+            return {"success": True, "message": "Task enabled"}
+        raise HTTPException(status_code=404, detail="Task not found")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Enable task failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/schedule/{task_id}/disable")
+async def disable_task(task_id: str):
+    """Disable a scheduled task."""
+    try:
+        agent = get_agent()
+        scheduler = agent._get_scheduler()
+        if scheduler.disable_task(task_id):
+            return {"success": True, "message": "Task disabled"}
+        raise HTTPException(status_code=404, detail="Task not found")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Disable task failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/schedule/{task_id}")
+async def delete_scheduled_task(task_id: str):
+    """Delete a scheduled task."""
+    try:
+        agent = get_agent()
+        if agent.cancel_scheduled_task(task_id):
+            return {"success": True, "message": "Task deleted"}
+        raise HTTPException(status_code=404, detail="Task not found")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Delete task failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/schedule/{task_id}/run")
+async def run_task_now(task_id: str):
+    """Manually trigger a scheduled task to run immediately."""
+    try:
+        agent = get_agent()
+        scheduler = agent._get_scheduler()
+        if scheduler.run_task_now(task_id):
+            return {"success": True, "message": "Task triggered"}
+        raise HTTPException(status_code=404, detail="Task not found or already running")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Run task failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

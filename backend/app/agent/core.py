@@ -209,6 +209,26 @@ class CerebrumAgent:
             "heal_error": self._tool_heal_error,
             "execute_sandbox": self._tool_execute_sandbox,
         }
+        
+        # Initialize planner for multi-step tasks
+        self.planner = None  # Lazy init to avoid circular imports
+        
+        # Initialize scheduler for recurring tasks
+        self.scheduler = None  # Lazy init
+    
+    def _get_planner(self):
+        """Get or create the multi-step planner."""
+        if self.planner is None:
+            from app.agent.planner import MultiStepPlanner
+            self.planner = MultiStepPlanner(self.tools)
+        return self.planner
+    
+    def _get_scheduler(self):
+        """Get or create the task scheduler."""
+        if self.scheduler is None:
+            from app.agent.scheduler import AgentScheduler
+            self.scheduler = AgentScheduler(self)
+        return self.scheduler
     
     # ============ Layer Navigation ============
     
@@ -619,6 +639,64 @@ class CerebrumAgent:
             "conversation_entries": len(self.context.conversation_history),
             "generated_artifacts": self.context.generated_artifacts
         }
+    
+    # ============ Multi-Step Planning ============
+    
+    async def create_plan(self, goal: str, context: Optional[Dict] = None) -> Dict:
+        """Create a multi-step execution plan."""
+        planner = self._get_planner()
+        plan = planner.create_plan(goal, context)
+        return plan.to_dict()
+    
+    async def execute_plan(self, plan_id: str) -> Dict:
+        """Execute a multi-step plan."""
+        planner = self._get_planner()
+        plan = await planner.execute_plan(plan_id, self)
+        return plan.to_dict()
+    
+    async def run_with_plan(self, goal: str, context: Optional[Dict] = None) -> Dict:
+        """Create and execute a plan in one call."""
+        planner = self._get_planner()
+        plan = planner.create_plan(goal, context)
+        completed_plan = await planner.execute_plan(plan.id, self)
+        return completed_plan.to_dict()
+    
+    # ============ Task Scheduling ============
+    
+    async def start_scheduler(self):
+        """Start the task scheduler."""
+        scheduler = self._get_scheduler()
+        await scheduler.start()
+    
+    async def stop_scheduler(self):
+        """Stop the task scheduler."""
+        if self.scheduler:
+            await self.scheduler.stop()
+    
+    def schedule_task(self, name: str, description: str, task_template: str,
+                     schedule_type: str, schedule_config: Dict,
+                     max_runs: Optional[int] = None) -> Dict:
+        """Schedule a recurring task."""
+        scheduler = self._get_scheduler()
+        task = scheduler.create_task(
+            name=name,
+            description=description,
+            task_template=task_template,
+            schedule_type=schedule_type,
+            schedule_config=schedule_config,
+            max_runs=max_runs
+        )
+        return task.to_dict()
+    
+    def list_scheduled_tasks(self) -> List[Dict]:
+        """List all scheduled tasks."""
+        scheduler = self._get_scheduler()
+        return scheduler.list_tasks()
+    
+    def cancel_scheduled_task(self, task_id: str) -> bool:
+        """Cancel a scheduled task."""
+        scheduler = self._get_scheduler()
+        return scheduler.delete_task(task_id)
 
 
 # Singleton instance
