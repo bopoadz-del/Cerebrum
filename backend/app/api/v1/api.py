@@ -114,6 +114,15 @@ except Exception as e:
     ENHANCEMENT_AVAILABLE = False
     logger.warning(f"Code enhancement endpoints not available: {e}")
 
+# Import web search endpoints
+try:
+    from app.agent.web_search_endpoints import router as web_search_router
+    WEB_SEARCH_AVAILABLE = True
+    logger.info("Web search endpoints loaded")
+except Exception as e:
+    WEB_SEARCH_AVAILABLE = False
+    logger.warning(f"Web search endpoints not available: {e}")
+
 # Create main router - MUST BE NAMED api_v1_router for main.py
 api_v1_router = APIRouter()
 
@@ -169,3 +178,7 @@ if SELF_MOD_AVAILABLE:
 # Include code enhancement endpoints
 if ENHANCEMENT_AVAILABLE:
     api_v1_router.include_router(enhancement_router, prefix="/agent/enhance", tags=["agent-enhancement"])
+
+# Include web search endpoints
+if WEB_SEARCH_AVAILABLE:
+    api_v1_router.include_router(web_search_router, prefix="/agent/web-search", tags=["agent-web-search"])

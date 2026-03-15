@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Layers, Brain } from 'lucide-react';
+import { Plus, Layers, Brain, Bot, Globe } from 'lucide-react';
 import { ChatMessage } from './ChatMessage';
 import { ChatInputV2 } from './ChatInputV2';
 import { SmartContextToggle } from './SmartContextToggle';
@@ -34,6 +34,8 @@ export function AgentChatInterface({ projectName, chatTitle, onNewChat, sessionT
     attachments,
     messagesEndRef,
     currentLayer,
+    webSearchEnabled,
+    setWebSearchEnabled,
     sendMessage,
     addAttachment,
     removeAttachment,
@@ -124,6 +126,21 @@ export function AgentChatInterface({ projectName, chatTitle, onNewChat, sessionT
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Web Search Toggle */}
+          <button
+            onClick={() => setWebSearchEnabled(!webSearchEnabled)}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
+              webSearchEnabled
+                ? "bg-blue-100 text-blue-700 border border-blue-200"
+                : "bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200"
+            )}
+            title={webSearchEnabled ? "Web search enabled - query will be sent to Brave Search" : "Enable web search"}
+          >
+            <Globe className={cn("w-4 h-4", webSearchEnabled && "text-blue-600")} />
+            {webSearchEnabled ? 'Search' : 'Search'}
+          </button>
+          
           <SmartContextToggle onToggle={handleSmartContextToggle} />
           
           <Button

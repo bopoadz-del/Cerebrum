@@ -74,6 +74,7 @@ How can I help you today?`,
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [currentLayer, setCurrentLayer] = useState<string>('coding');
 
@@ -371,21 +372,39 @@ Just type your request and I'll route it to the appropriate layer!`;
         setMessages((prev) => [...prev, aiMessage]);
       } else {
         // Execute through agent
-        const result = await executeAgentTask(content);
+        let result = await executeAgentTask(content);
         
-        if (result) {
-          let responseText = result.message;
+        // Perform web search if enabled (and not already handled by agent)
+        let webSearchResult = '';
+        if (webSearchEnabled && !content.startsWith('/agent')) {
+          webSearchResult = await performWebSearch(content);
+        }
+        
+        if (result || webSearchResult) {
+          let responseText = '';
           
-          // Add data if present
-          if (result.data && Object.keys(result.data).length > 0) {
-            const dataPreview = JSON.stringify(result.data, null, 2).substring(0, 500);
-            responseText += `\n\n\`\`\`json\n${dataPreview}${dataPreview.length >= 500 ? '...' : ''}\n\`\`\``;
+          // Add web search results first if available
+          if (webSearchResult) {
+            responseText += webSearchResult + '\n\n---\n\n';
           }
           
-          // Add suggestions
-          if (result.suggested_next_actions?.length) {
-            responseText += '\n\n**Suggested next steps:**\n';
-            responseText += result.suggested_next_actions.map(a => `• ${a}`).join('\n');
+          // Add agent result if available
+          if (result) {
+            responseText += result.message;
+            
+            // Add data if present
+            if (result.data && Object.keys(result.data).length > 0) {
+              const dataPreview = JSON.stringify(result.data, null, 2).substring(0, 500);
+              responseText += `\n\n\`\`\`json\n${dataPreview}${dataPreview.length >= 500 ? '...' : ''}\n\`\`\``;
+            }
+            
+            // Add suggestions
+            if (result.suggested_next_actions?.length) {
+              responseText += '\n\n**Suggested next steps:**\n';
+              responseText += result.suggested_next_actions.map(a => `• ${a}`).join('\n');
+            }
+          } else if (webSearchResult) {
+            responseText += 'I found these web results for your query. Let me know if you need more specific information!';
           }
           
           const aiMessage: Message = {
@@ -422,7 +441,7 @@ Just type your request and I'll route it to the appropriate layer!`;
     } finally {
       setIsLoading(false);
     }
-  }, [inputValue, attachments, currentLayer, sessionId]);
+  }, [inputValue, attachments, currentLayer, sessionId, webSearchEnabled, performWebSearch]);
 
   const addAttachment = useCallback(async (file: File) => {
     setIsUploading(true);
@@ -485,6 +504,50 @@ Just type your request and I'll route it to the appropriate layer!`;
     setMessages([]);
   }, []);
 
+  // Web search function
+  const performWebSearch = useCallback(async (query: string): Promise<string> => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/agent/web-search/search`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': getAuthToken() ? `Bearer ${getAuthToken()}` : '',
+        },
+        body: JSON.stringify({
+          query,
+          count: 5,
+          country: 'US',
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Web search failed');
+      }
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        return `🔍 **Web Search**: ${data.error || 'Search failed'}`;
+      }
+
+      if (!data.results || data.results.length === 0) {
+        return `🔍 **Web Search**: No results found for "${query}"`;
+      }
+
+      const formatted = data.results.map((r: any, i: number) => {
+        return `${i + 1}. **[${r.title}](${r.url})**
+   ${r.description}
+   Source: ${r.source}`;
+      }).join('\n\n');
+
+      return `🔍 **Web Search Results for "${query}"**\n\n${formatted}`;
+    } catch (error) {
+      console.error('Web search failed:', error);
+      return `🔍 **Web Search Error**: ${error instanceof Error ? error.message : 'Search failed'}`;
+    }
+  }, [apiBaseUrl]);
+
   return {
     messages,
     inputValue,
@@ -494,10 +557,13 @@ Just type your request and I'll route it to the appropriate layer!`;
     attachments,
     messagesEndRef,
     currentLayer,
+    webSearchEnabled,
+    setWebSearchEnabled,
     sendMessage,
     addAttachment,
     removeAttachment,
     clearMessages,
+    performWebSearch,
     // Agent-specific
     executeAgentTask,
     searchMemory,
