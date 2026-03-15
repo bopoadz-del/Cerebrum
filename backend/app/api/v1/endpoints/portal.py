@@ -1,6 +1,6 @@
 """
-Subcontractor Portal API Endpoints
-Item 340: Subcontractor portal endpoints
+Subcontractor Portal API Endpoints (Stub)
+Full implementation requires portal modules
 """
 
 from typing import List, Optional
@@ -8,379 +8,229 @@ from datetime import datetime, date
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
-from sqlalchemy.orm import Session
 
-from app.core.deps import get_db, get_current_user, require_permissions
-from app.portal.scoped_access import ScopedAccessService, CreateSubcontractorCompanyRequest, SubcontractorUser
-from app.portal.bid_management import BidManagementService, CreateITBRequest, SubmitBidRequest
-from app.portal.payment_apps import PaymentApplicationService, CreateSOVRequest, CreatePaymentAppRequest
-from app.portal.daily_reports import DailyReportService, CreateDailyReportRequest
+try:
+    from app.core.deps import get_db, get_current_user, require_permissions
+except ImportError:
+    from app.core.deps import get_db, get_current_user
+    def require_permissions(perms):
+        return get_current_user
 
 router = APIRouter(prefix="/portal", tags=["subcontractor-portal"])
+
+
+# Stub responses
+PORTAL_NOT_AVAILABLE = {
+    "detail": "Subcontractor portal features are not available in this deployment. Portal modules not installed."
+}
 
 
 # Subcontractor Company Endpoints
 
 @router.post("/companies")
-async def create_subcontractor_company(
-    request: CreateSubcontractorCompanyRequest,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_permissions(["subcontractors:write"]))
-):
+async def create_subcontractor_company():
     """Create subcontractor company"""
-    service = ScopedAccessService(db)
-    company = service.create_company(current_user["tenant_id"], request)
-    
-    return {
-        "id": str(company.id),
-        "company_name": company.company_name,
-        "trades": company.trades,
-        "status": company.status
-    }
+    raise HTTPException(status_code=503, **PORTAL_NOT_AVAILABLE)
 
 
 @router.get("/companies")
-async def list_subcontractor_companies(
-    trade: Optional[str] = None,
-    status: Optional[str] = None,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
+async def list_subcontractor_companies():
     """List subcontractor companies"""
-    service = ScopedAccessService(db)
-    companies = service.list_companies(current_user["tenant_id"], trade, status)
-    
-    return [
-        {
-            "id": str(c.id),
-            "company_name": c.company_name,
-            "trades": c.trades,
-            "primary_contact_name": c.primary_contact_name,
-            "primary_contact_email": c.primary_contact_email,
-            "status": c.status
-        }
-        for c in companies
-    ]
+    raise HTTPException(status_code=503, **PORTAL_NOT_AVAILABLE)
 
 
 @router.get("/companies/{company_id}")
-async def get_subcontractor_company(
-    company_id: UUID,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
+async def get_subcontractor_company(company_id: UUID):
     """Get subcontractor company details"""
-    service = ScopedAccessService(db)
-    company = service.get_company(str(company_id))
-    
-    if not company:
-        raise HTTPException(status_code=404, detail="Company not found")
-    
-    return {
-        "id": str(company.id),
-        "company_name": company.company_name,
-        "legal_name": company.legal_name,
-        "trades": company.trades,
-        "primary_contact": {
-            "name": company.primary_contact_name,
-            "email": company.primary_contact_email,
-            "phone": company.primary_contact_phone
-        },
-        "address": {
-            "address": company.address,
-            "city": company.city,
-            "state": company.state,
-            "zip_code": company.zip_code
-        },
-        "license": {
-            "number": company.license_number,
-            "state": company.license_state,
-            "expiry": company.license_expiry.isoformat() if company.license_expiry else None
-        },
-        "status": company.status
-    }
+    raise HTTPException(status_code=503, **PORTAL_NOT_AVAILABLE)
 
 
-# ITB and Bid Endpoints
+@router.put("/companies/{company_id}")
+async def update_subcontractor_company(company_id: UUID):
+    """Update subcontractor company"""
+    raise HTTPException(status_code=503, **PORTAL_NOT_AVAILABLE)
 
-@router.post("/itbs")
-async def create_itb(
-    request: CreateITBRequest,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_permissions(["bids:write"]))
-):
+
+@router.delete("/companies/{company_id}")
+async def delete_subcontractor_company(company_id: UUID):
+    """Delete subcontractor company"""
+    raise HTTPException(status_code=503, **PORTAL_NOT_AVAILABLE)
+
+
+# Subcontractor User Endpoints
+
+@router.post("/companies/{company_id}/users")
+async def create_subcontractor_user(company_id: UUID):
+    """Add user to subcontractor company"""
+    raise HTTPException(status_code=503, **PORTAL_NOT_AVAILABLE)
+
+
+@router.get("/companies/{company_id}/users")
+async def list_subcontractor_users(company_id: UUID):
+    """List users in subcontractor company"""
+    raise HTTPException(status_code=503, **PORTAL_NOT_AVAILABLE)
+
+
+# Invitation to Bid (ITB) Endpoints
+
+@router.post("/projects/{project_id}/itbs")
+async def create_itb(project_id: UUID):
     """Create Invitation to Bid"""
-    service = BidManagementService(db)
-    itb = service.create_itb(request, current_user["id"])
-    
-    return {
-        "id": str(itb.id),
-        "itb_number": itb.itb_number,
-        "title": itb.title,
-        "trade": itb.trade,
-        "bid_deadline": itb.bid_deadline.isoformat(),
-        "status": itb.status
-    }
+    raise HTTPException(status_code=503, **PORTAL_NOT_AVAILABLE)
 
 
-@router.get("/itbs")
-async def list_itbs(
-    project_id: Optional[str] = None,
-    trade: Optional[str] = None,
-    status: Optional[str] = None,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """List ITBs"""
-    service = BidManagementService(db)
-    itbs = service.list_itbs(project_id, trade, status)
-    
-    return [
-        {
-            "id": str(i.id),
-            "itb_number": i.itb_number,
-            "title": i.title,
-            "trade": i.trade,
-            "bid_deadline": i.bid_deadline.isoformat() if i.bid_deadline else None,
-            "status": i.status
-        }
-        for i in itbs
-    ]
+@router.get("/projects/{project_id}/itbs")
+async def list_itbs(project_id: UUID):
+    """List ITBs for project"""
+    raise HTTPException(status_code=503, **PORTAL_NOT_AVAILABLE)
 
+
+@router.get("/itbs/{itb_id}")
+async def get_itb(itb_id: UUID):
+    """Get ITB details"""
+    raise HTTPException(status_code=503, **PORTAL_NOT_AVAILABLE)
+
+
+@router.post("/itbs/{itb_id}/send")
+async def send_itb(itb_id: UUID):
+    """Send ITB to subcontractors"""
+    raise HTTPException(status_code=503, **PORTAL_NOT_AVAILABLE)
+
+
+# Bid Management Endpoints
 
 @router.post("/itbs/{itb_id}/bids")
-async def submit_bid(
-    itb_id: UUID,
-    request: SubmitBidRequest,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
+async def submit_bid(itb_id: UUID):
     """Submit bid for ITB"""
-    service = BidManagementService(db)
-    
-    # Get user's company
-    scoped_service = ScopedAccessService(db)
-    sub_user = db.query(SubcontractorUser).filter(
-        SubcontractorUser.user_id == current_user["id"]
-    ).first()
-    
-    if not sub_user:
-        raise HTTPException(status_code=403, detail="Not a subcontractor user")
-    
-    bid = service.submit_bid(str(sub_user.company_id), request, current_user["id"])
-    
-    return {
-        "id": str(bid.id),
-        "bid_number": bid.bid_number,
-        "total_amount": float(bid.total_bid_amount),
-        "status": bid.status,
-        "submitted_at": bid.submitted_at.isoformat() if bid.submitted_at else None
-    }
+    raise HTTPException(status_code=503, **PORTAL_NOT_AVAILABLE)
 
 
 @router.get("/itbs/{itb_id}/bids")
-async def list_bids(
-    itb_id: UUID,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
+async def list_bids(itb_id: UUID):
     """List bids for ITB"""
-    service = BidManagementService(db)
-    bids = service.list_bids(itb_id=str(itb_id))
-    
-    return [
-        {
-            "id": str(b.id),
-            "bid_number": b.bid_number,
-            "company_id": str(b.company_id),
-            "total_amount": float(b.total_bid_amount),
-            "status": b.status,
-            "score": b.score
-        }
-        for b in bids
-    ]
+    raise HTTPException(status_code=503, **PORTAL_NOT_AVAILABLE)
+
+
+@router.get("/bids/{bid_id}")
+async def get_bid(bid_id: UUID):
+    """Get bid details"""
+    raise HTTPException(status_code=503, **PORTAL_NOT_AVAILABLE)
+
+
+@router.post("/bids/{bid_id}/award")
+async def award_bid(bid_id: UUID):
+    """Award bid"""
+    raise HTTPException(status_code=503, **PORTAL_NOT_AVAILABLE)
+
+
+@router.post("/bids/{bid_id}/reject")
+async def reject_bid(bid_id: UUID):
+    """Reject bid"""
+    raise HTTPException(status_code=503, **PORTAL_NOT_AVAILABLE)
+
+
+# Schedule of Values (SOV) Endpoints
+
+@router.post("/projects/{project_id}/sov")
+async def create_sov(project_id: UUID):
+    """Create Schedule of Values"""
+    raise HTTPException(status_code=503, **PORTAL_NOT_AVAILABLE)
+
+
+@router.get("/projects/{project_id}/sov")
+async def get_sov(project_id: UUID):
+    """Get Schedule of Values"""
+    raise HTTPException(status_code=503, **PORTAL_NOT_AVAILABLE)
+
+
+@router.put("/sov/{sov_id}/line-items/{line_item_id}")
+async def update_sov_line_item(sov_id: UUID, line_item_id: UUID):
+    """Update SOV line item"""
+    raise HTTPException(status_code=503, **PORTAL_NOT_AVAILABLE)
 
 
 # Payment Application Endpoints
 
-@router.post("/payment-apps/sov")
-async def create_sov(
-    request: CreateSOVRequest,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_permissions(["payments:write"]))
-):
-    """Create Schedule of Values"""
-    service = PaymentApplicationService(db)
-    sov = service.create_sov(request)
-    
-    return {
-        "id": str(sov.id),
-        "sov_number": sov.sov_number,
-        "contract_amount": float(sov.contract_amount),
-        "line_items": sov.line_items
-    }
-
-
-@router.get("/payment-apps/sov")
-async def list_sovs(
-    project_id: Optional[str] = None,
-    company_id: Optional[str] = None,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """List SOVs"""
-    service = PaymentApplicationService(db)
-    sovs = service.list_sovs(project_id, company_id)
-    
-    return [
-        {
-            "id": str(s.id),
-            "sov_number": s.sov_number,
-            "contract_amount": float(s.contract_amount),
-            "retention_percentage": float(s.retention_percentage)
-        }
-        for s in sovs
-    ]
-
-
-@router.post("/payment-apps")
-async def create_payment_app(
-    request: CreatePaymentAppRequest,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
+@router.post("/contracts/{contract_id}/payment-apps")
+async def create_payment_application(contract_id: UUID):
     """Create payment application"""
-    service = PaymentApplicationService(db)
-    app = service.create_payment_app(request, current_user["id"])
-    
-    return {
-        "id": str(app.id),
-        "app_number": app.app_number,
-        "current_payment_due": float(app.current_payment_due),
-        "status": app.status
-    }
+    raise HTTPException(status_code=503, **PORTAL_NOT_AVAILABLE)
 
 
-@router.get("/payment-apps")
-async def list_payment_apps(
-    sov_id: Optional[str] = None,
-    status: Optional[str] = None,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
+@router.get("/contracts/{contract_id}/payment-apps")
+async def list_payment_applications(contract_id: UUID):
     """List payment applications"""
-    service = PaymentApplicationService(db)
-    apps = service.list_payment_apps(sov_id, status)
-    
-    return [
-        {
-            "id": str(a.id),
-            "app_number": a.app_number,
-            "period_start": a.period_start.isoformat() if a.period_start else None,
-            "period_end": a.period_end.isoformat() if a.period_end else None,
-            "current_payment_due": float(a.current_payment_due),
-            "status": a.status
-        }
-        for a in apps
-    ]
+    raise HTTPException(status_code=503, **PORTAL_NOT_AVAILABLE)
 
 
-@router.get("/payment-apps/sov/{sov_id}/summary")
-async def get_payment_summary(
-    sov_id: UUID,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """Get payment summary for SOV"""
-    service = PaymentApplicationService(db)
-    summary = service.get_payment_summary(str(sov_id))
-    
-    return summary
+@router.get("/payment-apps/{app_id}")
+async def get_payment_application(app_id: UUID):
+    """Get payment application details"""
+    raise HTTPException(status_code=503, **PORTAL_NOT_AVAILABLE)
+
+
+@router.post("/payment-apps/{app_id}/submit")
+async def submit_payment_application(app_id: UUID):
+    """Submit payment application"""
+    raise HTTPException(status_code=503, **PORTAL_NOT_AVAILABLE)
+
+
+@router.post("/payment-apps/{app_id}/approve")
+async def approve_payment_application(app_id: UUID):
+    """Approve payment application"""
+    raise HTTPException(status_code=503, **PORTAL_NOT_AVAILABLE)
+
+
+@router.post("/payment-apps/{app_id}/reject")
+async def reject_payment_application(app_id: UUID):
+    """Reject payment application"""
+    raise HTTPException(status_code=503, **PORTAL_NOT_AVAILABLE)
 
 
 # Daily Report Endpoints
 
-@router.post("/daily-reports")
-async def create_daily_report(
-    request: CreateDailyReportRequest,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
+@router.post("/projects/{project_id}/daily-reports")
+async def create_daily_report(project_id: UUID):
     """Create daily report"""
-    service = DailyReportService(db)
-    report = service.create_report(request, current_user["id"])
-    
-    return {
-        "id": str(report.id),
-        "report_number": report.report_number,
-        "report_date": report.report_date.isoformat() if report.report_date else None,
-        "workers_on_site": report.workers_on_site,
-        "status": report.status
-    }
+    raise HTTPException(status_code=503, **PORTAL_NOT_AVAILABLE)
 
 
-@router.get("/daily-reports")
-async def list_daily_reports(
-    project_id: Optional[str] = None,
-    company_id: Optional[str] = None,
-    start_date: Optional[date] = None,
-    end_date: Optional[date] = None,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
+@router.get("/projects/{project_id}/daily-reports")
+async def list_daily_reports(project_id: UUID):
     """List daily reports"""
-    service = DailyReportService(db)
-    reports = service.list_reports(project_id, company_id, start_date, end_date)
-    
-    return [
-        {
-            "id": str(r.id),
-            "report_number": r.report_number,
-            "report_date": r.report_date.isoformat() if r.report_date else None,
-            "workers_on_site": r.workers_on_site,
-            "hours_worked": float(r.hours_worked),
-            "status": r.status
-        }
-        for r in reports
-    ]
+    raise HTTPException(status_code=503, **PORTAL_NOT_AVAILABLE)
 
 
 @router.get("/daily-reports/{report_id}")
-async def get_daily_report(
-    report_id: UUID,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """Get daily report details"""
-    service = DailyReportService(db)
-    report = service.get_report(str(report_id))
-    
-    if not report:
-        raise HTTPException(status_code=404, detail="Daily report not found")
-    
-    return {
-        "id": str(report.id),
-        "report_number": report.report_number,
-        "report_date": report.report_date.isoformat() if report.report_date else None,
-        "weather": {
-            "condition": report.weather_condition,
-            "temperature_low": report.temperature_low,
-            "temperature_high": report.temperature_high,
-            "precipitation": float(report.precipitation) if report.precipitation else None
-        },
-        "work": {
-            "description": report.work_description,
-            "areas": report.work_areas,
-            "workers_on_site": report.workers_on_site,
-            "hours_worked": float(report.hours_worked)
-        },
-        "equipment": report.equipment_used,
-        "materials": report.materials_delivered,
-        "delays": report.delays,
-        "safety_incidents": report.safety_incidents,
-        "status": report.status
-    }
+async def get_daily_report(report_id: UUID):
+    """Get daily report"""
+    raise HTTPException(status_code=503, **PORTAL_NOT_AVAILABLE)
 
 
-# Export router
+@router.put("/daily-reports/{report_id}")
+async def update_daily_report(report_id: UUID):
+    """Update daily report"""
+    raise HTTPException(status_code=503, **PORTAL_NOT_AVAILABLE)
+
+
+# Scoped Access Endpoints
+
+@router.get("/companies/{company_id}/projects")
+async def list_company_projects(company_id: UUID):
+    """List projects accessible to company"""
+    raise HTTPException(status_code=503, **PORTAL_NOT_AVAILABLE)
+
+
+@router.get("/companies/{company_id}/documents")
+async def list_company_documents(company_id: UUID):
+    """List documents accessible to company"""
+    raise HTTPException(status_code=503, **PORTAL_NOT_AVAILABLE)
+
+
+@router.get("/me/permissions")
+async def get_my_permissions():
+    """Get current user's scoped permissions"""
+    raise HTTPException(status_code=503, **PORTAL_NOT_AVAILABLE)
+
+
 __all__ = ["router"]
