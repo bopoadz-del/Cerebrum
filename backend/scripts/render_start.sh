@@ -27,10 +27,12 @@ PY
 echo
 
 echo "[3/3] Starting Uvicorn server..."
+echo "PORT=${PORT:-8000}"
+echo "WEB_CONCURRENCY=${WEB_CONCURRENCY:-1}"
 exec uvicorn app.main:app \
   --host 0.0.0.0 \
   --port "${PORT:-8000}" \
   --proxy-headers \
   --workers "${WEB_CONCURRENCY:-1}" \
   --access-log \
-  --log-level info
+  --log-level debug
