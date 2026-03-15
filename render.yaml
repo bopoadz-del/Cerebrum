@@ -1,13 +1,15 @@
-# Render Deployment Configuration
+# Render Deployment Configuration - SLIMMED DOWN VERSION
+# Removed: Backup cron, Celery workers, Google Drive integration
 # https://render.com/docs/blueprint-spec
 
 services:
-  # Backend API Service
+  # Backend API Service (Slimmed)
   - type: web
     name: cerebrum-api
     runtime: docker
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
+    plan: starter
     envVars:
       - key: DATABASE_URL
         fromDatabase:
@@ -25,19 +27,15 @@ services:
       - key: ENVIRONMENT
         value: "production"
       - key: CORS_ORIGINS
-        value: "https://cerebrum-frontend.onrender.com,https://cerebrum.ai"
+        value: "https://cerebrum-frontend.onrender.com"
       - key: SENTRY_ENABLED
-        value: "true"
-      - key: SENTRY_ENVIRONMENT
-        value: "production"
+        value: "false"
       - key: USE_STUB_CONNECTORS
         value: "true"
       - key: PDP_ENABLED
         value: "false"
-      - key: INITIAL_FORMULAS_PATH
-        value: "/app/data/formulas/initial_library.json"
-      - key: GOOGLE_REDIRECT_URI
-        value: "https://cerebrum-api.onrender.com/api/v1/connectors/google-drive/callback"
+      - key: SLIM_MODE
+        value: "true"
       - key: FRONTEND_URL
         value: "https://cerebrum-frontend.onrender.com"
       - key: PUBLIC_BASE_URL
@@ -45,111 +43,14 @@ services:
       - key: API_BASE_URL
         value: "https://cerebrum-api.onrender.com"
     healthCheckPath: /health/live
-    # Note: initialDelaySeconds not supported in Render Blueprint
-    # Migrations run in dockerCommand before app starts
     dockerCommand: bash scripts/render_start.sh
     autoDeploy: true
-    # Force redeploy on every push
     buildFilter:
       paths:
         - backend/**/*.py
         - backend/**/*.txt
         - backend/**/*.sh
         - backend/**/*.ini
-
-  # DB Backup Cron Job
-  - type: cron
-    name: db-backup
-    schedule: 0 2 * * *
-    runtime: docker
-    dockerfilePath: ./backend/Dockerfile
-    dockerContext: ./backend
-    envVars:
-      - key: DATABASE_URL
-        fromDatabase:
-          name: cerebrum-db
-          property: connectionString
-      - key: AWS_ACCESS_KEY_ID
-        sync: false
-      - key: AWS_SECRET_ACCESS_KEY
-        sync: false
-      - key: S3_BACKUP_BUCKET
-        value: cerebrum-db-backups
-      - key: BACKUP_RETENTION_DAYS
-        value: "30"
-    dockerCommand: bash /app/scripts/backup_cron.sh
-
-  # Celery Worker - Fast Queue
-  - type: worker
-    name: cerebrum-worker-fast
-    runtime: docker
-    dockerfilePath: ./backend/Dockerfile
-    dockerContext: ./backend
-    envVars:
-      - key: DATABASE_URL
-        fromDatabase:
-          name: cerebrum-db
-          property: connectionString
-      - key: REDIS_URL
-        fromService:
-          type: keyvalue
-          name: cerebrum-redis
-          property: connectionString
-      - key: SECRET_KEY
-        fromService:
-          type: web
-          name: cerebrum-api
-          envVarKey: SECRET_KEY
-    dockerCommand: celery -A app.workers.celery_config worker --loglevel=info -Q celery_fast,trigger_events -n fast_worker@%h
-    autoDeploy: true
-
-  # Celery Worker - Slow Queue
-  - type: worker
-    name: cerebrum-worker-slow
-    runtime: docker
-    dockerfilePath: ./backend/Dockerfile
-    dockerContext: ./backend
-    envVars:
-      - key: DATABASE_URL
-        fromDatabase:
-          name: cerebrum-db
-          property: connectionString
-      - key: REDIS_URL
-        fromService:
-          type: keyvalue
-          name: cerebrum-redis
-          property: connectionString
-      - key: SECRET_KEY
-        fromService:
-          type: web
-          name: cerebrum-api
-          envVarKey: SECRET_KEY
-    dockerCommand: celery -A app.workers.celery_config worker --loglevel=info -Q celery_slow,trigger_events -n slow_worker@%h
-    autoDeploy: true
-
-  # Celery Beat Scheduler
-  - type: worker
-    name: cerebrum-scheduler
-    runtime: docker
-    dockerfilePath: ./backend/Dockerfile
-    dockerContext: ./backend
-    envVars:
-      - key: DATABASE_URL
-        fromDatabase:
-          name: cerebrum-db
-          property: connectionString
-      - key: REDIS_URL
-        fromService:
-          type: keyvalue
-          name: cerebrum-redis
-          property: connectionString
-      - key: SECRET_KEY
-        fromService:
-          type: web
-          name: cerebrum-api
-          envVarKey: SECRET_KEY
-    dockerCommand: celery -A app.workers.celery_config beat --loglevel=info
-    autoDeploy: true
 
   # Frontend (Vite React App)
   - type: web
