@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Bot, Sparkles, Plus, Layers, Brain } from 'lucide-react';
+import { Plus, Layers, Brain } from 'lucide-react';
 import { ChatMessage } from './ChatMessage';
 import { ChatInputV2 } from './ChatInputV2';
 import { SmartContextToggle } from './SmartContextToggle';
@@ -191,7 +191,7 @@ export function AgentChatInterface({ projectName, chatTitle, onNewChat, sessionT
               >
                 <ChatMessage
                   message={message}
-                  isLast={index === messages.length - 1}
+                  index={index}
                 />
               </motion.div>
             ))}
@@ -215,10 +215,10 @@ export function AgentChatInterface({ projectName, chatTitle, onNewChat, sessionT
           value={inputValue}
           onChange={setInputValue}
           onSend={sendMessage}
-          onAttach={handleAttachFile}
-          onCamera={handleOpenCamera}
-          onMic={handleOpenMic}
-          onInternet={handleInternetSearch}
+          onAttachFile={handleAttachFile}
+          onOpenCamera={handleOpenCamera}
+          onOpenMic={handleOpenMic}
+          onInternetSearch={handleInternetSearch}
           isLoading={isLoading}
           isUploading={isUploading}
           attachments={attachments}

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, MessageSquare, Loader2, Bot, Brain } from 'lucide-react';
+import { X, MessageSquare, Loader2, Brain } from 'lucide-react';
 import { ProjectSidebar } from '@/components/ProjectSidebar';
 import { ChatInterfaceV2 } from '@/components/ChatInterfaceV2';
 import { AgentChatInterface } from '@/components/AgentChatInterface';
