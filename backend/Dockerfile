@@ -6,7 +6,7 @@ ENV ENVIRONMENT=production
 
 WORKDIR /app
 
-# Install system dependencies + conda prerequisites
+# Install system dependencies + conda prerequisites + Pillow build deps
 RUN apt-get update && apt-get install -y \
     gcc \
     libpq-dev \
@@ -16,6 +16,10 @@ RUN apt-get update && apt-get install -y \
     wget \
     bzip2 \
     ca-certificates \
+    libjpeg-dev \
+    zlib1g-dev \
+    libpng-dev \
+    libtiff-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Miniconda for ifcopenshell
@@ -26,10 +30,10 @@ RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86
     rm /tmp/miniconda.sh && \
     conda clean -afy
 
-# Accept Anaconda ToS and install ifcopenshell via conda-forge only
+# Accept Anaconda ToS and install ifcopenshell and Pillow via conda (prebuilt)
 RUN conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main && \
     conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r && \
-    conda install -c conda-forge ifcopenshell -y && \
+    conda install -c conda-forge ifcopenshell pillow -y && \
     conda clean -afy
 
 # Copy requirements and install Python packages via pip
