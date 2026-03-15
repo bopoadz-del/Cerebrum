@@ -96,9 +96,6 @@ function migrateLegacyData(): { token: string | null; refreshToken: string | nul
   return { token, refreshToken, user };
 }
 
-// Authentication enabled - connects to real backend API
-const AUTH_SLEEP_MODE = false;
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(false);

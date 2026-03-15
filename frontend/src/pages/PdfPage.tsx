@@ -1,11 +1,9 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { FileText, Download, Table, Type, Image as ImageIcon } from 'lucide-react';
+import { FileText, Table, Type, Image as ImageIcon } from 'lucide-react';
 import { ModuleHeader } from '@/components/ModuleHeader';
 import { FileUpload } from '@/components/FileUpload';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { STORAGE_KEYS } from '@/context/AuthContext';
 
 const ACCEPTED_FORMATS = ['.pdf'];
