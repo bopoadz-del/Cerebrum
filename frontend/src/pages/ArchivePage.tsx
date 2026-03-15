@@ -1,220 +1,122 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Archive, FileText, Folder, Clock, Search, Download, Trash2 } from 'lucide-react';
+import { Archive, Search, FileText, Image as ImageIcon, FileDigit } from 'lucide-react';
 import { ModuleHeader } from '@/components/ModuleHeader';
-import { FileUpload } from '@/components/FileUpload';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import type { AnalysisResult } from '@/types';
+import { Card, CardContent } from '@/components/ui/card';
+import { STORAGE_KEYS } from '@/context/AuthContext';
 
-const ACCEPTED_FORMATS = ['.zip', '.rar', '.7z', '.tar', '.gz'];
-const MAX_FILE_SIZE = 500; // MB
+const API_URL = import.meta.env.VITE_API_URL || 'https://cerebrum-api.onrender.com';
+const API_BASE = API_URL.replace(/\/?$/, '').endsWith('/api/v1') 
+  ? API_URL 
+  : `${API_URL.replace(/\/?$/, '')}/api/v1`;
 
-const mockFiles = [
-  { id: 1, name: 'Project-Documents.zip', size: '45.2 MB', date: '2024-01-15', type: 'zip', count: 156 },
-  { id: 2, name: 'CAD-Drawings.rar', size: '128.5 MB', date: '2024-01-14', type: 'rar', count: 42 },
-  { id: 3, name: 'Meeting-Recordings.zip', size: '256.8 MB', date: '2024-01-12', type: 'zip', count: 23 },
-  { id: 4, name: 'Financial-Reports.7z', size: '18.3 MB', date: '2024-01-10', type: '7z', count: 89 },
-];
-
-const mockResult: AnalysisResult = {
-  id: '1',
-  moduleId: 'archive',
-  fileName: 'Project-Backup.zip',
-  status: 'completed',
-  createdAt: new Date(),
-  completedAt: new Date(),
-  summary: 'Archive analysis completed. 312 files found across 15 folders.',
-  details: {
-    totalFiles: 312,
-    totalFolders: 15,
-    totalSize: '456.8 MB',
-    compressedSize: '128.5 MB',
-    compressionRatio: 72,
-    fileTypes: [
-      { type: 'PDF', count: 89, size: '125 MB' },
-      { type: 'DOC/DOCX', count: 45, size: '68 MB' },
-      { type: 'XLS/XLSX', count: 32, size: '42 MB' },
-      { type: 'Images', count: 98, size: '156 MB' },
-      { type: 'Other', count: 48, size: '65 MB' },
-    ],
-  },
-};
+interface ArchivedFile {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  created_at: string;
+}
 
 export default function ArchivePage() {
-  const [result, setResult] = useState<AnalysisResult | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [files, setFiles] = useState<ArchivedFile[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleUpload = async (_files: File[]) => {
-    setIsAnalyzing(true);
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    setResult(mockResult);
-    setIsAnalyzing(false);
-  };
+  useEffect(() => {
+    const fetchFiles = async () => {
+      try {
+        const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+        const response = await fetch(`${API_BASE}/documents`, {
+          headers: { 'Authorization': token ? `Bearer ${token}` : '' },
+        });
+        
+        if (!response.ok) throw new Error('Failed to fetch files');
+        
+        const data = await response.json();
+        setFiles(data.documents || []);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load files');
+        setFiles([]);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const filteredFiles = mockFiles.filter((file) =>
+    fetchFiles();
+  }, []);
+
+  const filteredFiles = files.filter((file) =>
     file.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const getFileIcon = (type: string) => {
+    if (type.includes('pdf')) return <FileText className="w-5 h-5 text-red-500" />;
+    if (type.includes('image')) return <ImageIcon className="w-5 h-5 text-blue-500" />;
+    return <FileDigit className="w-5 h-5 text-gray-500" />;
+  };
 
   return (
     <div className="p-8">
       <ModuleHeader
-        title="Archive Analysis"
-        description="Extract and analyze contents of compressed archives"
+        title="Archive"
+        description="Browse and search archived files"
         icon={Archive}
-        iconColor="purple"
+        iconColor="gray"
       />
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="mb-8"
+        className="mb-6"
       >
-        <FileUpload
-          acceptedFormats={ACCEPTED_FORMATS}
-          maxFileSize={MAX_FILE_SIZE}
-          onUpload={handleUpload}
-        />
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Input
+            placeholder="Search files..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
       </motion.div>
 
-      {/* Archive List */}
-      <Card className="mb-8">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-base">Recent Archives</CardTitle>
-          <div className="relative w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Input
-              placeholder="Search archives..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            {filteredFiles.map((file) => (
-              <div
-                key={file.id}
-                className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors"
-              >
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+          <p className="text-red-600">{error}</p>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="w-8 h-8 border-2 border-gray-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredFiles.map((file) => (
+            <Card key={file.id} className="hover:shadow-md transition-shadow">
+              <CardContent className="p-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center">
-                    <Archive className="w-5 h-5 text-purple-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900">{file.name}</p>
+                  {getFileIcon(file.type)}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-gray-900 truncate">{file.name}</p>
                     <p className="text-sm text-gray-500">
-                      {file.count} files • {file.size}
+                      {(file.size / 1024).toFixed(1)} KB • {new Date(file.created_at).toLocaleDateString()}
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-400">{file.date}</span>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <Download className="w-4 h-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600">
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {isAnalyzing && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="flex items-center justify-center py-12"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-            <span className="text-gray-600">Extracting archive contents...</span>
-          </div>
-        </motion.div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       )}
 
-      {result && !isAnalyzing && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="space-y-6"
-        >
-          {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Card>
-              <CardContent className="p-4 flex items-center gap-3">
-                <FileText className="w-5 h-5 text-indigo-500" />
-                <div>
-                  <p className="text-sm text-gray-500">Files</p>
-                  <p className="font-semibold">{((result.details as any)?.totalFiles as number).toLocaleString()}</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 flex items-center gap-3">
-                <Folder className="w-5 h-5 text-emerald-500" />
-                <div>
-                  <p className="text-sm text-gray-500">Folders</p>
-                  <p className="font-semibold">{(result.details as any)?.totalFolders as number}</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 flex items-center gap-3">
-                <Archive className="w-5 h-5 text-amber-500" />
-                <div>
-                  <p className="text-sm text-gray-500">Compressed</p>
-                  <p className="font-semibold">{(result.details as any)?.compressedSize as string}</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 flex items-center gap-3">
-                <Clock className="w-5 h-5 text-purple-500" />
-                <div>
-                  <p className="text-sm text-gray-500">Compression</p>
-                  <p className="font-semibold">{(result.details as any)?.compressionRatio}%</p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* File Types */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">File Type Breakdown</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {((result.details as any)?.fileTypes as Array<{ type: string; count: number; size: string }>)?.map(
-                  (fileType, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
-                          <FileText className="w-4 h-4 text-indigo-600" />
-                        </div>
-                        <span className="font-medium text-gray-900">{fileType.type}</span>
-                      </div>
-                      <div className="flex items-center gap-6">
-                        <span className="text-sm text-gray-500">{fileType.count} files</span>
-                        <span className="text-sm font-medium text-gray-900 w-20 text-right">
-                          {fileType.size}
-                        </span>
-                      </div>
-                    </div>
-                  )
-                )}
-              </div>
-            </CardContent>
-          </Card>
+      {!loading && filteredFiles.length === 0 && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-12">
+          <Archive className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+          <p className="text-gray-500">No files found</p>
         </motion.div>
       )}
     </div>

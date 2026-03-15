@@ -1,92 +1,57 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { FunctionSquare, Search, Plus } from 'lucide-react';
+import { FunctionSquare, Search, Plus, Loader2 } from 'lucide-react';
 import { ModuleHeader } from '@/components/ModuleHeader';
 import { FormulaCard } from '@/components/FormulaCard';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { } from '@/components/ui/badge';
 import type { Formula } from '@/types';
+import { STORAGE_KEYS } from '@/context/AuthContext';
 
-const mockFormulas: Formula[] = [
-  {
-    id: '1',
-    name: 'Net Present Value',
-    description: 'Calculate the present value of future cash flows discounted at a given rate.',
-    category: 'Finance',
-    parameters: [
-      { name: 'cashFlows', type: 'array', required: true, description: 'Array of cash flows' },
-      { name: 'discountRate', type: 'number', required: true, description: 'Discount rate as decimal' },
-      { name: 'initialInvestment', type: 'number', required: false, description: 'Initial investment amount', defaultValue: 0 },
-    ],
-    documentationUrl: '#',
-  },
-  {
-    id: '2',
-    name: 'Internal Rate of Return',
-    description: 'Calculate the discount rate that makes NPV equal to zero.',
-    category: 'Finance',
-    parameters: [
-      { name: 'cashFlows', type: 'array', required: true, description: 'Array of cash flows' },
-    ],
-    documentationUrl: '#',
-  },
-  {
-    id: '3',
-    name: 'Beam Deflection',
-    description: 'Calculate deflection of a simply supported beam under uniform load.',
-    category: 'Engineering',
-    parameters: [
-      { name: 'load', type: 'number', required: true, description: 'Uniform load (N/m)' },
-      { name: 'length', type: 'number', required: true, description: 'Beam length (m)' },
-      { name: 'elasticity', type: 'number', required: true, description: 'Modulus of elasticity (Pa)' },
-      { name: 'inertia', type: 'number', required: true, description: 'Moment of inertia (m⁴)' },
-    ],
-    documentationUrl: '#',
-  },
-  {
-    id: '4',
-    name: 'Standard Deviation',
-    description: 'Calculate the standard deviation of a dataset.',
-    category: 'Statistics',
-    parameters: [
-      { name: 'data', type: 'array', required: true, description: 'Array of numbers' },
-      { name: 'sample', type: 'boolean', required: false, description: 'Use sample standard deviation', defaultValue: true },
-    ],
-    documentationUrl: '#',
-  },
-  {
-    id: '5',
-    name: 'Linear Regression',
-    description: 'Perform linear regression on a dataset.',
-    category: 'Statistics',
-    parameters: [
-      { name: 'x', type: 'array', required: true, description: 'Independent variable values' },
-      { name: 'y', type: 'array', required: true, description: 'Dependent variable values' },
-    ],
-    documentationUrl: '#',
-  },
-  {
-    id: '6',
-    name: 'Concrete Mix Design',
-    description: 'Calculate concrete mix proportions based on strength requirements.',
-    category: 'Engineering',
-    parameters: [
-      { name: 'targetStrength', type: 'number', required: true, description: 'Target compressive strength (MPa)' },
-      { name: 'slump', type: 'number', required: true, description: 'Slump value (mm)' },
-      { name: 'aggregateSize', type: 'number', required: true, description: 'Maximum aggregate size (mm)' },
-    ],
-    documentationUrl: '#',
-  },
-];
+const API_URL = import.meta.env.VITE_API_URL || 'https://cerebrum-api.onrender.com';
+const API_BASE = API_URL.replace(/\/?$/, '').endsWith('/api/v1') 
+  ? API_URL 
+  : `${API_URL.replace(/\/?$/, '')}/api/v1`;
 
 const categories = ['All', 'Finance', 'Engineering', 'Statistics', 'Custom'];
 
 export default function FormulasPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [formulas, setFormulas] = useState<Formula[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const filteredFormulas = mockFormulas.filter((formula) => {
+  // Fetch formulas from API
+  useEffect(() => {
+    const fetchFormulas = async () => {
+      try {
+        const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+        const response = await fetch(`${API_BASE}/formulas`, {
+          headers: {
+            'Authorization': token ? `Bearer ${token}` : '',
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch formulas: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        setFormulas(data.formulas || []);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load formulas');
+        setFormulas([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchFormulas();
+  }, []);
+
+  const filteredFormulas = formulas.filter((formula) => {
     const matchesSearch = formula.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          formula.description.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === 'All' || formula.category === selectedCategory;
@@ -108,7 +73,7 @@ export default function FormulasPage() {
         }
       />
 
-      {/* Search and */}
+      {/* Search and Filter */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -141,14 +106,39 @@ export default function FormulasPage() {
         </div>
       </motion.div>
 
+      {/* Error State */}
+      {error && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6"
+        >
+          <p className="text-red-600">{error}</p>
+        </motion.div>
+      )}
+
+      {/* Loading State */}
+      {loading && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="flex items-center justify-center py-16"
+        >
+          <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+          <span className="ml-2 text-gray-600">Loading formulas...\u003c/span>
+        </motion.div>
+      )}
+
       {/* Results Count */}
-      <motion.p
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="text-sm text-gray-500 mb-4"
-      >
-        Showing {filteredFormulas.length} formula{filteredFormulas.length !== 1 ? 's' : ''}
-      </motion.p>
+      {!loading && (
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-sm text-gray-500 mb-4"
+        >
+          Showing {filteredFormulas.length} formula{filteredFormulas.length !== 1 ? 's' : ''}
+        </motion.p>
+      )}
 
       {/* Formula Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -157,7 +147,7 @@ export default function FormulasPage() {
         ))}
       </div>
 
-      {filteredFormulas.length === 0 && (
+      {!loading && filteredFormulas.length === 0 && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

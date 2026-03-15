@@ -4,58 +4,82 @@ import { FileText, Download, Table, Type, Image as ImageIcon } from 'lucide-reac
 import { ModuleHeader } from '@/components/ModuleHeader';
 import { FileUpload } from '@/components/FileUpload';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import type { AnalysisResult } from '@/types';
+import { STORAGE_KEYS } from '@/context/AuthContext';
 
 const ACCEPTED_FORMATS = ['.pdf'];
 const MAX_FILE_SIZE = 50; // MB
 
-const mockResult: AnalysisResult = {
-  id: '1',
-  moduleId: 'pdf',
-  fileName: 'Q4-Financial-Report.pdf',
-  status: 'completed',
-  createdAt: new Date(),
-  completedAt: new Date(),
-  summary: 'PDF analysis completed. 24 pages processed with 3 tables and 12 images extracted.',
-  details: {
-    pages: 24,
-    textBlocks: 156,
-    tables: 3,
-    images: 12,
-    summary: `This quarterly financial report shows strong performance across all divisions. Revenue increased by 15% compared to Q3, with the technology division leading growth at 28%. Operating expenses were well-controlled, resulting in a 22% increase in net income.`,
-    extractedTables: [
-      { name: 'Revenue Breakdown', rows: 8, columns: 4 },
-      { name: 'Expense Summary', rows: 12, columns: 3 },
-      { name: 'Profit/Loss', rows: 6, columns: 5 },
-    ],
-    keyInsights: [
-      'Revenue up 15% quarter-over-quarter',
-      'Technology division shows strongest growth at 28%',
-      'Operating expenses reduced by 5%',
-      'Net income increased by 22%',
-    ],
-  },
-};
+const API_URL = import.meta.env.VITE_API_URL || 'https://cerebrum-api.onrender.com';
+const API_BASE = API_URL.replace(/\/?$/, '').endsWith('/api/v1') 
+  ? API_URL 
+  : `${API_URL.replace(/\/?$/, '')}/api/v1`;
+
+interface PDFResult {
+  file_id: string;
+  filename: string;
+  pages?: number;
+  text_content?: string;
+  tables?: Array<{ name: string; rows: number; columns: number }>;
+  images?: number;
+}
 
 export default function PdfPage() {
-  const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [result, setResult] = useState<PDFResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleUpload = async (_files: File[]) => {
+  const handleUpload = async (files: File[]) => {
+    if (files.length === 0) return;
+    
     setIsAnalyzing(true);
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    setResult(mockResult);
-    setIsAnalyzing(false);
+    setError(null);
+    setResult(null);
+    
+    const file = files[0];
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+      const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+      
+      // Use the chat upload endpoint which extracts text
+      const response = await fetch(`${API_BASE}/connectors/upload/chat`, {
+        method: 'POST',
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : '',
+        },
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || `Upload failed: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      setResult({
+        file_id: data.file_id || data.id,
+        filename: file.name,
+        pages: data.pages || 1,
+        text_content: data.text || data.extracted_text,
+        images: data.images || 0,
+      });
+      
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to process PDF');
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   return (
     <div className="p-8">
       <ModuleHeader
         title="PDF Analysis"
-        description="Extract text, tables, and images from PDF documents"
+        description="Extract text and content from PDF documents"
         icon={FileText}
         iconColor="red"
       />
@@ -72,6 +96,16 @@ export default function PdfPage() {
           onUpload={handleUpload}
         />
       </motion.div>
+
+      {error && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6"
+        >
+          <p className="text-red-600">{error}</p>
+        </motion.div>
+      )}
 
       {isAnalyzing && (
         <motion.div
@@ -99,7 +133,7 @@ export default function PdfPage() {
                 <FileText className="w-5 h-5 text-indigo-500" />
                 <div>
                   <p className="text-sm text-gray-500">Pages</p>
-                  <p className="font-semibold">{(result.details as any)?.pages as number}</p>
+                  <p className="font-semibold">{result.pages || 1}</p>
                 </div>
               </CardContent>
             </Card>
@@ -107,8 +141,8 @@ export default function PdfPage() {
               <CardContent className="p-4 flex items-center gap-3">
                 <Type className="w-5 h-5 text-emerald-500" />
                 <div>
-                  <p className="text-sm text-gray-500">Text Blocks</p>
-                  <p className="font-semibold">{(result.details as any)?.textBlocks as number}</p>
+                  <p className="text-sm text-gray-500">Text Length</p>
+                  <p className="font-semibold">{result.text_content?.length?.toLocaleString() || 0} chars</p>
                 </div>
               </CardContent>
             </Card>
@@ -117,7 +151,7 @@ export default function PdfPage() {
                 <Table className="w-5 h-5 text-amber-500" />
                 <div>
                   <p className="text-sm text-gray-500">Tables</p>
-                  <p className="font-semibold">{(result.details as any)?.tables as number}</p>
+                  <p className="font-semibold">{result.tables?.length || 0}</p>
                 </div>
               </CardContent>
             </Card>
@@ -126,76 +160,23 @@ export default function PdfPage() {
                 <ImageIcon className="w-5 h-5 text-purple-500" />
                 <div>
                   <p className="text-sm text-gray-500">Images</p>
-                  <p className="font-semibold">{(result.details as any)?.images as number}</p>
+                  <p className="font-semibold">{result.images || 0}</p>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Content Tabs */}
-          <Tabs defaultValue="summary" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="summary">Summary</TabsTrigger>
-              <TabsTrigger value="tables">Tables</TabsTrigger>
-              <TabsTrigger value="insights">Key Insights</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="summary">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Document Summary</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-700 leading-relaxed">{(result.details as any)?.summary as string}</p>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="tables">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {((result.details as any)?.extractedTables as Array<{ name: string; rows: number; columns: number }>)?.map(
-                  (table, index) => (
-                    <Card key={index}>
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <p className="font-medium text-gray-900">{table.name}</p>
-                            <p className="text-sm text-gray-500 mt-1">
-                              {table.rows} rows × {table.columns} columns
-                            </p>
-                          </div>
-                          <Button variant="ghost" size="sm">
-                            <Download className="w-4 h-4 mr-1" />
-                            CSV
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )
-                )}
+          {/* Content */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Extracted Text</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
+                <pre className="text-sm text-gray-700 whitespace-pre-wrap">{result.text_content || 'No text extracted'}</pre>
               </div>
-            </TabsContent>
-
-            <TabsContent value="insights">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Key Insights</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-3">
-                    {((result.details as any)?.keyInsights as string[])?.map((insight, index) => (
-                      <li key={index} className="flex items-start gap-3">
-                        <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                          <span className="text-xs font-medium text-indigo-600">{index + 1}</span>
-                        </div>
-                        <span className="text-gray-700">{insight}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+            </CardContent>
+          </Card>
         </motion.div>
       )}
     </div>

@@ -1,197 +1,116 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Calendar, Clock, AlertCircle, CheckCircle } from 'lucide-react';
+import { Calendar, Clock, CheckCircle } from 'lucide-react';
 import { ModuleHeader } from '@/components/ModuleHeader';
 import { FileUpload } from '@/components/FileUpload';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { } from '@/lib/utils';
-import type { AnalysisResult } from '@/types';
+import { STORAGE_KEYS } from '@/context/AuthContext';
 
-const ACCEPTED_FORMATS = ['.xer', '.mpp', '.xml', '.csv'];
-const MAX_FILE_SIZE = 50; // MB
+const ACCEPTED_FORMATS = ['.mpp', '.xlsx', '.csv', '.json'];
+const MAX_FILE_SIZE = 50;
 
-// Mock analysis result
-const mockResult: AnalysisResult = {
-  id: '1',
-  moduleId: 'schedule',
-  fileName: 'Project-Schedule.xer',
-  status: 'completed',
-  createdAt: new Date(),
-  completedAt: new Date(),
-  summary: 'Schedule analysis completed with 3 critical issues found',
-  details: {
-    criticalPath: ['Task A', 'Task B', 'Task C'],
-    delays: [
-      { task: 'Foundation Work', days: 5, reason: 'Weather conditions' },
-      { task: 'Electrical Installation', days: 2, reason: 'Material shortage' },
-    ],
-    resourceConflicts: [
-      { resource: 'Team Alpha', tasks: ['Task 1', 'Task 2'], dates: 'Jan 15-20' },
-    ],
-    recommendations: [
-      'Consider adding buffer time for weather-dependent tasks',
-      'Prioritize electrical material procurement',
-      'Reallocate Team Alpha resources to avoid conflicts',
-    ],
-  },
-};
+const API_URL = import.meta.env.VITE_API_URL || 'https://cerebrum-api.onrender.com';
+const API_BASE = API_URL.replace(/\/?$/, '').endsWith('/api/v1') 
+  ? API_URL 
+  : `${API_URL.replace(/\/?$/, '')}/api/v1`;
+
+interface ScheduleResult {
+  file_id: string;
+  filename: string;
+  tasks?: number;
+  duration?: string;
+}
 
 export default function SchedulePage() {
-  const [result, setResult] = useState<AnalysisResult | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [result, setResult] = useState<ScheduleResult | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleUpload = async (_files: File[]) => {
-    setIsAnalyzing(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    setResult(mockResult);
-    setIsAnalyzing(false);
+  const handleUpload = async (files: File[]) => {
+    if (files.length === 0) return;
+    
+    setIsProcessing(true);
+    setError(null);
+    
+    const file = files[0];
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+      const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+      
+      const response = await fetch(`${API_BASE}/connectors/upload/chat`, {
+        method: 'POST',
+        headers: { 'Authorization': token ? `Bearer ${token}` : '' },
+        body: formData,
+      });
+      
+      if (!response.ok) throw new Error('Upload failed');
+      
+      const data = await response.json();
+      
+      setResult({
+        file_id: data.file_id,
+        filename: file.name,
+        tasks: 0,
+        duration: 'Unknown',
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Processing failed');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
     <div className="p-8">
       <ModuleHeader
         title="Schedule Analysis"
-        description="Analyze project schedules for delays, critical path, and resource conflicts"
+        description="Analyze project schedules and timelines"
         icon={Calendar}
-        iconColor="emerald"
+        iconColor="orange"
       />
 
-      {/* Upload Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="mb-8"
-      >
-        <FileUpload
-          acceptedFormats={ACCEPTED_FORMATS}
-          maxFileSize={MAX_FILE_SIZE}
-          onUpload={handleUpload}
-        />
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+        <FileUpload acceptedFormats={ACCEPTED_FORMATS} maxFileSize={MAX_FILE_SIZE} onUpload={handleUpload} />
       </motion.div>
 
-      {/* Analysis Results */}
-      {isAnalyzing && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="flex items-center justify-center py-12"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-            <span className="text-gray-600">Analyzing schedule...</span>
-          </div>
-        </motion.div>
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+          <p className="text-red-600">{error}</p>
+        </div>
       )}
 
-      {result && !isAnalyzing && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="space-y-6"
-        >
-          {/* Summary Card */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center">
-                  <CheckCircle className="w-5 h-5 text-emerald-600" />
-                </div>
-                <div>
-                  <CardTitle className="text-lg">Analysis Complete</CardTitle>
-                  <p className="text-sm text-gray-500">{result.fileName}</p>
-                </div>
-              </div>
-              <Badge className="bg-emerald-100 text-emerald-700">Completed</Badge>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-700">{result.summary}</p>
-            </CardContent>
-          </Card>
+      {isProcessing && (
+        <div className="flex items-center justify-center py-12">
+          <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+          <span className="ml-3 text-gray-600">Processing schedule...</span>
+        </div>
+      )}
 
-          {/* Results Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Delays */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-amber-500" />
-                  <CardTitle className="text-base">Schedule Delays</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {((result.details as any)?.delays as Array<{ task: string; days: number; reason: string }>)?.map(
-                    (delay, index) => (
-                      <div
-                        key={index}
-                        className="flex items-start justify-between p-3 bg-amber-50 rounded-lg"
-                      >
-                        <div>
-                          <p className="font-medium text-gray-900">{delay.task}</p>
-                          <p className="text-sm text-gray-600">{delay.reason}</p>
-                        </div>
-                        <Badge variant="outline" className="text-amber-700 border-amber-200">
-                          +{delay.days} days
-                        </Badge>
-                      </div>
-                    )
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Resource Conflicts */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="w-5 h-5 text-red-500" />
-                  <CardTitle className="text-base">Resource Conflicts</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {((result.details as any)?.resourceConflicts as Array<{
-                    resource: string;
-                    tasks: string[];
-                    dates: string;
-                  }>)?.map((conflict, index) => (
-                    <div
-                      key={index}
-                      className="flex items-start justify-between p-3 bg-red-50 rounded-lg"
-                    >
-                      <div>
-                        <p className="font-medium text-gray-900">{conflict.resource}</p>
-                        <p className="text-sm text-gray-600">
-                          Tasks: {conflict.tasks.join(', ')}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">{conflict.dates}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Recommendations */}
+      {result && !isProcessing && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Recommendations</CardTitle>
+              <CardTitle>{result.filename}</CardTitle>
             </CardHeader>
             <CardContent>
-              <ul className="space-y-2">
-                {((result.details as any)?.recommendations as string[])?.map((rec, index) => (
-                  <li key={index} className="flex items-start gap-2">
-                    <div className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <span className="text-xs font-medium text-indigo-600">{index + 1}</span>
-                    </div>
-                    <span className="text-gray-700">{rec}</span>
-                  </li>
-                ))}
-              </ul>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
+                  <CheckCircle className="w-5 h-5 text-orange-500" />
+                  <div>
+                    <p className="text-sm text-gray-500">Tasks</p>
+                    <p className="font-semibold">{result.tasks}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
+                  <Clock className="w-5 h-5 text-orange-500" />
+                  <div>
+                    <p className="text-sm text-gray-500">Duration</p>
+                    <p className="font-semibold">{result.duration}</p>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </motion.div>

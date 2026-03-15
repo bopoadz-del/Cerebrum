@@ -1,228 +1,118 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Box, Layers, Ruler, AlertTriangle } from 'lucide-react';
+import { FileDigit, Box, Layers } from 'lucide-react';
 import { ModuleHeader } from '@/components/ModuleHeader';
 import { FileUpload } from '@/components/FileUpload';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { } from '@/components/ui/badge';
-import { } from '@/components/ui/button';
-import type { AnalysisResult } from '@/types';
+import { STORAGE_KEYS } from '@/context/AuthContext';
 
-const ACCEPTED_FORMATS = ['.dwg', '.dxf', '.step', '.iges'];
-const MAX_FILE_SIZE = 100; // MB
+const ACCEPTED_FORMATS = ['.dwg', '.dxf', '.step', '.stp'];
+const MAX_FILE_SIZE = 100;
 
-const mockResult: AnalysisResult = {
-  id: '1',
-  moduleId: 'cad',
-  fileName: 'Building-Floor-Plan.dwg',
-  status: 'completed',
-  createdAt: new Date(),
-  completedAt: new Date(),
-  summary: 'CAD analysis completed. 15 layers analyzed with 2 issues detected.',
-  details: {
-    layers: 15,
-    entities: 2847,
-    dimensions: 156,
-    blocks: 42,
-    issues: [
-      { type: 'warning', message: 'Layer "HIDDEN" contains unused entities', location: 'Layer 7' },
-      { type: 'error', message: 'Missing dimension reference', location: 'Block "DOOR_01"' },
-    ],
-    measurements: {
-      totalArea: '2,450 m²',
-      perimeter: '198 m',
-      roomCount: 24,
-    },
-    layerSummary: [
-      { name: 'WALLS', entities: 456, color: '#FF0000' },
-      { name: 'DOORS', entities: 89, color: '#00FF00' },
-      { name: 'WINDOWS', entities: 124, color: '#0000FF' },
-      { name: 'DIMENSIONS', entities: 156, color: '#FFFF00' },
-    ],
-  },
-};
+const API_URL = import.meta.env.VITE_API_URL || 'https://cerebrum-api.onrender.com';
+const API_BASE = API_URL.replace(/\/?$/, '').endsWith('/api/v1') 
+  ? API_URL 
+  : `${API_URL.replace(/\/?$/, '')}/api/v1`;
+
+interface CadResult {
+  file_id: string;
+  filename: string;
+  file_type?: string;
+  size?: number;
+}
 
 export default function CadPage() {
-  const [result, setResult] = useState<AnalysisResult | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [result, setResult] = useState<CadResult | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleUpload = async (_files: File[]) => {
-    setIsAnalyzing(true);
-    await new Promise((resolve) => setTimeout(resolve, 2500));
-    setResult(mockResult);
-    setIsAnalyzing(false);
+  const handleUpload = async (files: File[]) => {
+    if (files.length === 0) return;
+    
+    setIsProcessing(true);
+    setError(null);
+    
+    const file = files[0];
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+      const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+      
+      const response = await fetch(`${API_BASE}/connectors/upload/chat`, {
+        method: 'POST',
+        headers: { 'Authorization': token ? `Bearer ${token}` : '' },
+        body: formData,
+      });
+      
+      if (!response.ok) throw new Error('Upload failed');
+      
+      const data = await response.json();
+      
+      setResult({
+        file_id: data.file_id,
+        filename: file.name,
+        file_type: file.name.split('.').pop(),
+        size: file.size,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Processing failed');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
     <div className="p-8">
       <ModuleHeader
         title="CAD Analysis"
-        description="Analyze CAD files for layer information, measurements, and issues"
-        icon={Box}
+        description="Process CAD files and extract geometry"
+        icon={FileDigit}
         iconColor="blue"
       />
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="mb-8"
-      >
-        <FileUpload
-          acceptedFormats={ACCEPTED_FORMATS}
-          maxFileSize={MAX_FILE_SIZE}
-          onUpload={handleUpload}
-        />
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+        <FileUpload acceptedFormats={ACCEPTED_FORMATS} maxFileSize={MAX_FILE_SIZE} onUpload={handleUpload} />
       </motion.div>
 
-      {isAnalyzing && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="flex items-center justify-center py-12"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-            <span className="text-gray-600">Analyzing CAD file...</span>
-          </div>
-        </motion.div>
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+          <p className="text-red-600">{error}</p>
+        </div>
       )}
 
-      {result && !isAnalyzing && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="space-y-6"
-        >
-          {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Card>
-              <CardContent className="p-4 flex items-center gap-3">
-                <Layers className="w-5 h-5 text-indigo-500" />
-                <div>
-                  <p className="text-sm text-gray-500">Layers</p>
-                  <p className="font-semibold">{(result.details as any)?.layers as number}</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 flex items-center gap-3">
-                <Box className="w-5 h-5 text-emerald-500" />
-                <div>
-                  <p className="text-sm text-gray-500">Entities</p>
-                  <p className="font-semibold">{((result.details as any)?.entities as number).toLocaleString()}</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 flex items-center gap-3">
-                <Ruler className="w-5 h-5 text-amber-500" />
-                <div>
-                  <p className="text-sm text-gray-500">Dimensions</p>
-                  <p className="font-semibold">{(result.details as any)?.dimensions as number}</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 flex items-center gap-3">
-                <Box className="w-5 h-5 text-purple-500" />
-                <div>
-                  <p className="text-sm text-gray-500">Blocks</p>
-                  <p className="font-semibold">{(result.details as any)?.blocks as number}</p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+      {isProcessing && (
+        <div className="flex items-center justify-center py-12">
+          <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <span className="ml-3 text-gray-600">Processing CAD file...</span>
+        </div>
+      )}
 
-          {/* Measurements */}
+      {result && !isProcessing && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Measurements</CardTitle>
+              <CardTitle>{result.filename}</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-500">Total Area</p>
-                  <p className="text-2xl font-semibold text-gray-900">
-                    {((result.details as any)?.measurements as { totalArea: string })?.totalArea}
-                  </p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
+                  <Box className="w-5 h-5 text-blue-500" />
+                  <div>
+                    <p className="text-sm text-gray-500">File Type</p>
+                    <p className="font-semibold">{result.file_type?.toUpperCase()}</p>
+                  </div>
                 </div>
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-500">Perimeter</p>
-                  <p className="text-2xl font-semibold text-gray-900">
-                    {((result.details as any)?.measurements as { perimeter: string })?.perimeter}
-                  </p>
-                </div>
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-500">Room Count</p>
-                  <p className="text-2xl font-semibold text-gray-900">
-                    {((result.details as any)?.measurements as { roomCount: number })?.roomCount}
-                  </p>
+                <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
+                  <Layers className="w-5 h-5 text-blue-500" />
+                  <div>
+                    <p className="text-sm text-gray-500">Size</p>
+                    <p className="font-semibold">{((result.size || 0) / 1024 / 1024).toFixed(2)} MB</p>
+                  </div>
                 </div>
               </div>
             </CardContent>
           </Card>
-
-          {/* Layer Summary */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Layer Summary</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {((result.details as any)?.layerSummary as Array<{ name: string; entities: number; color: string }>)?.map(
-                  (layer, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="w-4 h-4 rounded"
-                          style={{ backgroundColor: layer.color }}
-                        />
-                        <span className="font-medium text-gray-900">{layer.name}</span>
-                      </div>
-                      <span className="text-sm text-gray-500">{layer.entities} entities</span>
-                    </div>
-                  )
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Issues */}
-          {((result.details as any)?.issues as Array<{ type: string; message: string; location: string }>)?.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <AlertTriangle className="w-5 h-5 text-amber-500" />
-                  Issues Detected
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {((result.details as any)?.issues as Array<{ type: string; message: string; location: string }>)?.map(
-                    (issue, index) => (
-                      <div
-                        key={index}
-                        className={`flex items-start gap-3 p-3 rounded-lg ${
-                          issue.type === 'error' ? 'bg-red-50' : 'bg-amber-50'
-                        }`}
-                      >
-                        {issue.type === 'error' ? (
-                          <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0" />
-                        ) : (
-                          <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0" />
-                        )}
-                        <div>
-                          <p className="font-medium text-gray-900">{issue.message}</p>
-                          <p className="text-sm text-gray-500">{issue.location}</p>
-                        </div>
-                      </div>
-                    )
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
         </motion.div>
       )}
     </div>
