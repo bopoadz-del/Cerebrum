@@ -5,7 +5,7 @@ Main FastAPI Application Entry Point
 This module initializes the FastAPI application with all routes,
 middleware, and configurations for the 14-layer architecture.
 
-BUILD_ID: slim-mode-2026-03-15
+BUILD_ID: remove-gdrive-2026-03-15
 """
 
 import asyncio
@@ -33,27 +33,13 @@ from app.db.session import db_manager, get_db_session
 from app.db.redis import redis_manager
 from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.middleware.exception import setup_exception_handlers
-
-# Conditionally import triggers (skip in slim mode to save memory)
-SLIM_MODE = os.getenv("SLIM_MODE", "false").lower() == "true"
-if not SLIM_MODE:
-    from app.triggers import (
-        event_bus,
-        file_trigger_manager,
-        ml_trigger_manager,
-        safety_trigger_manager,
-        audit_trigger_manager,
-    )
-else:
-    # Create dummy objects for slim mode
-    class DummyEventBus:
-        async def start(self): pass
-        async def stop(self): pass
-    event_bus = DummyEventBus()
-    file_trigger_manager = None
-    ml_trigger_manager = None
-    safety_trigger_manager = None
-    audit_trigger_manager = None
+from app.triggers import (
+    event_bus,
+    file_trigger_manager,
+    ml_trigger_manager,
+    safety_trigger_manager,
+    audit_trigger_manager,
+)
 
 # Configure structured logging
 configure_logging()
@@ -121,9 +107,8 @@ async def lifespan(app: FastAPI):
         logger.critical("FATAL: Rate limiter storage (Redis) unavailable", error=str(e))
         sys.exit(1)
     
-    # Initialize Sentry (only in full mode)
-    if not SLIM_MODE:
-        init_sentry()
+    # Initialize Sentry
+    init_sentry()
     
     # Initialize database
     db_manager.initialize()
@@ -138,41 +123,37 @@ async def lifespan(app: FastAPI):
         logger.critical("FATAL: Database connection failed", error=str(e))
         sys.exit(1)
     
-    # Initialize trigger engine (only in full mode)
-    if not SLIM_MODE:
-        logger.info("Initializing trigger engine")
-        await event_bus.start()
-        
-        # Log trigger manager status
-        logger.info(
-            "Trigger managers initialized",
-            file_triggers=True,
-            ml_triggers=True,
-            safety_triggers=True,
-            audit_triggers=True,
-        )
-        
-        # Initialize local filesystem watcher (if enabled)
-        local_watcher = None
-        if os.getenv("WATCH_LOCAL_FILES", "false").lower() == "true":
-            from app.platform.local_filesystem.watcher import init_watcher
-            local_watcher = init_watcher()
-            if local_watcher:
-                logger.info("Local filesystem watcher active")
-    else:
-        logger.info("SLIM MODE: Skipping trigger engine and optional services")
+    # Initialize trigger engine
+    logger.info("Initializing trigger engine")
+    await event_bus.start()
+    
+    # Log trigger manager status
+    logger.info(
+        "Trigger managers initialized",
+        file_triggers=True,
+        ml_triggers=True,
+        safety_triggers=True,
+        audit_triggers=True,
+    )
+    
+    # Initialize local filesystem watcher (if enabled)
+    local_watcher = None
+    if os.getenv("WATCH_LOCAL_FILES", "false").lower() == "true":
+        from app.platform.local_filesystem.watcher import init_watcher
+        local_watcher = init_watcher()
+        if local_watcher:
+            logger.info("Local filesystem watcher active")
     
     yield
     
-    # Shutdown local watcher (only in full mode)
-    if not SLIM_MODE and 'local_watcher' in locals() and local_watcher:
+    # Shutdown local watcher
+    if local_watcher:
         from app.platform.local_filesystem.watcher import stop_watcher
         stop_watcher()
     
     # Shutdown
     logger.info("Shutting down Cerebrum AI Platform")
-    if not SLIM_MODE:
-        await event_bus.stop()
+    await event_bus.stop()
     try:
         await redis_manager.close()
     except Exception:
