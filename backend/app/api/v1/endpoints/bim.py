@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 
 from app.core.config import settings
 
-# Conditional import for IFC processing - completely optional
+# Conditional import for IFC processing - installed via conda
 IFC_AVAILABLE = False
 QuantityTakeoffEngine = None
 IFCPropertyExtractor = None
@@ -27,8 +27,8 @@ try:
     from app.pipelines.ifc_takeoff import QuantityTakeoffEngine, generate_ifc_takeoff
     from app.pipelines.ifc_properties import IFCPropertyExtractor
     IFC_AVAILABLE = True
-except ImportError:
-    pass  # IFC processing disabled, endpoints will return 503
+except ImportError as e:
+    logger.warning(f"IFC processing not available: {e}")
 
 try:
     from app.api.deps import get_current_user, User

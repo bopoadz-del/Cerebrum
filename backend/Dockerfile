@@ -5,17 +5,38 @@ ENV PYTHONUNBUFFERED=1
 ENV ENVIRONMENT=production
 
 WORKDIR /app
+
+# Install system dependencies + conda prerequisites
 RUN apt-get update && apt-get install -y \
     gcc \
     libpq-dev \
     libpq5 \
     postgresql-client \
     curl \
+    wget \
+    bzip2 \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
+# Install Miniconda for ifcopenshell
+ENV CONDA_DIR=/opt/conda
+ENV PATH=$CONDA_DIR/bin:$PATH
+RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /tmp/miniconda.sh && \
+    bash /tmp/miniconda.sh -b -p $CONDA_DIR && \
+    rm /tmp/miniconda.sh && \
+    conda clean -afy
+
+# Install ifcopenshell via conda (prebuilt with OCCT)
+RUN conda install -c conda-forge ifcopenshell -y && \
+    conda clean -afy
+
+# Copy requirements and install Python packages via pip
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
+
+# Verify ifcopenshell is available
+RUN python -c "import ifcopenshell; print(f'ifcopenshell version: {ifcopenshell.version}')"
 
 # Cache-bust layer: copy this first to invalidate COPY . . cache
 COPY .docker_nocache /tmp/.docker_nocache
