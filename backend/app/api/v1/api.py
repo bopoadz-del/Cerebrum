@@ -86,6 +86,15 @@ except Exception as e:
     AGENT_AVAILABLE = False
     logger.warning(f"Agent endpoints not available: {e}")
 
+# Import enhanced agent endpoints
+try:
+    from app.agent.enhanced_endpoints import router as enhanced_agent_router
+    ENHANCED_AGENT_AVAILABLE = True
+    logger.info("Enhanced agent endpoints loaded")
+except Exception as e:
+    ENHANCED_AGENT_AVAILABLE = False
+    logger.warning(f"Enhanced agent endpoints not available: {e}")
+
 
 # Create main router - MUST BE NAMED api_v1_router for main.py
 api_v1_router = APIRouter()
@@ -130,3 +139,7 @@ if SAFETY_AVAILABLE:
 # Include agent endpoints
 if AGENT_AVAILABLE:
     api_v1_router.include_router(agent_router, prefix="/agent", tags=["agent"])
+
+# Include enhanced agent endpoints
+if ENHANCED_AGENT_AVAILABLE:
+    api_v1_router.include_router(enhanced_agent_router, prefix="/agent/v2", tags=["agent-enhanced"])
