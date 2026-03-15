@@ -26,8 +26,10 @@ RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86
     rm /tmp/miniconda.sh && \
     conda clean -afy
 
-# Install ifcopenshell via conda (prebuilt with OCCT)
-RUN conda install -c conda-forge ifcopenshell -y && \
+# Accept Anaconda ToS and install ifcopenshell via conda-forge only
+RUN conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main && \
+    conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r && \
+    conda install -c conda-forge ifcopenshell -y && \
     conda clean -afy
 
 # Copy requirements and install Python packages via pip
