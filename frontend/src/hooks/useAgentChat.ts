@@ -335,6 +335,50 @@ Just type your request and I'll route it to the appropriate layer!`;
     }
   };
 
+  // Web search function - defined BEFORE sendMessage
+  const performWebSearch = useCallback(async (query: string): Promise<string> => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/agent/web-search/search`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': getAuthToken() ? `Bearer ${getAuthToken()}` : '',
+        },
+        body: JSON.stringify({
+          query,
+          count: 5,
+          country: 'US',
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Web search failed');
+      }
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        return `🔍 **Web Search**: ${data.error || 'Search failed'}`;
+      }
+
+      if (!data.results || data.results.length === 0) {
+        return `🔍 **Web Search**: No results found for "${query}"`;
+      }
+
+      const formatted = data.results.map((r: any, i: number) => {
+        return `${i + 1}. **[${r.title}](${r.url})**
+   ${r.description}
+   Source: ${r.source}`;
+      }).join('\n\n');
+
+      return `🔍 **Web Search Results for "${query}"**\n\n${formatted}`;
+    } catch (error) {
+      console.error('Web search failed:', error);
+      return `🔍 **Web Search Error**: ${error instanceof Error ? error.message : 'Search failed'}`;
+    }
+  }, [apiBaseUrl]);
+
   const sendMessage = useCallback(async () => {
     if (!inputValue.trim() && attachments.length === 0) return;
     
@@ -503,50 +547,6 @@ Just type your request and I'll route it to the appropriate layer!`;
   const clearMessages = useCallback(() => {
     setMessages([]);
   }, []);
-
-  // Web search function
-  const performWebSearch = useCallback(async (query: string): Promise<string> => {
-    try {
-      const response = await fetch(`${apiBaseUrl}/agent/web-search/search`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': getAuthToken() ? `Bearer ${getAuthToken()}` : '',
-        },
-        body: JSON.stringify({
-          query,
-          count: 5,
-          country: 'US',
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || 'Web search failed');
-      }
-
-      const data = await response.json();
-      
-      if (!data.success) {
-        return `🔍 **Web Search**: ${data.error || 'Search failed'}`;
-      }
-
-      if (!data.results || data.results.length === 0) {
-        return `🔍 **Web Search**: No results found for "${query}"`;
-      }
-
-      const formatted = data.results.map((r: any, i: number) => {
-        return `${i + 1}. **[${r.title}](${r.url})**
-   ${r.description}
-   Source: ${r.source}`;
-      }).join('\n\n');
-
-      return `🔍 **Web Search Results for "${query}"**\n\n${formatted}`;
-    } catch (error) {
-      console.error('Web search failed:', error);
-      return `🔍 **Web Search Error**: ${error instanceof Error ? error.message : 'Search failed'}`;
-    }
-  }, [apiBaseUrl]);
 
   return {
     messages,
