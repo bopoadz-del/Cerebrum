@@ -19,6 +19,11 @@ from app.agent.self_modification import (
     ModificationRequest, CodeChange, GeneratedLayer, RollbackPoint,
     ModificationType, ModificationStatus, get_modification_engine
 )
+from app.agent.code_enhancement import (
+    CodeAnalyzer, CodeEnhancer, EnhancementManager,
+    EnhancementType, EnhancementPlan, EnhancementResult,
+    CodeIssue, enhance_code_file
+)
 
 from app.agent.self_modification import (
     SelfModificationEngine, GitManager, CodeSafetyChecker, LayerGenerator,
@@ -41,7 +46,15 @@ __all__ = [
     "RollbackPoint",
     "ModificationType",
     "ModificationStatus",
-    "AgentLayer", 
+    "CodeAnalyzer",
+    "CodeEnhancer",
+    "EnhancementManager",
+    "EnhancementType",
+    "EnhancementPlan",
+    "EnhancementResult",
+    "CodeIssue",
+    "enhance_code_file",
+    "AgentLayer",
     "AgentAction",
     "AgentContext",
     "AgentResult",

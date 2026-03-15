@@ -105,6 +105,15 @@ except Exception as e:
     SELF_MOD_AVAILABLE = False
     logger.warning(f"Self-modification endpoints not available: {e}")
 
+# Import code enhancement endpoints
+try:
+    from app.agent.enhancement_endpoints import router as enhancement_router
+    ENHANCEMENT_AVAILABLE = True
+    logger.info("Code enhancement endpoints loaded")
+except Exception as e:
+    ENHANCEMENT_AVAILABLE = False
+    logger.warning(f"Code enhancement endpoints not available: {e}")
+
 # Create main router - MUST BE NAMED api_v1_router for main.py
 api_v1_router = APIRouter()
 
@@ -156,3 +165,7 @@ if ENHANCED_AGENT_AVAILABLE:
 # Include self-modification endpoints
 if SELF_MOD_AVAILABLE:
     api_v1_router.include_router(self_mod_router, prefix="/agent/self-mod", tags=["agent-self-mod"])
+
+# Include code enhancement endpoints
+if ENHANCEMENT_AVAILABLE:
+    api_v1_router.include_router(enhancement_router, prefix="/agent/enhance", tags=["agent-enhancement"])
