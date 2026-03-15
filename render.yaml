@@ -60,6 +60,7 @@ services:
         - backend/**/*.txt
         - backend/**/*.sh
         - backend/**/*.ini
+        - backend/Dockerfile
 
   # DB Backup Cron Job
   - type: cron
