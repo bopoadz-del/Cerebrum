@@ -36,10 +36,11 @@ RUN conda tos accept --override-channels --channel https://repo.anaconda.com/pkg
     conda install -c conda-forge ifcopenshell pillow -y && \
     conda clean -afy
 
-# Copy requirements and install Python packages via pip
+# Copy requirements and install Python packages via pip (skip Pillow - already in conda)
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+    grep -v '^Pillow' requirements.txt > /tmp/requirements-no-pillow.txt && \
+    pip install --no-cache-dir -r /tmp/requirements-no-pillow.txt
 
 # Verify ifcopenshell is available
 RUN python -c "import ifcopenshell; print(f'ifcopenshell version: {ifcopenshell.version}')"
