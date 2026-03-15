@@ -350,6 +350,273 @@
       ],
       "references": ["AISC", "ACI 318"],
       "tags": ["structural", "safety", "stress", "design"]
+    },
+    {
+      "id": "manhole_volume",
+      "name": "Manhole Concrete Volume",
+      "domain": "infrastructure",
+      "description": "Calculate concrete volume for precast or cast-in-place manhole",
+      "formula_expression": "3.14159 * ((outer_diameter / 2) ** 2 - (inner_diameter / 2) ** 2) * height + base_thickness * 3.14159 * (outer_diameter / 2) ** 2",
+      "inputs": [
+        {"name": "inner_diameter", "type": "float", "unit": "m", "required": true, "description": "Inner diameter of manhole"},
+        {"name": "wall_thickness", "type": "float", "unit": "m", "required": true, "description": "Wall thickness (typical 0.15-0.2m)", "default": 0.15},
+        {"name": "height", "type": "float", "unit": "m", "required": true, "description": "Height of manhole barrel"},
+        {"name": "base_thickness", "type": "float", "unit": "m", "required": true, "description": "Base slab thickness", "default": 0.2}
+      ],
+      "outputs": [
+        {"name": "wall_volume", "type": "float", "unit": "m³", "description": "Volume of manhole walls"},
+        {"name": "base_volume", "type": "float", "unit": "m³", "description": "Volume of base slab"},
+        {"name": "total_volume", "type": "float", "unit": "m³", "description": "Total concrete volume"},
+        {"name": "total_volume_cuyd", "type": "float", "unit": "CY"}
+      ],
+      "references": ["AWWA M11", "ASTM C478"],
+      "tags": ["infrastructure", "manhole", "concrete", "utilities", "sanitary", "storm"]
+    },
+    {
+      "id": "pipe_trench_volume",
+      "name": "Pipe Trench Excavation Volume",
+      "domain": "infrastructure",
+      "description": "Calculate trench excavation volume for pipeline installation",
+      "formula_expression": "((trench_width_top + trench_width_bottom) / 2) * trench_depth * length",
+      "inputs": [
+        {"name": "trench_width_bottom", "type": "float", "unit": "m", "required": true, "description": "Width at bottom (pipe OD + working space)"},
+        {"name": "trench_depth", "type": "float", "unit": "m", "required": true, "description": "Depth from ground to pipe invert + pipe thickness"},
+        {"name": "length", "type": "float", "unit": "m", "required": true, "description": "Trench length"},
+        {"name": "slope_ratio", "type": "float", "unit": "H:V", "required": true, "description": "Side slope ratio (e.g., 1.5 = 1.5:1)", "default": 0},
+        {"name": "pipe_diameter", "type": "float", "unit": "m", "required": false, "description": "Pipe diameter for calculating top width with slope", "default": 0}
+      ],
+      "outputs": [
+        {"name": "trench_volume", "type": "float", "unit": "m³"},
+        {"name": "trench_volume_bank", "type": "float", "unit": "m³", "description": "Bank volume (in-situ)"},
+        {"name": "trench_volume_loose", "type": "float", "unit": "m³", "description": "Loose volume with 25% swell"},
+        {"name": "backfill_volume", "type": "float", "unit": "m³", "description": "Backfill needed (excavation minus pipe)"}
+      ],
+      "references": ["OSHA Excavation Standards", "Utility Trenching Guidelines"],
+      "tags": ["infrastructure", "trench", "excavation", "pipe", "utilities"]
+    },
+    {
+      "id": "pipe_friction_loss",
+      "name": "Pipe Friction Loss - Hazen-Williams",
+      "domain": "infrastructure",
+      "description": "Calculate head loss in pipe using Hazen-Williams equation",
+      "formula_expression": "10.67 * length * (flow_rate / (150 * (diameter ** 2.63))) ** 1.852",
+      "inputs": [
+        {"name": "flow_rate", "type": "float", "unit": "L/s", "required": true, "description": "Flow rate"},
+        {"name": "diameter", "type": "float", "unit": "m", "required": true, "description": "Internal pipe diameter"},
+        {"name": "length", "type": "float", "unit": "m", "required": true, "description": "Pipe length"},
+        {"name": "c_factor", "type": "float", "unit": "", "required": true, "description": "Hazen-Williams C factor (PVC=150, Concrete=120-140, Steel=100-120)", "default": 150}
+      ],
+      "outputs": [
+        {"name": "head_loss", "type": "float", "unit": "m", "description": "Head loss in meters"},
+        {"name": "head_loss_ft", "type": "float", "unit": "ft", "description": "Head loss in feet"},
+        {"name": "pressure_loss", "type": "float", "unit": "kPa", "description": "Pressure loss"},
+        {"name": "pressure_loss_psi", "type": "float", "unit": "psi", "description": "Pressure loss in PSI"}
+      ],
+      "references": ["AWWA M31", "Hazen-Williams Equation"],
+      "tags": ["infrastructure", "hydraulics", "pipe", "friction", "head-loss", "water"]
+    },
+    {
+      "id": "storm_runoff_rational",
+      "name": "Storm Runoff - Rational Method",
+      "domain": "infrastructure",
+      "description": "Calculate peak stormwater runoff using Rational Method",
+      "formula_expression": "(runoff_coefficient * rainfall_intensity * drainage_area) / 360",
+      "inputs": [
+        {"name": "runoff_coefficient", "type": "float", "unit": "", "required": true, "description": "C factor (Impervious=0.9, Commercial=0.8, Residential=0.5, Grass=0.2)"},
+        {"name": "rainfall_intensity", "type": "float", "unit": "mm/hr", "required": true, "description": "Rainfall intensity for design storm"},
+        {"name": "drainage_area", "type": "float", "unit": "m²", "required": true, "description": "Contributing drainage area"},
+        {"name": "time_of_concentration", "type": "float", "unit": "min", "required": false, "description": "Time of concentration (for intensity calculation)", "default": 15}
+      ],
+      "outputs": [
+        {"name": "peak_runoff", "type": "float", "unit": "m³/s", "description": "Peak runoff in CMS"},
+        {"name": "peak_runoff_cfs", "type": "float", "unit": "cfs", "description": "Peak runoff in cubic feet per second"},
+        {"name": "peak_runoff_lps", "type": "float", "unit": "L/s", "description": "Peak runoff in liters per second"}
+      ],
+      "references": ["ASCE", "Urban Drainage Design Manual"],
+      "tags": ["infrastructure", "stormwater", "runoff", "hydrology", "drainage"]
+    },
+    {
+      "id": "manning_equation",
+      "name": "Open Channel Flow - Manning Equation",
+      "domain": "infrastructure",
+      "description": "Calculate flow capacity using Manning's equation for open channels",
+      "formula_expression": "(1 / manning_n) * hydraulic_radius ** (2/3) * slope ** 0.5 * area",
+      "inputs": [
+        {"name": "manning_n", "type": "float", "unit": "", "required": true, "description": "Manning roughness (Concrete=0.013, CMP=0.024, Natural=0.03-0.05)"},
+        {"name": "hydraulic_radius", "type": "float", "unit": "m", "required": true, "description": "Hydraulic radius (Area/Wetted Perimeter)"},
+        {"name": "slope", "type": "float", "unit": "m/m", "required": true, "description": "Channel slope (rise/run)"},
+        {"name": "area", "type": "float", "unit": "m²", "required": true, "description": "Cross-sectional flow area"}
+      ],
+      "outputs": [
+        {"name": "flow_capacity", "type": "float", "unit": "m³/s"},
+        {"name": "flow_capacity_cfs", "type": "float", "unit": "cfs"},
+        {"name": "velocity", "type": "float", "unit": "m/s", "description": "Flow velocity"}
+      ],
+      "references": ["Manning Equation", "FHWA HDS-5"],
+      "tags": ["infrastructure", "hydraulics", "open-channel", "manning", "stormwater"]
+    },
+    {
+      "id": "circular_pipe_capacity",
+      "name": "Circular Pipe Flow Capacity",
+      "domain": "infrastructure",
+      "description": "Calculate full-flow capacity of circular pipe using Manning",
+      "formula_expression": "(0.312 / manning_n) * (diameter ** 2.67) * (slope ** 0.5)",
+      "inputs": [
+        {"name": "diameter", "type": "float", "unit": "m", "required": true, "description": "Pipe inner diameter"},
+        {"name": "slope", "type": "float", "unit": "m/m", "required": true, "description": "Pipe slope"},
+        {"name": "manning_n", "type": "float", "unit": "", "required": true, "description": "Manning n value", "default": 0.013}
+      ],
+      "outputs": [
+        {"name": "full_flow", "type": "float", "unit": "m³/s"},
+        {"name": "full_flow_cfs", "type": "float", "unit": "cfs"},
+        {"name": "full_flow_lps", "type": "float", "unit": "L/s"},
+        {"name": "velocity", "type": "float", "unit": "m/s"}
+      ],
+      "references": ["Manning Equation", "Municipal Stormwater Design"],
+      "tags": ["infrastructure", "pipe", "capacity", "stormwater", "sanitary"]
+    },
+    {
+      "id": "asphalt_tonnage",
+      "name": "Asphalt Tonnage Calculator",
+      "domain": "infrastructure",
+      "description": "Calculate hot mix asphalt tonnage for paving",
+      "formula_expression": "(area_sqft * thickness_in / 12) * 145 * density_factor / 2000",
+      "inputs": [
+        {"name": "area_sqft", "type": "float", "unit": "SF", "required": true, "description": "Paving area"},
+        {"name": "thickness_in", "type": "float", "unit": "in", "required": true, "description": "Compacted thickness"},
+        {"name": "density_factor", "type": "float", "unit": "", "required": true, "description": "Density factor (typically 0.90-0.95 for compaction)", "default": 0.92},
+        {"name": "waste_percent", "type": "float", "unit": "%", "required": true, "description": "Waste factor", "default": 5}
+      ],
+      "outputs": [
+        {"name": "tons_required", "type": "float", "unit": "tons"},
+        {"name": "tons_with_waste", "type": "float", "unit": "tons"},
+        {"name": "volume_cuyd", "type": "float", "unit": "CY", "description": "Volume in cubic yards"}
+      ],
+      "references": ["Asphalt Institute", "State DOT Specs"],
+      "tags": ["infrastructure", "road", "asphalt", "paving", "materials"]
+    },
+    {
+      "id": "road_base_course",
+      "name": "Road Base Course Volume",
+      "domain": "infrastructure",
+      "description": "Calculate aggregate base course volume for road construction",
+      "formula_expression": "(length_ft * width_ft * thickness_in / 12) / 27",
+      "inputs": [
+        {"name": "length_ft", "type": "float", "unit": "ft", "required": true, "description": "Road length"},
+        {"name": "width_ft", "type": "float", "unit": "ft", "required": true, "description": "Road width"},
+        {"name": "thickness_in", "type": "float", "unit": "in", "required": true, "description": "Base course thickness"},
+        {"name": "compaction_factor", "type": "float", "unit": "", "required": true, "description": "Compaction factor (1.15-1.25)", "default": 1.2}
+      ],
+      "outputs": [
+        {"name": "volume_compact", "type": "float", "unit": "CY", "description": "Compacted volume"},
+        {"name": "volume_loose", "type": "float", "unit": "CY", "description": "Loose volume before compaction"},
+        {"name": "tons_required", "type": "float", "unit": "tons", "description": "Estimated tons at 1.5 tons/CY"}
+      ],
+      "references": ["AASHTO", "State DOT Specs"],
+      "tags": ["infrastructure", "road", "base-course", "aggregate", "earthwork"]
+    },
+    {
+      "id": "culvert_capacity",
+      "name": "Culvert Flow Capacity",
+      "domain": "infrastructure",
+      "description": "Calculate inlet-controlled culvert capacity",
+      "formula_expression": "coefficient * area * (2 * 9.81 * head) ** 0.5",
+      "inputs": [
+        {"name": "diameter", "type": "float", "unit": "m", "required": true, "description": "Culvert diameter"},
+        {"name": "head", "type": "float", "unit": "m", "required": true, "description": "Headwater depth above inlet"},
+        {"name": "coefficient", "type": "float", "unit": "", "required": true, "description": "Discharge coefficient (0.5-0.6 typical)", "default": 0.55},
+        {"name": "inlet_type", "type": "string", "unit": "text", "required": false, "description": "Inlet configuration"}
+      ],
+      "outputs": [
+        {"name": "flow_capacity", "type": "float", "unit": "m³/s"},
+        {"name": "flow_capacity_cfs", "type": "float", "unit": "cfs"},
+        {"name": "velocity", "type": "float", "unit": "m/s", "description": "Inlet velocity"}
+      ],
+      "references": ["FHWA HDS-5", "HY-8 Culvert Analysis"],
+      "tags": ["infrastructure", "culvert", "hydraulics", "stormwater", "drainage"]
+    },
+    {
+      "id": "detention_volume",
+      "name": "Detention Pond Sizing",
+      "domain": "infrastructure",
+      "description": "Calculate required detention volume for stormwater control",
+      "formula_expression": "(inflow_hydrograph_volume - allowable_release_volume)",
+      "inputs": [
+        {"name": "drainage_area_ac", "type": "float", "unit": "ac", "required": true, "description": "Drainage area in acres"},
+        {"name": "runoff_depth_in", "type": "float", "unit": "in", "required": true, "description": "Runoff depth from design storm"},
+        {"name": "pre_development_cfs", "type": "float", "unit": "cfs", "required": true, "description": "Pre-development peak flow"},
+        {"name": "post_development_cfs", "type": "float", "unit": "cfs", "required": true, "description": "Post-development peak flow"},
+        {"name": "storm_duration_hr", "type": "float", "unit": "hr", "required": true, "description": "Storm duration", "default": 24}
+      ],
+      "outputs": [
+        {"name": "required_volume_cuft", "type": "float", "unit": "ft³"},
+        {"name": "required_volume_cuyd", "type": "float", "unit": "CY"},
+        {"name": "required_volume_acft", "type": "float", "unit": "acre-ft"},
+        {"name": "pond_depth_ft", "type": "float", "unit": "ft", "description": "Effective depth at 3:1 side slopes"}
+      ],
+      "references": ["TR-55", "NRCS Methodology"],
+      "tags": ["infrastructure", "stormwater", "detention", "pond", "bmp"]
+    },
+    {
+      "id": "septic_tank_size",
+      "name": "Septic Tank Sizing",
+      "domain": "infrastructure",
+      "description": "Calculate minimum septic tank volume per regulations",
+      "formula_expression": "flow_per_person * num_people * detention_days * 1.5",
+      "inputs": [
+        {"name": "num_bedrooms", "type": "integer", "unit": "ea", "required": true, "description": "Number of bedrooms (determines occupancy)"},
+        {"name": "flow_per_person", "type": "float", "unit": "gal/day", "required": true, "description": "Wastewater flow per person", "default": 75},
+        {"name": "detention_days", "type": "float", "unit": "days", "required": true, "description": "Minimum detention time", "default": 2},
+        {"name": "occupants_per_bedroom", "type": "float", "unit": "people", "required": true, "description": "Design occupancy", "default": 2}
+      ],
+      "outputs": [
+        {"name": "tank_volume_gal", "type": "float", "unit": "gal"},
+        {"name": "tank_volume_cuft", "type": "float", "unit": "ft³"},
+        {"name": "design_flow_gpd", "type": "float", "unit": "gal/day", "description": "Design daily flow"}
+      ],
+      "references": ["EPA Onsite Wastewater Manual", "State Health Codes"],
+      "tags": ["infrastructure", "septic", "wastewater", "sanitary", "onsite"]
+    },
+    {
+      "id": "irrigation_zone_coverage",
+      "name": "Irrigation Zone Coverage",
+      "domain": "infrastructure",
+      "description": "Calculate number of sprinkler heads needed for irrigation zone",
+      "formula_expression": "(area_sqft / (head_spacing * row_spacing)) * 1.15",
+      "inputs": [
+        {"name": "area_sqft", "type": "float", "unit": "SF", "required": true, "description": "Zone area"},
+        {"name": "head_spacing", "type": "float", "unit": "ft", "required": true, "description": "Spacing between heads (triangular or square)", "default": 15},
+        {"name": "row_spacing", "type": "float", "unit": "ft", "required": true, "description": "Row spacing", "default": 15},
+        {"name": "head_gpm", "type": "float", "unit": "gpm", "required": true, "description": "Flow per head", "default": 2.5},
+        {"name": "overlap_factor", "type": "float", "unit": "", "required": true, "description": "Head-to-head coverage factor", "default": 1.15}
+      ],
+      "outputs": [
+        {"name": "head_count", "type": "integer", "unit": "ea"},
+        {"name": "zone_flow_gpm", "type": "float", "unit": "gpm", "description": "Total zone flow rate"},
+        {"name": "precipitation_rate", "type": "float", "unit": "in/hr", "description": "Application rate"}
+      ],
+      "references": ["Irrigation Association", "Manufacturer Specs"],
+      "tags": ["infrastructure", "irrigation", "landscape", "watering"]
+    },
+    {
+      "id": "catch_basin_capacity",
+      "name": "Storm Inlet/Catch Basin Capacity",
+      "domain": "infrastructure",
+      "description": "Calculate storm inlet capacity (weir and orifice flow)",
+      "formula_expression": "min(weir_flow, orifice_flow)",
+      "inputs": [
+        {"name": "grate_perimeter", "type": "float", "unit": "ft", "required": true, "description": "Grate perimeter (for weir flow)"},
+        {"name": "grate_open_area", "type": "float", "unit": "ft²", "required": true, "description": "Open area of grate"},
+        {"name": "ponding_depth", "type": "float", "unit": "ft", "required": true, "description": "Water depth at inlet"},
+        {"name": "clogging_factor", "type": "float", "unit": "", "required": true, "description": "Clogging factor (0.5 for 50% clogged)", "default": 0.5}
+      ],
+      "outputs": [
+        {"name": "weir_flow_cfs", "type": "float", "unit": "cfs", "description": "Weir flow capacity"},
+        {"name": "orifice_flow_cfs", "type": "float", "unit": "cfs", "description": "Orifice flow capacity"},
+        {"name": "design_capacity_cfs", "type": "float", "unit": "cfs", "description": "Controlling (lower) capacity with clogging"}
+      ],
+      "references": ["FHWA HEC-22", "Urban Drainage Design Manual"],
+      "tags": ["infrastructure", "stormwater", "inlet", "catch-basin", "drainage"]
     }
   ]
 }
