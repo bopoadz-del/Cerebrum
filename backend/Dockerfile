@@ -39,8 +39,9 @@ RUN conda tos accept --override-channels --channel https://repo.anaconda.com/pkg
 # Copy requirements and install Python packages via conda's pip
 COPY requirements.txt .
 RUN /opt/conda/bin/pip install --no-cache-dir --upgrade pip && \
-    grep -iv '^pillow' requirements.txt > /tmp/requirements-no-pillow.txt && \
-    /opt/conda/bin/pip install --no-cache-dir -r /tmp/requirements-no-pillow.txt
+    grep -ivE '^(pillow|qrcode)' requirements.txt > /tmp/requirements-filtered.txt && \
+    /opt/conda/bin/pip install --no-cache-dir --no-deps qrcode==7.4.2 && \
+    /opt/conda/bin/pip install --no-cache-dir -r /tmp/requirements-filtered.txt
 
 # Verify ifcopenshell is available
 RUN python -c "import ifcopenshell; print(f'ifcopenshell version: {ifcopenshell.version}')"
