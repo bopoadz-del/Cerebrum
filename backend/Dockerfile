@@ -20,16 +20,15 @@ RUN apt-get update && apt-get install -y \
     libpng-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install micromamba (lightweight conda alternative, no ToS)
-ENV MAMBA_ROOT_PREFIX=/opt/conda
-ENV PATH=/opt/conda/bin:$PATH
-RUN curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj -C /tmp bin/micromamba && \
-    mv /tmp/bin/micromamba /usr/local/bin/micromamba && \
-    micromamba shell init -s bash -p /opt/conda && \
-    micromamba install python=3.11 ifcopenshell pillow -c conda-forge -y && \
+# Install micromamba and create environment with ifcopenshell
+RUN curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj -C /usr/local/bin --strip-components=1 bin/micromamba && \
+    micromamba create -p /opt/conda python=3.11 ifcopenshell pillow -c conda-forge -y && \
     rm -rf /opt/conda/pkgs/cache
 
-# Copy requirements and install via pip
+# Add conda to PATH
+ENV PATH=/opt/conda/bin:$PATH
+
+# Copy requirements and install via pip (conda env is in PATH)
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
