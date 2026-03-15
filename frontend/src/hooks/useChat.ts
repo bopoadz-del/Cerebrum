@@ -61,8 +61,8 @@ I can help you with construction management tasks. Try these commands:
 • \`/safety check floor 3\` - Analyze floor 3 safety
 • \`/safety report\` - Get safety summary
 
-**Semantic Search (ChromaDB):**
-• \`/search <query>\` - Search across Drive files
+**Semantic Search:**
+• \`/search <query>\` - Search across documents
 • \`/search safety violations\` - Find safety reports
 • \`/search invoice rebar\` - Find invoices with rebar
 
@@ -86,7 +86,7 @@ I can help you with construction management tasks. Try these commands:
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
-  // Command handlers
+  // Command handlers - connect to real APIs
   const handleConnectCommand = async (args: string[]): Promise<string> => {
     const service = args[0]?.toLowerCase();
     
@@ -94,10 +94,6 @@ I can help you with construction management tasks. Try these commands:
       case 'drive':
         try {
           const response = await fetch(`${apiBaseUrl}/drive/auth/url`);
-          
-          if (response.status === 404) {
-            return `⚠️ **OneDrive API endpoint not found**\n\nThe backend API is currently deploying or the endpoint is not available yet.\n\nTo connect OneDrive manually:\n1. Go to Google Cloud Console\n2. Create OAuth 2.0 credentials\n3. Set redirect URI: \`${window.location.origin}/api/drive/auth/callback\`\n\n**Client ID:**\n\`382554705937-v3s8kpvl7h0em2aekud73fro8rig0cvu.apps.googleusercontent.com\``;
-          }
           
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
@@ -107,7 +103,6 @@ I can help you with construction management tasks. Try these commands:
           const data = await response.json();
           
           if (data.auth_url) {
-            // Open OAuth in popup
             const width = 500;
             const height = 600;
             const left = window.screenX + (window.outerWidth - width) / 2;
@@ -127,10 +122,10 @@ I can help you with construction management tasks. Try these commands:
         }
         
       case 'procore':
-        return '🔐 Procore OAuth flow would open here. (API endpoint: /integrations/procore/auth)';
+        return '🔐 Procore integration - contact admin to configure OAuth.';
         
       case 'slack':
-        return '🔐 Slack OAuth flow would open here. (API endpoint: /integrations/slack/auth)';
+        return '🔐 Slack integration - contact admin to configure OAuth.';
         
       default:
         return `❓ Unknown service: "${service}". Available: drive, procore, slack`;
@@ -139,33 +134,34 @@ I can help you with construction management tasks. Try these commands:
 
   const handleProcessCommand = async (args: string[]): Promise<string> => {
     const target = args.join(' ').toLowerCase();
+    const token = getAuthToken();
     
     if (target.includes('last invoice') || target.includes('invoice')) {
       try {
         const response = await fetch(`${apiBaseUrl}/documents/process-invoice`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': token ? `Bearer ${token}` : ''
+          },
           body: JSON.stringify({ source: 'onedrive', auto_detect: true }),
         });
         
-        if (response.status === 404) {
-          return `⚠️ **Document processing API not available**\n\nThe backend endpoint is currently deploying. Showing simulated response:\n\n📄 Invoice processing queued.\n\n• Extracting line items\n• Validating against PO #2847\n• Flagging discrepancies\n\n⏱️ ETA: ~2 minutes`;
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({}));
+          return `❌ Error: ${error.detail || response.statusText}`;
         }
         
-        if (response.ok) {
-          const data = await response.json();
-          return `📄 Invoice processing started (Task: ${data.task_id?.slice(0, 8) || 'N/A'}...). I'll notify you when complete.`;
-        }
-        return '❌ Failed to start invoice processing';
+        const data = await response.json();
+        return `📄 Invoice processing started (Task: ${data.task_id?.slice(0, 8) || 'N/A'}...). I'll notify you when complete.`;
       } catch (error) {
-        // Fallback for demo
-        return `📄 Invoice processing queued.\n\nProcessing last invoice from OneDrive...\n• Extracting line items\n• Validating against PO #2847\n• Flagging discrepancies\n\n⏱️ ETA: ~2 minutes`;
+        return `❌ Failed to process invoice: ${error instanceof Error ? error.message : 'Network error'}`;
       }
     }
     
     if (target.includes('document')) {
       const docName = args.slice(1).join(' ');
-      return `📄 Processing document: "${docName}"...\n\nSearching OneDrive for matching documents...`;
+      return `📄 Processing document: "${docName}"...\n\nSearching for matching documents...`;
     }
     
     return '❓ Usage: /process last invoice | /process document <name>';
@@ -173,30 +169,34 @@ I can help you with construction management tasks. Try these commands:
 
   const handleSafetyCommand = async (args: string[]): Promise<string> => {
     const subcommand = args[0]?.toLowerCase();
+    const token = getAuthToken();
     
     if (subcommand === 'check') {
       const location = args.slice(1).join(' ');
       try {
         const response = await fetch(`${apiBaseUrl}/safety/analyze`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': token ? `Bearer ${token}` : ''
+          },
           body: JSON.stringify({ location: location || 'all', type: 'hazard_detection' }),
         });
         
-        if (response.ok) {
-          const data = await response.json();
-          return `🔍 Safety check completed for "${location || 'all areas'}"\n\nFound ${data.hazards_found || 0} potential hazards.\nReport ID: ${data.report_id}`;
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({}));
+          return `❌ Safety check failed: ${error.detail || response.statusText}`;
         }
         
-        // Fallback response
-        return `🔍 **Safety Analysis Report: ${location || 'All Areas'}**\n\n✅ No critical hazards detected\n⚠️ 2 minor observations:\n  • Missing PPE signage at north stairwell\n  • Temporary cable routing near zone B\n\n📋 Full report available in dashboard`;
+        const data = await response.json();
+        return `🔍 Safety check completed for "${location || 'all areas'}"\n\nFound ${data.hazards_found || 0} potential hazards.\nReport ID: ${data.report_id}`;
       } catch (error) {
-        return `🔍 **Safety Analysis Report: Floor 3**\n\n✅ No critical hazards detected\n⚠️ 2 minor observations:\n  • Missing PPE signage at north stairwell\n  • Temporary cable routing near zone B`;
+        return `❌ Safety check error: ${error instanceof Error ? error.message : 'Network error'}`;
       }
     }
     
     if (subcommand === 'report') {
-      return `📊 **Safety Summary (Last 30 Days)**\n\n• Total inspections: 12\n• Hazards identified: 3\n• Resolved: 2\n• Open: 1\n\n**Overall safety score: 94/100**`;
+      return `📊 **Safety Summary**\n\nUse /safety check <location> to run analysis.`;
     }
     
     return '❓ Usage: /safety check <location> | /safety report';
@@ -204,33 +204,24 @@ I can help you with construction management tasks. Try these commands:
 
   const handleSearchCommand = async (args: string[]): Promise<string> => {
     const query = args.join(' ');
+    const token = getAuthToken();
     
     if (!query) {
       return '❓ Usage: /search <query>\n\nExamples:\n• /search safety violations\n• /search invoice rebar\n• /search project timeline';
     }
     
     try {
-      // Call ChromaDB semantic search endpoint
       const response = await fetch(`${apiBaseUrl}/connectors/google-drive/search?query=${encodeURIComponent(query)}&top_k=5`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : ''
+        },
       });
       
-      if (response.status === 404) {
-        // Backend not available - show mock results
-        return `🔍 **Semantic Search Results for "${query}"** (Demo Mode)
-
-📄 **Safety_Report_Q4.pdf** (92% match)
-Safety inspection results for Q4 2024. Critical findings include fall protection violations in Zone B...
-
-📄 **Incident_Log.xlsx** (85% match)  
-Record of safety incidents and corrective actions taken. Monthly summary shows 3 minor incidents...
-
-*Backend not available. Showing simulated results.*`;
-      }
-      
       if (!response.ok) {
-        throw new Error(`Search failed: ${response.statusText}`);
+        const error = await response.json().catch(() => ({}));
+        return `❌ Search failed: ${error.detail || response.statusText}`;
       }
       
       const data = await response.json();
@@ -239,7 +230,6 @@ Record of safety incidents and corrective actions taken. Monthly summary shows 3
         return `🔍 No results found for "${query}"\n\nTry different keywords or check if documents are indexed.`;
       }
       
-      // Format results
       const formatted = data.results.map((r: any) => {
         const name = r.metadata?.name || 'Unknown';
         const score = Math.round((r.score || 0) * 100);
@@ -247,16 +237,10 @@ Record of safety incidents and corrective actions taken. Monthly summary shows 3
         return `📄 **${name}** (${score}% match)\n${preview}...`;
       }).join('\n\n');
       
-      return `🔍 **Semantic Search Results for "${query}"**\n\nFound ${data.count} result${data.count !== 1 ? 's' : ''}:\n\n${formatted}`;
+      return `🔍 **Search Results for "${query}"**\n\nFound ${data.count} result${data.count !== 1 ? 's' : ''}:\n\n${formatted}`;
       
     } catch (error) {
-      // Fallback response
-      return `🔍 **Semantic Search: "${query}"** (Offline Mode)
-
-📄 **Sample_Result_1.pdf** (90% match)
-This is a simulated result showing how ZVec offline semantic search would work. The actual backend service indexes document embeddings locally...
-
-*ZVec offline search - no cloud vector DB needed*`;
+      return `❌ Search error: ${error instanceof Error ? error.message : 'Network error'}`;
     }
   };
 
@@ -276,8 +260,8 @@ This is a simulated result showing how ZVec offline semantic search would work. 
 • \`/safety check <location>\` - Run safety analysis
 • \`/safety report\` - View safety summary
 
-**Semantic Search (ChromaDB):**
-• \`/search <query>\` - Search across Drive files
+**Semantic Search:**
+• \`/search <query>\` - Search across documents
 • \`/search safety violations\` - Find safety reports
 • \`/search invoice rebar\` - Find invoices with rebar
 
@@ -293,7 +277,7 @@ This is a simulated result showing how ZVec offline semantic search would work. 
       
       return `✅ **System Status: Online**\n\nAPI: 🟢 Healthy\nVersion: ${health.version || '1.0.0'}\nUptime: ${health.uptime_seconds || 'N/A'}s`;
     } catch (error) {
-      return `⚠️ **System Status: Degraded**\n\nSome services may be unavailable. Please try again later.`;
+      return `❌ **System Status: Offline**\n\nAPI is not responding. Please check your connection.`;
     }
   };
 
@@ -366,8 +350,8 @@ This is a simulated result showing how ZVec offline semantic search would work. 
         if (onSendMessage) {
           await onSendMessage(content, userMessage.attachments);
         } else {
-          // Simulate AI response for non-command messages
-          await new Promise((resolve) => setTimeout(resolve, 1000));
+          // Default response for non-command messages
+          await new Promise((resolve) => setTimeout(resolve, 500));
           
           const aiMessage: Message = {
             id: uuidv4(),
@@ -389,11 +373,6 @@ This is a simulated result showing how ZVec offline semantic search would work. 
   const addAttachment = useCallback(async (file: File) => {
     setIsUploading(true);
     
-    // DEBUG: Version 1.0.5 - Full file processing
-    console.log('[Chat] ====================================');
-    console.log('[Chat] FILE UPLOAD STARTED - v1.0.5');
-    console.log('[Chat] ====================================');
-    
     try {
       // Create temporary attachment
       const tempAttachment: Attachment = {
@@ -404,67 +383,38 @@ This is a simulated result showing how ZVec offline semantic search would work. 
       };
       setAttachments((prev) => [...prev, tempAttachment]);
       
-      // Upload file to backend (using connectors endpoint which is more reliable)
+      // Upload file to backend
       const formData = new FormData();
       formData.append('file', file);
       
       const token = getAuthToken();
       
-      // FIX: Use the correct API URL (same as useDrive.ts)
       const RAW_API_URL = import.meta.env.VITE_API_URL || 'https://cerebrum-api.onrender.com';
       const API_URL = RAW_API_URL.replace(/\/?$/, '').endsWith('/api/v1') 
         ? RAW_API_URL 
         : `${RAW_API_URL.replace(/\/?$/, '')}/api/v1`;
       const uploadUrl = `${API_URL}/connectors/upload/chat`;
       
-      console.log('[Chat] Upload starting...');
-      console.log('[Chat] URL:', uploadUrl);
-      console.log('[Chat] File:', file.name, 'Type:', file.type, 'Size:', file.size);
-      console.log('[Chat] Token present:', !!token);
-      
       const response = await fetch(uploadUrl, {
         method: 'POST',
         headers: {
           'Authorization': token ? `Bearer ${token}` : '',
-          // Don't set Content-Type - browser will set it with boundary for FormData
         },
         body: formData,
       });
       
-      console.log('[Chat] Response status:', response.status, response.statusText);
-      console.log('[Chat] Response headers:', Object.fromEntries(response.headers.entries()));
-      
       if (!response.ok) {
-        // Remove temp attachment on error
         setAttachments((prev) => prev.filter((a) => a.id !== tempAttachment.id));
         
         let errorMsg = `Upload failed: ${response.status} ${response.statusText}`;
         
-        // Try to get error details from response
-        let responseText = '';
         try {
-          responseText = await response.text();
-        } catch (e) {
-          console.error('[Chat] Failed to read error response text:', e);
+          const errorData = await response.json();
+          errorMsg = errorData.detail || errorMsg;
+        } catch {
+          // Use status text
         }
         
-        console.error('[Chat] Upload error response:', response.status, responseText?.substring(0, 500));
-        
-        if (responseText && responseText.trim().length > 0) {
-          try {
-            const errorData = JSON.parse(responseText);
-            errorMsg = errorData.detail || errorData.message || errorMsg;
-          } catch {
-            // Not JSON, use text if available and short
-            if (responseText.length < 200) {
-              errorMsg = `${errorMsg}\n\n${responseText}`;
-            }
-          }
-        } else {
-          errorMsg = `${errorMsg}\n\nThe server returned an empty response. This may indicate:\n• The endpoint is not deployed yet\n• The server is restarting\n• A network connectivity issue`;
-        }
-        
-        // Show error message in chat
         const errorMessage: Message = {
           id: uuidv4(),
           role: 'assistant',
@@ -475,20 +425,7 @@ This is a simulated result showing how ZVec offline semantic search would work. 
         return;
       }
       
-      // Get raw response text first for debugging
-      const responseText = await response.text();
-      console.log('[Chat] Raw response:', responseText);
-      
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error('[Chat] JSON parse error:', parseError);
-        console.error('[Chat] Response was:', responseText);
-        throw new Error(`Invalid JSON response: ${responseText.substring(0, 100)}`);
-      }
-      
-      console.log('[Chat] Upload successful:', data);
+      const data = await response.json();
       
       // Update attachment with server info
       const finalAttachment: Attachment = {
@@ -500,10 +437,9 @@ This is a simulated result showing how ZVec offline semantic search would work. 
         prev.map((a) => (a.id === tempAttachment.id ? finalAttachment : a))
       );
       
-      // Show success message with extracted text info
       const successMsg = data.text_extracted
-        ? `✅ **File uploaded and indexed!**\n\n📄 **${file.name}**\n📊 Size: ${(file.size / 1024).toFixed(1)} KB\n📝 Text extracted: ${data.text_length} characters\n\nThe file is now available in chat and searchable via ChromaDB AI.`
-        : `✅ **File uploaded!**\n\n📄 **${file.name}**\n📊 Size: ${(file.size / 1024).toFixed(1)} KB\n\nThe file is now available in chat.`;
+        ? `✅ **File uploaded and indexed!**\n\n📄 **${file.name}**\n📊 Size: ${(file.size / 1024).toFixed(1)} KB\n📝 Text extracted: ${data.text_length} characters`
+        : `✅ **File uploaded!**\n\n📄 **${file.name}**\n📊 Size: ${(file.size / 1024).toFixed(1)} KB`;
       
       const successMessage: Message = {
         id: uuidv4(),
@@ -514,8 +450,6 @@ This is a simulated result showing how ZVec offline semantic search would work. 
       setMessages((prev) => [...prev, successMessage]);
       
     } catch (error) {
-      console.error('File upload error:', error);
-      
       const errorMessage: Message = {
         id: uuidv4(),
         role: 'assistant',
@@ -526,7 +460,7 @@ This is a simulated result showing how ZVec offline semantic search would work. 
     } finally {
       setIsUploading(false);
     }
-  }, [apiBaseUrl]);
+  }, []);
 
   const removeAttachment = useCallback((id: string) => {
     setAttachments((prev) => prev.filter((a) => a.id !== id));
