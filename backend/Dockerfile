@@ -33,14 +33,14 @@ RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86
 # Accept Anaconda ToS and install ifcopenshell and Pillow via conda (prebuilt)
 RUN conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main && \
     conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r && \
-    conda install -c conda-forge ifcopenshell pillow -y && \
+    conda install -c conda-forge ifcopenshell pillow pip -y && \
     conda clean -afy
 
-# Copy requirements and install Python packages via pip (skip Pillow - already in conda)
+# Copy requirements and install Python packages via conda's pip
 COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip && \
+RUN /opt/conda/bin/pip install --no-cache-dir --upgrade pip && \
     grep -v '^Pillow' requirements.txt > /tmp/requirements-no-pillow.txt && \
-    pip install --no-cache-dir -r /tmp/requirements-no-pillow.txt
+    /opt/conda/bin/pip install --no-cache-dir -r /tmp/requirements-no-pillow.txt
 
 # Verify ifcopenshell is available
 RUN python -c "import ifcopenshell; print(f'ifcopenshell version: {ifcopenshell.version}')"
@@ -53,6 +53,6 @@ COPY . .
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
+    CMD /opt/conda/bin/python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["/opt/conda/bin/python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
