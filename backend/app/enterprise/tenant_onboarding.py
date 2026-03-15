@@ -14,15 +14,27 @@ from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr, validator, Field
 from fastapi import HTTPException, BackgroundTasks
-import stripe
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail
+
+# Optional imports - handle if not installed
+try:
+    import stripe
+    stripe.api_key = "sk_test_..."  # Set from environment
+    STRIPE_AVAILABLE = True
+except ImportError:
+    stripe = None
+    STRIPE_AVAILABLE = False
+
+try:
+    from sendgrid import SendGridAPIClient
+    from sendgrid.helpers.mail import Mail
+    SENDGRID_AVAILABLE = True
+except ImportError:
+    SendGridAPIClient = None
+    Mail = None
+    SENDGRID_AVAILABLE = False
 
 from app.enterprise.tenant_isolation import Tenant, TenantUser
 from app.models.user import User
-
-# Stripe configuration
-stripe.api_key = "sk_test_..."  # Set from environment
 
 
 # Database Models
