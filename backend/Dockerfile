@@ -41,6 +41,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
 RUN python -c "import ifcopenshell; print(f'ifcopenshell version: {ifcopenshell.version}')"
 
 # Cache-bust layer: copy this first to invalidate COPY . . cache
+# Build: 2026-03-15-20:00
 COPY .docker_nocache /tmp/.docker_nocache
 COPY . .
 
