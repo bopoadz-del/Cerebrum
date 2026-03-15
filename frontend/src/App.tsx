@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, MessageSquare, Loader2 } from 'lucide-react';
+import { X, MessageSquare, Loader2, Bot, Brain } from 'lucide-react';
 import { ProjectSidebar } from '@/components/ProjectSidebar';
 import { ChatInterfaceV2 } from '@/components/ChatInterfaceV2';
+import { AgentChatInterface } from '@/components/AgentChatInterface';
 import { OutcomesPanel } from '@/components/OutcomesPanel';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
@@ -24,6 +25,7 @@ function DesktopLayout() {
   const [selectedChatId, setSelectedChatId] = useState<string | null>('c1');
   const [showSettings, setShowSettings] = useState(false);
   const [showNewChatModal, setShowNewChatModal] = useState(false);
+  const [agentMode, setAgentMode] = useState(false); // Toggle between regular and agent chat
   
   const { 
     projects, 
@@ -85,13 +87,45 @@ function DesktopLayout() {
         getProjectFiles={getProjectFiles}
       />
 
-      {/* Center Panel - Chat */}
-      <div className="flex-1 min-w-0">
-        <ChatInterfaceV2
-          projectName={selectedProject?.name}
-          chatTitle={selectedChat?.title}
-          onNewChat={handleNewChat}
-        />
+      {/* Center Panel - Chat with Agent Mode Toggle */}
+      <div className="flex-1 min-w-0 flex flex-col">
+        {/* Agent Mode Toggle */}
+        <div className="h-10 border-b border-gray-100 flex items-center justify-center gap-2 bg-gray-50/50">
+          <span className={`text-xs font-medium ${!agentMode ? 'text-indigo-600' : 'text-gray-500'}`}>
+            Standard
+          </span>
+          <button
+            onClick={() => setAgentMode(!agentMode)}
+            className={`relative w-12 h-6 rounded-full transition-colors duration-200 ${
+              agentMode ? 'bg-indigo-600' : 'bg-gray-300'
+            }`}
+          >
+            <span
+              className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-200 ${
+                agentMode ? 'translate-x-6' : 'translate-x-0'
+              }`}
+            />
+          </button>
+          <span className={`text-xs font-medium flex items-center gap-1 ${agentMode ? 'text-indigo-600' : 'text-gray-500'}`}>
+            <Brain className="w-3 h-3" />
+            Agent Mode
+          </span>
+        </div>
+
+        {/* Chat Interface */}
+        {agentMode ? (
+          <AgentChatInterface
+            projectName={selectedProject?.name}
+            chatTitle={selectedChat?.title}
+            onNewChat={handleNewChat}
+          />
+        ) : (
+          <ChatInterfaceV2
+            projectName={selectedProject?.name}
+            chatTitle={selectedChat?.title}
+            onNewChat={handleNewChat}
+          />
+        )}
       </div>
 
       {/* Right Panel - Outcomes */}
