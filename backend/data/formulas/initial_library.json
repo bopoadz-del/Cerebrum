@@ -1,71 +1,148 @@
 {
-  "version": "1.0.0",
-  "description": "Initial formula library for Cerebrum AI Platform",
+  "version": "2.0.0",
+  "description": "Enhanced formula library for Cerebrum AI Platform - Construction, Structural, Financial, and MEP calculations",
   "formulas": [
     {
       "id": "concrete_volume",
       "name": "Concrete Volume",
       "domain": "construction",
-      "description": "Calculate concrete volume for rectangular elements",
+      "description": "Calculate concrete volume for rectangular elements (slabs, footings, beams)",
       "formula_expression": "length * width * height",
       "inputs": [
-        {"name": "length", "type": "float", "unit": "m", "required": true},
-        {"name": "width", "type": "float", "unit": "m", "required": true},
-        {"name": "height", "type": "float", "unit": "m", "required": true}
+        {"name": "length", "type": "float", "unit": "m", "required": true, "description": "Length of element"},
+        {"name": "width", "type": "float", "unit": "m", "required": true, "description": "Width of element"},
+        {"name": "height", "type": "float", "unit": "m", "required": true, "description": "Height/thickness of element"}
       ],
       "outputs": [
-        {"name": "result", "type": "float", "unit": "m³"}
+        {"name": "volume", "type": "float", "unit": "m³", "description": "Volume in cubic meters"},
+        {"name": "volume_cuyd", "type": "float", "unit": "CY", "description": "Volume in cubic yards"}
       ],
       "references": ["ACI 318", "ASTM C94"],
-      "tags": ["concrete", "volume", "materials"]
+      "tags": ["concrete", "volume", "materials", "quantity-takeoff"]
+    },
+    {
+      "id": "concrete_cylindrical_volume",
+      "name": "Concrete Volume - Cylindrical",
+      "domain": "construction",
+      "description": "Calculate concrete volume for cylindrical elements (columns, piers, caissons)",
+      "formula_expression": "3.14159 * (diameter / 2) ** 2 * height",
+      "inputs": [
+        {"name": "diameter", "type": "float", "unit": "m", "required": true, "description": "Diameter of cylinder"},
+        {"name": "height", "type": "float", "unit": "m", "required": true, "description": "Height of cylinder"}
+      ],
+      "outputs": [
+        {"name": "volume", "type": "float", "unit": "m³"},
+        {"name": "volume_cuyd", "type": "float", "unit": "CY"}
+      ],
+      "references": ["ACI 318"],
+      "tags": ["concrete", "volume", "column", "cylinder"]
     },
     {
       "id": "rebar_weight",
       "name": "Rebar Weight",
       "domain": "construction",
-      "description": "Calculate weight of reinforcing steel bars",
-      "formula_expression": "(diameter ** 2) * 0.006165 * length",
+      "description": "Calculate weight of reinforcing steel bars using standard formula",
+      "formula_expression": "(diameter ** 2) * 0.006165 * length * quantity",
       "inputs": [
-        {"name": "diameter", "type": "float", "unit": "mm", "required": true},
-        {"name": "length", "type": "float", "unit": "m", "required": true}
+        {"name": "diameter", "type": "float", "unit": "mm", "required": true, "description": "Bar diameter in mm (#4=12.7mm, #6=19.05mm, #8=25.4mm)"},
+        {"name": "length", "type": "float", "unit": "m", "required": true, "description": "Length of each bar"},
+        {"name": "quantity", "type": "float", "unit": "ea", "required": true, "description": "Number of bars", "default": 1}
       ],
       "outputs": [
-        {"name": "result", "type": "float", "unit": "kg"}
+        {"name": "weight", "type": "float", "unit": "kg", "description": "Total weight in kilograms"},
+        {"name": "weight_lbs", "type": "float", "unit": "lb", "description": "Total weight in pounds"}
       ],
-      "references": ["ASTM A615", "BS 4449"],
-      "tags": ["steel", "rebar", "weight", "materials"]
+      "references": ["ASTM A615", "BS 4449", "ACI 318"],
+      "tags": ["steel", "rebar", "weight", "materials", "reinforcement"]
     },
     {
-      "id": "beam_moment",
-      "name": "Simple Beam Moment",
+      "id": "rebar_weight_us",
+      "name": "Rebar Weight - US Standard Sizes",
+      "domain": "construction",
+      "description": "Calculate rebar weight using US standard sizes (#3 through #18)",
+      "formula_expression": "(bar_size ** 2) / 52.9 * length * quantity",
+      "inputs": [
+        {"name": "bar_size", "type": "integer", "unit": "#", "required": true, "description": "US bar size (#3=3/8\", #4=1/2\", #6=3/4\", etc.)"},
+        {"name": "length", "type": "float", "unit": "ft", "required": true, "description": "Length in feet"},
+        {"name": "quantity", "type": "float", "unit": "ea", "required": true, "default": 1}
+      ],
+      "outputs": [
+        {"name": "weight", "type": "float", "unit": "lb"},
+        {"name": "weight_kg", "type": "float", "unit": "kg"}
+      ],
+      "references": ["ASTM A615", "CRSI Manual"],
+      "tags": ["steel", "rebar", "weight", "us-standard"]
+    },
+    {
+      "id": "beam_moment_simple",
+      "name": "Simple Beam - Uniform Load Moment",
       "domain": "structural",
-      "description": "Calculate maximum bending moment for a simply supported beam with uniform load",
+      "description": "Calculate maximum bending moment for a simply supported beam with uniform distributed load",
       "formula_expression": "(load * span ** 2) / 8",
       "inputs": [
         {"name": "load", "type": "float", "unit": "kN/m", "required": true, "description": "Uniform distributed load"},
         {"name": "span", "type": "float", "unit": "m", "required": true, "description": "Beam span length"}
       ],
       "outputs": [
-        {"name": "result", "type": "float", "unit": "kN·m"}
+        {"name": "moment", "type": "float", "unit": "kN·m", "description": "Maximum bending moment"},
+        {"name": "moment_kipft", "type": "float", "unit": "kip·ft", "description": "Moment in kip-feet"}
       ],
       "references": ["AISC Steel Construction Manual", "Timoshenko Strength of Materials"],
-      "tags": ["beam", "moment", "structural", "load"]
+      "tags": ["beam", "moment", "structural", "load", "simply-supported"]
     },
     {
-      "id": "roi_calculator",
-      "name": "ROI Calculator",
-      "domain": "financial",
-      "description": "Calculate return on investment percentage",
-      "formula_expression": "((gain - cost) / cost) * 100",
+      "id": "beam_moment_point_load",
+      "name": "Simple Beam - Center Point Load Moment",
+      "domain": "structural",
+      "description": "Maximum moment for simply supported beam with point load at center",
+      "formula_expression": "(load * span) / 4",
       "inputs": [
-        {"name": "gain", "type": "float", "unit": "currency", "required": true},
-        {"name": "cost", "type": "float", "unit": "currency", "required": true}
+        {"name": "load", "type": "float", "unit": "kN", "required": true, "description": "Point load at center"},
+        {"name": "span", "type": "float", "unit": "m", "required": true, "description": "Beam span"}
       ],
       "outputs": [
-        {"name": "result", "type": "float", "unit": "%"}
+        {"name": "moment", "type": "float", "unit": "kN·m"}
       ],
-      "references": ["GAAP", "IFRS"],
-      "tags": ["finance", "roi", "investment"]
+      "references": ["AISC Steel Construction Manual"],
+      "tags": ["beam", "moment", "structural", "point-load"]
+    },
+    {
+      "id": "beam_deflection_simple",
+      "name": "Simple Beam - Uniform Load Deflection",
+      "domain": "structural",
+      "description": "Maximum deflection for simply supported beam with uniform load",
+      "formula_expression": "(5 * load * span ** 4) / (384 * modulus * moment_of_inertia)",
+      "inputs": [
+        {"name": "load", "type": "float", "unit": "kN/m", "required": true, "description": "Uniform load"},
+        {"name": "span", "type": "float", "unit": "m", "required": true, "description": "Span length"},
+        {"name": "modulus", "type": "float", "unit": "GPa", "required": true, "description": "Modulus of elasticity (Steel=200, Concrete=25-30)"},
+        {"name": "moment_of_inertia", "type": "float", "unit": "cm⁴", "required": true, "description": "Moment of inertia"}
+      ],
+      "outputs": [
+        {"name": "deflection", "type": "float", "unit": "mm", "description": "Maximum deflection"},
+        {"name": "deflection_ratio", "type": "float", "unit": "L/x", "description": "Span/deflection ratio"}
+      ],
+      "references": ["AISC Steel Construction Manual"],
+      "tags": ["beam", "deflection", "structural", "serviceability"]
+    },
+    {
+      "id": "column_axial_capacity",
+      "name": "Concrete Column Axial Capacity",
+      "domain": "structural",
+      "description": "Nominal axial load capacity of reinforced concrete column",
+      "formula_expression": "0.8 * (0.85 * concrete_strength * (gross_area - steel_area) + steel_yield * steel_area)",
+      "inputs": [
+        {"name": "concrete_strength", "type": "float", "unit": "MPa", "required": true, "description": "Concrete compressive strength (fc')"},
+        {"name": "gross_area", "type": "float", "unit": "m²", "required": true, "description": "Gross cross-sectional area"},
+        {"name": "steel_area", "type": "float", "unit": "m²", "required": true, "description": "Total steel reinforcement area"},
+        {"name": "steel_yield", "type": "float", "unit": "MPa", "required": true, "description": "Steel yield strength (fy)", "default": 420}
+      ],
+      "outputs": [
+        {"name": "nominal_capacity", "type": "float", "unit": "kN", "description": "Nominal axial capacity"},
+        {"name": "design_capacity", "type": "float", "unit": "kN", "description": "Design capacity (with phi=0.65)"}
+      ],
+      "references": ["ACI 318-19 Chapter 22"],
+      "tags": ["column", "concrete", "capacity", "axial", "compression"]
     },
     {
       "id": "unit_cost_total",
@@ -74,14 +151,205 @@
       "description": "Calculate total cost from unit price and quantity",
       "formula_expression": "unit_price * quantity",
       "inputs": [
-        {"name": "unit_price", "type": "float", "unit": "currency", "required": true},
-        {"name": "quantity", "type": "float", "unit": "ea", "required": true}
+        {"name": "unit_price", "type": "float", "unit": "currency", "required": true, "description": "Cost per unit"},
+        {"name": "quantity", "type": "float", "unit": "ea", "required": true, "description": "Number of units"}
       ],
       "outputs": [
-        {"name": "result", "type": "float", "unit": "currency"}
+        {"name": "total_cost", "type": "float", "unit": "currency"}
       ],
       "references": ["RS Means", "CostWorks"],
       "tags": ["cost", "estimation", "pricing"]
+    },
+    {
+      "id": "cost_with_markup",
+      "name": "Cost with Overhead and Profit",
+      "domain": "cost_estimation",
+      "description": "Calculate total project cost including overhead and profit markup",
+      "formula_expression": "direct_cost * (1 + overhead_percent / 100) * (1 + profit_percent / 100)",
+      "inputs": [
+        {"name": "direct_cost", "type": "float", "unit": "currency", "required": true, "description": "Direct construction cost"},
+        {"name": "overhead_percent", "type": "float", "unit": "%", "required": true, "description": "Overhead percentage", "default": 15},
+        {"name": "profit_percent", "type": "float", "unit": "%", "required": true, "description": "Profit margin percentage", "default": 10}
+      ],
+      "outputs": [
+        {"name": "total_cost", "type": "float", "unit": "currency"},
+        {"name": "overhead_amount", "type": "float", "unit": "currency"},
+        {"name": "profit_amount", "type": "float", "unit": "currency"}
+      ],
+      "references": ["RS Means"],
+      "tags": ["cost", "estimation", "markup", "overhead", "profit"]
+    },
+    {
+      "id": "roi_calculator",
+      "name": "ROI Calculator",
+      "domain": "financial",
+      "description": "Calculate return on investment percentage",
+      "formula_expression": "((gain - cost) / cost) * 100",
+      "inputs": [
+        {"name": "gain", "type": "float", "unit": "currency", "required": true, "description": "Final value or revenue"},
+        {"name": "cost", "type": "float", "unit": "currency", "required": true, "description": "Initial investment cost"}
+      ],
+      "outputs": [
+        {"name": "roi_percent", "type": "float", "unit": "%", "description": "Return on investment percentage"}
+      ],
+      "references": ["GAAP", "IFRS"],
+      "tags": ["finance", "roi", "investment", "return"]
+    },
+    {
+      "id": "npv_calculator",
+      "name": "Net Present Value",
+      "domain": "financial",
+      "description": "Calculate NPV for a series of cash flows",
+      "formula_expression": "sum([cf / ((1 + rate / 100) ** year) for year, cf in enumerate(cash_flows)]) - initial_investment",
+      "inputs": [
+        {"name": "initial_investment", "type": "float", "unit": "currency", "required": true, "description": "Initial investment (negative)"},
+        {"name": "cash_flows", "type": "array", "unit": "currency", "required": true, "description": "Annual cash flows"},
+        {"name": "rate", "type": "float", "unit": "%", "required": true, "description": "Discount rate", "default": 8}
+      ],
+      "outputs": [
+        {"name": "npv", "type": "float", "unit": "currency", "description": "Net present value"}
+      ],
+      "references": ["Corporate Finance"],
+      "tags": ["finance", "npv", "valuation", "cash-flow"]
+    },
+    {
+      "id": "wall_framing_materials",
+      "name": "Wall Framing Materials",
+      "domain": "construction",
+      "description": "Calculate framing materials for stud wall",
+      "formula_expression": "{
+        'studs': ceiling((length / stud_spacing) + 1) * height,
+        'plates': length * 3,
+        'headers': count_openings * header_length
+    }",
+      "inputs": [
+        {"name": "length", "type": "float", "unit": "ft", "required": true, "description": "Wall length"},
+        {"name": "height", "type": "float", "unit": "ft", "required": true, "description": "Wall height"},
+        {"name": "stud_spacing", "type": "float", "unit": "in", "required": true, "description": "Stud spacing", "default": 16},
+        {"name": "count_openings", "type": "integer", "unit": "ea", "required": true, "description": "Number of doors/windows", "default": 0},
+        {"name": "header_length", "type": "float", "unit": "ft", "required": true, "description": "Average header length", "default": 6}
+      ],
+      "outputs": [
+        {"name": "total_board_feet", "type": "float", "unit": "BF"},
+        {"name": "stud_count", "type": "float", "unit": "ea"},
+        {"name": "plate_board_feet", "type": "float", "unit": "BF"}
+      ],
+      "references": ["Carpentry Estimating"],
+      "tags": ["framing", "carpentry", "materials", "wood"]
+    },
+    {
+      "id": "paint_coverage",
+      "name": "Paint Coverage Calculator",
+      "domain": "construction",
+      "description": "Calculate paint quantity needed based on coverage rate",
+      "formula_expression": "(wall_area + ceiling_area) / coverage_rate * coats",
+      "inputs": [
+        {"name": "wall_area", "type": "float", "unit": "SF", "required": true, "description": "Total wall surface area"},
+        {"name": "ceiling_area", "type": "float", "unit": "SF", "required": true, "description": "Ceiling area", "default": 0},
+        {"name": "coverage_rate", "type": "float", "unit": "SF/gal", "required": true, "description": "Paint coverage per gallon", "default": 350},
+        {"name": "coats", "type": "integer", "unit": "ea", "required": true, "description": "Number of coats", "default": 2}
+      ],
+      "outputs": [
+        {"name": "gallons_needed", "type": "float", "unit": "gal"},
+        {"name": "gallons_rounded", "type": "float", "unit": "gal", "description": "Rounded up to whole gallons"}
+      ],
+      "references": ["Paint Manufacturer Specs"],
+      "tags": ["paint", "finishes", "quantity"]
+    },
+    {
+      "id": "hvac_cooling_load_simple",
+      "name": "HVAC Cooling Load - Simple",
+      "domain": "mechanical",
+      "description": "Simple cooling load estimation per square foot",
+      "formula_expression": "area * load_per_sqft",
+      "inputs": [
+        {"name": "area", "type": "float", "unit": "SF", "required": true, "description": "Conditioned floor area"},
+        {"name": "load_per_sqft", "type": "float", "unit": "BTU/hr/SF", "required": true, "description": "Load per sq ft (Office=25-35, Residential=20-30)", "default": 30}
+      ],
+      "outputs": [
+        {"name": "total_load", "type": "float", "unit": "BTU/hr"},
+        {"name": "tons_required", "type": "float", "unit": "tons", "description": "Cooling tons required (1 ton = 12,000 BTU/hr)"}
+      ],
+      "references": ["ASHRAE Fundamentals"],
+      "tags": ["hvac", "cooling", "load-calculation", "mechanical"]
+    },
+    {
+      "id": "electrical_load",
+      "name": "Electrical Load Calculator",
+      "domain": "electrical",
+      "description": "Calculate electrical service load for building",
+      "formula_expression": "(lighting_load + receptacle_load + hvac_load + equipment_load) * diversity_factor",
+      "inputs": [
+        {"name": "lighting_load", "type": "float", "unit": "W", "required": true, "description": "Total lighting load"},
+        {"name": "receptacle_load", "type": "float", "unit": "W", "required": true, "description": "Receptacle/power load"},
+        {"name": "hvac_load", "type": "float", "unit": "W", "required": true, "description": "HVAC equipment load"},
+        {"name": "equipment_load", "type": "float", "unit": "W", "required": true, "description": "Other equipment load"},
+        {"name": "diversity_factor", "type": "float", "unit": "ratio", "required": true, "description": "Demand factor (typically 0.6-0.8)", "default": 0.75}
+      ],
+      "outputs": [
+        {"name": "total_load", "type": "float", "unit": "W"},
+        {"name": "total_load_kw", "type": "float", "unit": "kW"},
+        {"name": "amperage_240v", "type": "float", "unit": "A", "description": "Current at 240V"},
+        {"name": "amperage_480v", "type": "float", "unit": "A", "description": "Current at 480V"}
+      ],
+      "references": ["NEC Article 220"],
+      "tags": ["electrical", "load", "power", "service"]
+    },
+    {
+      "id": "excavation_volume",
+      "name": "Excavation Volume",
+      "domain": "construction",
+      "description": "Calculate excavation volume with slope",
+      "formula_expression": "((length_top + length_bottom) / 2) * ((width_top + width_bottom) / 2) * depth",
+      "inputs": [
+        {"name": "length_top", "type": "float", "unit": "m", "required": true, "description": "Length at ground level"},
+        {"name": "length_bottom", "type": "float", "unit": "m", "required": true, "description": "Length at bottom of excavation"},
+        {"name": "width_top", "type": "float", "unit": "m", "required": true, "description": "Width at ground level"},
+        {"name": "width_bottom", "type": "float", "unit": "m", "required": true, "description": "Width at bottom of excavation"},
+        {"name": "depth", "type": "float", "unit": "m", "required": true, "description": "Excavation depth"}
+      ],
+      "outputs": [
+        {"name": "volume", "type": "float", "unit": "m³"},
+        {"name": "volume_bank", "type": "float", "unit": "m³", "description": "Bank volume (in-situ)"},
+        {"name": "volume_loose", "type": "float", "unit": "m³", "description": "Loose volume (swell factor applied)"}
+      ],
+      "references": ["Earthwork Estimating"],
+      "tags": ["excavation", "earthwork", "site-work", "volume"]
+    },
+    {
+      "id": "roofing_materials",
+      "name": "Roofing Materials Calculator",
+      "domain": "construction",
+      "description": "Calculate roofing materials with waste factor",
+      "formula_expression": "area * (1 + waste_percent / 100) / coverage_per_unit",
+      "inputs": [
+        {"name": "area", "type": "float", "unit": "SF", "required": true, "description": "Roof area"},
+        {"name": "waste_percent", "type": "float", "unit": "%", "required": true, "description": "Waste allowance", "default": 10},
+        {"name": "coverage_per_unit", "type": "float", "unit": "SF", "required": true, "description": "Coverage per bundle/square"},
+        {"name": "unit_name", "type": "string", "unit": "text", "required": false, "description": "Unit name (bundle, square, etc.)"}
+      ],
+      "outputs": [
+        {"name": "units_needed", "type": "float", "unit": "units"},
+        {"name": "units_rounded", "type": "integer", "unit": "units", "description": "Rounded up to whole units"}
+      ],
+      "references": ["Roofing Manufacturer Specs"],
+      "tags": ["roofing", "materials", "waste-factor"]
+    },
+    {
+      "id": "safety_factor",
+      "name": "Structural Safety Factor",
+      "domain": "structural",
+      "description": "Calculate allowable stress with safety factor",
+      "formula_expression": "ultimate_strength / safety_factor",
+      "inputs": [
+        {"name": "ultimate_strength", "type": "float", "unit": "MPa", "required": true, "description": "Ultimate material strength"},
+        {"name": "safety_factor", "type": "float", "unit": "ratio", "required": true, "description": "Safety factor (typically 1.5-3.0)", "default": 2.0}
+      ],
+      "outputs": [
+        {"name": "allowable_stress", "type": "float", "unit": "MPa"}
+      ],
+      "references": ["AISC", "ACI 318"],
+      "tags": ["structural", "safety", "stress", "design"]
     }
   ]
 }

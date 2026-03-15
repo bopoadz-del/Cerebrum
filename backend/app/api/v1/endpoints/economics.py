@@ -13,6 +13,18 @@ from pydantic import BaseModel, Field
 from app.core.config import settings
 from app.core.logging import get_logger
 
+# Import enhanced mock data
+try:
+    from app.economics.mock_data import (
+        MOCK_RSMEANS_DATA, 
+        MOCK_CITY_INDEX, 
+        BUILDING_TYPE_COSTS,
+        CSI_DIVISIONS
+    )
+    MOCK_DATA_AVAILABLE = True
+except ImportError:
+    MOCK_DATA_AVAILABLE = False
+
 try:
     from app.economics.pricing_engine import RSMeansAPI, CostItem, LocationFactor
     from app.economics.change_orders import ChangeOrderManager
@@ -29,47 +41,28 @@ except ImportError:
 router = APIRouter(prefix="/economics", tags=["Economics"])
 logger = get_logger(__name__)
 
-# Mock RSMeans data for demo (replace with API calls)
-MOCK_RSMEANS_DATA = {
-    "031011-010": {
-        "rsmeans_id": "031011-010",
-        "description": "Concrete, 3000 psi, ready mix",
-        "unit": "CY",
-        "material_cost": 125.50,
-        "labor_cost": 45.00,
-        "equipment_cost": 15.00,
-        "total_cost": 185.50,
-        "category": "Concrete"
-    },
-    "092216-100": {
-        "rsmeans_id": "092216-100",
-        "description": "Drywall, 5/8\" gypsum board",
-        "unit": "SF",
-        "material_cost": 0.65,
-        "labor_cost": 1.20,
-        "equipment_cost": 0.10,
-        "total_cost": 1.95,
-        "category": "Drywall"
-    },
-    "081113-100": {
-        "rsmeans_id": "081113-100",
-        "description": "Steel door, hollow metal, 3'0\" x 7'0\"",
-        "unit": "EA",
-        "material_cost": 285.00,
-        "labor_cost": 125.00,
-        "equipment_cost": 15.00,
-        "total_cost": 425.00,
-        "category": "Doors"
+# Fallback minimal data if import fails
+if not MOCK_DATA_AVAILABLE:
+    MOCK_RSMEANS_DATA = {
+        "031011-010": {
+            "rsmeans_id": "031011-010",
+            "description": "Concrete, 3000 psi, ready mix",
+            "unit": "CY",
+            "material_cost": 125.50,
+            "labor_cost": 45.00,
+            "equipment_cost": 15.00,
+            "total_cost": 185.50,
+            "category": "Concrete"
+        }
     }
-}
-
-MOCK_CITY_INDEX = {
-    "10001": {"city": "New York", "state": "NY", "index": 135.5},
-    "90210": {"city": "Los Angeles", "state": "CA", "index": 128.3},
-    "60601": {"city": "Chicago", "state": "IL", "index": 118.7},
-    "77001": {"city": "Houston", "state": "TX", "index": 98.4},
-    "85001": {"city": "Phoenix", "state": "AZ", "index": 102.1},
-}
+    MOCK_CITY_INDEX = {
+        "10001": {"city": "New York", "state": "NY", "index": 135.5}
+    }
+    BUILDING_TYPE_COSTS = {
+        "office": {"base_cost": 175.0, "description": "Office building"},
+        "warehouse": {"base_cost": 85.0, "description": "Warehouse"}
+    }
+    CSI_DIVISIONS = {"03": "Concrete", "09": "Finishes"}
 
 # In-memory storage for demo
 _budgets: Dict[str, Dict] = {}
@@ -252,30 +245,30 @@ async def quick_estimate(
     zip_code: Optional[str] = None,
     current_user = Depends(get_current_user)
 ):
-    """Quick square-footage based estimate"""
-    # Rough costs per sq ft by building type
-    base_costs = {
-        "office": 175.0,
-        "retail": 145.0,
-        "warehouse": 85.0,
-        "apartment": 195.0,
-        "hospital": 450.0,
-        "school": 220.0,
-        "industrial": 125.0
-    }
+    """Quick square-footage based estimate using building type costs"""
+    building_type_lower = building_type.lower()
     
-    base_cost = base_costs.get(building_type.lower(), 150.0)
+    if building_type_lower not in BUILDING_TYPE_COSTS:
+        available_types = list(BUILDING_TYPE_COSTS.keys())
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Unknown building type. Available: {', '.join(available_types)}"
+        )
+    
+    cost_info = BUILDING_TYPE_COSTS[building_type_lower]
+    base_cost = cost_info["base_cost"]
     city_index = _get_city_index(zip_code)
     adjusted_cost = base_cost * (city_index / 100.0)
     total = adjusted_cost * area_sqft
     
     return {
         "building_type": building_type,
+        "description": cost_info["description"],
         "area_sqft": area_sqft,
         "zip_code": zip_code,
         "city_cost_index": city_index,
-        "cost_per_sqft": adjusted_cost,
-        "total_cost": total,
+        "cost_per_sqft": round(adjusted_cost, 2),
+        "total_cost": round(total, 2),
         "estimate_type": "quick"
     }
 
@@ -490,6 +483,62 @@ async def get_cost_index_history(
         })
     
     return {"zip_code": zip_code, "history": history}
+
+
+# New: Building Types Endpoint
+
+@router.get("/building-types")
+async def list_building_types(current_user = Depends(get_current_user)):
+    """List available building types for quick estimates"""
+    return {
+        "building_types": [
+            {
+                "type": key,
+                "description": value["description"],
+                "base_cost_per_sqft": value["base_cost"]
+            }
+            for key, value in BUILDING_TYPE_COSTS.items()
+        ],
+        "count": len(BUILDING_TYPE_COSTS)
+    }
+
+
+# New: CSI Divisions Endpoint
+
+@router.get("/csi-divisions")
+async def list_csi_divisions(current_user = Depends(get_current_user)):
+    """List CSI MasterFormat divisions"""
+    return {
+        "divisions": [
+            {"code": code, "name": name}
+            for code, name in CSI_DIVISIONS.items()
+        ],
+        "count": len(CSI_DIVISIONS)
+    }
+
+
+@router.get("/csi-divisions/{division_code}/items")
+async def get_division_items(
+    division_code: str,
+    current_user = Depends(get_current_user)
+):
+    """Get RSMeans items for a specific CSI division"""
+    # Normalize division code
+    div_code = division_code.zfill(2)
+    
+    items = []
+    for item_id, item in MOCK_RSMEANS_DATA.items():
+        if item.get("csi_division") == div_code:
+            items.append(item)
+    
+    division_name = CSI_DIVISIONS.get(div_code, "Unknown Division")
+    
+    return {
+        "division_code": div_code,
+        "division_name": division_name,
+        "items": items,
+        "count": len(items)
+    }
 
 
 __all__ = ["router"]
