@@ -65,7 +65,7 @@ chromadb>=0.4.22  # Vector database for semantic search
 sentence-transformers>=2.2.0  # For embeddings (optional fallback)
 
 # BIM/IFC Processing (optional - uses prebuilt wheels)
-ifcopenshell>=0.7.0  # IFC file processing
+# ifcopenshell>=0.7.0  # IFC file processing - uncomment if needed, requires manual install
 
 # Use pure Python alternatives
 aiohttp>=3.9.0
