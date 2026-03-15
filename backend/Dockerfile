@@ -1,6 +1,6 @@
 FROM python:3.11-slim
 
-ENV PYTHONDONTWRITECODE=1
+ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV ENVIRONMENT=production
 
@@ -13,7 +13,6 @@ RUN apt-get update && apt-get install -y \
     libpq5 \
     postgresql-client \
     curl \
-    wget \
     bzip2 \
     ca-certificates \
     libjpeg-dev \
@@ -21,20 +20,14 @@ RUN apt-get update && apt-get install -y \
     libpng-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Miniconda + accept ToS + Python 3.11 in one layer
-ENV CONDA_DIR=/opt/conda
-ENV PATH=$CONDA_DIR/bin:$PATH
-RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /tmp/miniconda.sh && \
-    bash /tmp/miniconda.sh -b -p $CONDA_DIR && \
-    rm /tmp/miniconda.sh && \
-    conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main && \
-    conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r && \
-    conda install python=3.11 -y && \
-    conda clean -afy
-
-# Install ifcopenshell and Pillow via conda-forge (with Python 3.11 pinned)
-RUN conda install -c conda-forge ifcopenshell pillow pip -y && \
-    conda clean -afy
+# Install micromamba (lightweight conda alternative, no ToS)
+ENV MAMBA_ROOT_PREFIX=/opt/conda
+ENV PATH=/opt/conda/bin:$PATH
+RUN curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj -C /tmp bin/micromamba && \
+    mv /tmp/bin/micromamba /usr/local/bin/micromamba && \
+    micromamba shell init -s bash -p /opt/conda && \
+    micromamba install python=3.11 ifcopenshell pillow -c conda-forge -y && \
+    rm -rf /opt/conda/pkgs/cache
 
 # Copy requirements and install via pip
 COPY requirements.txt .
