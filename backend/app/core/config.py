@@ -211,6 +211,26 @@ class Settings(BaseSettings):
     )
     
     # =================================================================
+    # BIM/IFC Settings
+    # =================================================================
+    BIM_UPLOAD_DIR: str = Field(
+        default="/tmp/bim_uploads",
+        description="Directory for storing uploaded IFC files",
+    )
+    IFC_PROCESSING_ENABLED: bool = Field(
+        default=True,
+        description="Enable IFC file processing (requires ifcopenshell)",
+    )
+    BIM_MAX_FILE_SIZE_MB: int = Field(
+        default=500,
+        description="Maximum allowed IFC file size in MB",
+    )
+    BIM_CLEANUP_DAYS: int = Field(
+        default=30,
+        description="Days to keep uploaded files before cleanup",
+    )
+    
+    # =================================================================
     # Google OAuth Settings (REMOVED)
     # =================================================================
     # GOOGLE_DRIVE_REDIRECT_URI: str = Field(

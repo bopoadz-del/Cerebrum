@@ -14,6 +14,8 @@ from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Query, 
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
+from app.core.config import settings
+
 # Conditional import for IFC processing
 try:
     from app.pipelines.ifc_takeoff import QuantityTakeoffEngine, generate_ifc_takeoff
@@ -30,9 +32,12 @@ except ImportError:
 
 router = APIRouter(prefix="/bim", tags=["bim"])
 
-# File storage setup
-UPLOAD_DIR = Path(os.getenv("BIM_UPLOAD_DIR", "/tmp/bim_uploads"))
+# File storage setup - use config with env fallback
+UPLOAD_DIR = Path(settings.BIM_UPLOAD_DIR)
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+# Check if IFC processing is enabled via config
+IFC_PROCESSING_ENABLED = settings.IFC_PROCESSING_ENABLED and IFC_AVAILABLE
 
 # In-memory storage for demo (replace with DB in production)
 _uploaded_files: Dict[str, Dict] = {}
@@ -59,10 +64,10 @@ class BIMTakeoffResponse(BaseModel):
 
 def _check_ifc_available():
     """Check if IFC processing is available."""
-    if not IFC_AVAILABLE:
+    if not IFC_PROCESSING_ENABLED:
         raise HTTPException(
             status_code=503,
-            detail="IFC processing not available. ifcopenshell-python not installed."
+            detail="IFC processing not available. ifcopenshell-python not installed or disabled in config."
         )
 
 

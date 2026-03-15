@@ -36,6 +36,11 @@ services:
         value: "false"
       - key: INITIAL_FORMULAS_PATH
         value: "/app/data/formulas/initial_library.json"
+      # BIM/IFC Configuration
+      - key: BIM_UPLOAD_DIR
+        value: "/app/data/bim"
+      - key: IFC_PROCESSING_ENABLED
+        value: "true"
       # GOOGLE_REDIRECT_URI removed - Google Drive integration disabled
       - key: FRONTEND_URL
         value: "https://cerebrum-frontend.onrender.com"
