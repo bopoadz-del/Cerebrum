@@ -136,11 +136,11 @@ api_v1_router.include_router(sessions.router)  # prefix="/sessions" already in r
 api_v1_router.include_router(connectors.router)  # prefix="/connectors" already in router
 
 # Include stubs (need prefix added)
-api_v1_router.include_router(users.router, prefix="/users", tags=["users"])
-api_v1_router.include_router(projects.router, prefix="/projects", tags=["projects"])
-api_v1_router.include_router(registry.router, prefix="/registry", tags=["registry"])
-api_v1_router.include_router(coding.router, prefix="/coding", tags=["coding"])
-api_v1_router.include_router(quality.router, prefix="/quality", tags=["quality"])
+api_v1_router.include_router(users, prefix="/users", tags=["users"])
+api_v1_router.include_router(projects, prefix="/projects", tags=["projects"])
+api_v1_router.include_router(registry, prefix="/registry", tags=["registry"])
+api_v1_router.include_router(coding, prefix="/coding", tags=["coding"])
+api_v1_router.include_router(quality, prefix="/quality", tags=["quality"])
 
 # Include construction/industry endpoints (already have prefixes)
 api_v1_router.include_router(bim.router)  # prefix="/bim" already in router
