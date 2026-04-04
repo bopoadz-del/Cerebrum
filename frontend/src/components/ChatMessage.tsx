@@ -1,177 +1,156 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Bot, FileText, Copy, Check, Share2, Image as ImageIcon, Sparkles } from 'lucide-react';
+import { Bot, User, Copy, Check, ThumbsUp, ThumbsDown, RefreshCw, FileText, Image as ImageIcon, Code } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { Message } from '@/types';
-import { ReasoningDisplay } from './ReasoningDisplay';
+import { Button } from '@/components/ui/button';
 import { MarkdownRenderer } from './MarkdownRenderer';
-import { WebSearchIndicator } from './WebSearchIndicator';
 import { CodeExecutionDisplay } from './CodeExecutionDisplay';
-import { ImageThumbnail, ImagePreviewModal } from './ImageAnalysis';
+import type { Message } from '@/types';
 
 interface ChatMessageProps {
   message: Message;
-  index: number;
+  isLoading?: boolean;
+  onRegenerate?: () => void;
+  onFeedback?: (type: 'up' | 'down') => void;
 }
 
-export function ChatMessage({ message, index }: ChatMessageProps) {
-  const isUser = message.role === 'user';
+export function ChatMessage({
+  message,
+  isLoading = false,
+  onRegenerate,
+  onFeedback,
+}: ChatMessageProps) {
   const [copied, setCopied] = useState(false);
-  const [showActions, setShowActions] = useState(false);
-  const [isSearchCollapsed, setIsSearchCollapsed] = useState(false);
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const isUser = message.role === 'user';
 
-  // Calculate yesterday date once, memoized to avoid impure render
-  const yesterdayStr = useMemo(() => {
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    return yesterday.toDateString();
-  }, []);
-
-  const formatTime = (date: Date) => {
-    return new Intl.DateTimeFormat('en-US', {
-      hour: 'numeric',
-      minute: 'numeric',
-      hour12: true,
-    }).format(date);
-  };
-
-  const formatDate = (date: Date) => {
-    const msgDate = new Date(date);
-    const todayStr = new Date().toDateString();
-    const msgDateStr = msgDate.toDateString();
-    
-    if (msgDateStr === todayStr) return 'Today';
-    if (msgDateStr === yesterdayStr) return 'Yesterday';
-    return new Intl.DateTimeFormat('en-US', {
-      month: 'short',
-      day: 'numeric',
-    }).format(msgDate);
-  };
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(message.content);
+  const handleCopy = () => {
+    navigator.clipboard.writeText(message.content);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleShare = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: 'Cerebrum Chat',
-          text: message.content,
-        });
-      } catch {
-        console.log('Share cancelled');
-      }
-    } else {
-      handleCopy();
-    }
-  };
-
-  // Check if message has any special content
-  const hasWebSearch = message.webSearch && message.webSearch.status !== 'error';
-  const hasCodeExecution = message.codeExecution;
-  const hasImageAnalysis = message.imageAnalysis;
-  const hasAttachments = message.attachments && message.attachments.length > 0;
-  const hasSuggestedReplies = message.suggestedReplies && message.suggestedReplies.length > 0;
-
   return (
-    <>
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{
-          duration: 0.3,
-          delay: index * 0.05,
-          ease: [0.25, 0.46, 0.45, 0.94],
-        }}
-        className={cn('flex gap-3 mb-6 group', isUser ? 'flex-row-reverse' : 'flex-row')}
-        onMouseEnter={() => setShowActions(true)}
-        onMouseLeave={() => setShowActions(false)}
-      >
-        {/* Avatar */}
-        <div
-          className={cn(
-            'w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0',
-            isUser ? 'bg-gray-200' : 'bg-gradient-to-br from-indigo-500 to-purple-600'
-          )}
-        >
-          {isUser ? (
-            <User className="w-4 h-4 text-gray-600" />
-          ) : (
-            <Bot className="w-4 h-4 text-white" />
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={cn(
+        'flex gap-3 p-4 rounded-xl',
+        isUser ? 'bg-indigo-50/50' : 'bg-white'
+      )}
+    >
+      {/* Avatar */}
+      <div className={cn(
+        'w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0',
+        isUser ? 'bg-indigo-600' : 'bg-gradient-to-br from-indigo-500 to-purple-600'
+      )}>
+        {isUser ? (
+          <User className="w-4 h-4 text-white" />
+        ) : (
+          <Bot className="w-4 h-4 text-white" />
+        )}
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 min-w-0">
+        {/* Header */}
+        <div className="flex items-center gap-2 mb-1">
+          <span className={cn(
+            'text-sm font-medium',
+            isUser ? 'text-indigo-900' : 'text-gray-900'
+          )}>
+            {isUser ? 'You' : 'Cerebrum AI'}
+          </span>
+          {message.timestamp && (
+            <span className="text-xs text-gray-400">
+              {new Date(message.timestamp).toLocaleTimeString()}
+            </span>
           )}
         </div>
 
         {/* Message Content */}
-        <div className={cn('flex flex-col max-w-[85%]', isUser ? 'items-end' : 'items-start')}>
-          {/* Date Badge (if not today) */}
-          {index === 0 && (
-            <div className="mb-2 px-3 py-1 bg-gray-100 rounded-full text-xs text-gray-500">
-              {formatDate(message.timestamp)}
+        <div className="prose prose-sm max-w-none">
+          {isLoading ? (
+            <div className="flex items-center gap-2 text-gray-500">
+              <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" />
+              <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce delay-100" />
+              <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce delay-200" />
             </div>
+          ) : (
+            <MarkdownRenderer content={message.content} />
           )}
+        </div>
 
-          {/* Web Search Indicator */}
-          {hasWebSearch && (
-            <div className="mb-3 w-full max-w-lg">
-              <WebSearchIndicator 
-                searchData={message.webSearch!}
-                isCollapsed={isSearchCollapsed}
-                onToggleCollapse={() => setIsSearchCollapsed(!isSearchCollapsed)}
-              />
-            </div>
-          )}
-
-          {/* Main Message Bubble */}
-          <div
-            className={cn(
-              'relative px-4 py-3',
-              isUser
-                ? 'message-user bg-indigo-600 text-white'
-                : 'message-ai bg-white border border-gray-200 text-gray-900 shadow-sm'
-            )}
-          >
-            {message.isThinking ? (
-              <ReasoningDisplay isThinking />
-            ) : (
-              <>
-                {/* Message Content with Markdown */}
-                <div className={cn(
-                  'text-sm leading-relaxed',
-                  isUser ? 'text-white' : 'text-gray-800'
-                )}>
-                  {isUser ? (
-                    // User messages: plain text or simple formatting
-                    <p className="whitespace-pre-wrap">{message.content}</p>
-                  ) : (
-                    // Assistant messages: full markdown rendering
-                    <MarkdownRenderer content={message.content} />
-                  )}
-                </div>
-
-                {/* Code Execution Display */}
-                {hasCodeExecution && (
-                  <div className="mt-4">
-                    <CodeExecutionDisplay execution={message.codeExecution!} />
-                  </div>
+        {/* Attachments */}
+        {message.attachments && message.attachments.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-3">
+            {message.attachments.map((att) => (
+              <div
+                key={att.id}
+                className="flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-lg"
+              >
+                {att.type.startsWith('image/') ? (
+                  <ImageIcon className="w-4 h-4 text-gray-500" />
+                ) : (
+                  <FileText className="w-4 h-4 text-gray-500" />
                 )}
+                <span className="text-sm text-gray-700 truncate max-w-[200px]">
+                  {att.name}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
 
-                {/* Image Analysis Result */}
-                {hasImageAnalysis && (
-                  <div className="mt-4 p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
-                    <div className="flex items-start gap-2">
-                      <Sparkles className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <p className="text-sm text-gray-700">{message.imageAnalysis!.description}</p>
- 
+        {/* Actions */}
+        {!isUser && !isLoading && (
+          <div className="flex items-center gap-1 mt-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCopy}
+              className="h-8 px-2 text-gray-500 hover:text-gray-700"
+            >
+              {copied ? (
+                <Check className="w-4 h-4" />
+              ) : (
+                <Copy className="w-4 h-4" />
+              )}
+            </Button>
+            
+            {onRegenerate && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onRegenerate}
+                className="h-8 px-2 text-gray-500 hover:text-gray-700"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </Button>
+            )}
+            
+            {onFeedback && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onFeedback('up')}
+                  className="h-8 px-2 text-gray-500 hover:text-gray-700"
+                >
+                  <ThumbsUp className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onFeedback('down')}
+                  className="h-8 px-2 text-gray-500 hover:text-gray-700"
+                >
+                  <ThumbsDown className="w-4 h-4" />
+                </Button>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+}

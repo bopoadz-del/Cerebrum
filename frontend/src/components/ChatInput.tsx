@@ -28,7 +28,6 @@ interface ChatInputProps {
   onRemoveAttachment?: (id: string) => void;
   isLoading?: boolean;
   placeholder?: string;
-  // New Kimi-like features
   onWebSearchToggle?: () => void;
   isWebSearchEnabled?: boolean;
   onCodeModeToggle?: () => void;
@@ -47,20 +46,16 @@ export function ChatInput({
   onRemoveAttachment,
   isLoading = false,
   placeholder = 'Type a message...',
-  // New props
   onWebSearchToggle,
   isWebSearchEnabled = false,
   onCodeModeToggle,
   isCodeModeEnabled = false,
   onImageUpload,
-  enableVoice = true,
+  enableVoice = false,
   onVoiceStart,
 }: ChatInputProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const imageInputRef = useRef<HTMLInputElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [isDragOver, setIsDragOver] = useState(false);
-  const [showToolbar, setShowToolbar] = useState(false);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -69,62 +64,31 @@ export function ChatInput({
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && onAttach) {
-      Array.from(files).forEach(file => {
-        // Route images to image handler if available
-        if (file.type.startsWith('image/') && onImageUpload) {
-          onImageUpload(file);
-        } else {
-          onAttach(file);
-        }
-      });
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && onAttach) {
+      onAttach(file);
     }
-    e.target.value = '';
-  };
-
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && onImageUpload) {
-      Array.from(files).forEach(onImageUpload);
-    }
-    e.target.value = '';
   };
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
-    
-    const files = Array.from(e.dataTransfer.files);
-    files.forEach(file => {
-      if (file.type.startsWith('image/') && onImageUpload) {
-        onImageUpload(file);
-      } else if (onAttach) {
-        onAttach(file);
-      }
-    });
-  }, [onAttach, onImageUpload]);
+    const file = e.dataTransfer.files[0];
+    if (file && onAttach) {
+      onAttach(file);
+    }
+  }, [onAttach]);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(true);
   };
 
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
+  const handleDragLeave = () => {
     setIsDragOver(false);
   };
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-  };
-
-  // Separate image and non-image attachments
   const imageAttachments = attachments.filter(att => att.type.startsWith('image/'));
   const fileAttachments = attachments.filter(att => !att.type.startsWith('image/'));
   const hasAttachments = attachments.length > 0;
@@ -146,67 +110,138 @@ export function ChatInput({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-indigo-500/10 backdrop-blur-sm flex items-center justify-center pointer-events-none"
+            className="absolute inset-0 bg-indigo-500/10 border-2 border-dashed border-indigo-400 rounded-lg flex items-center justify-center pointer-events-none z-10"
           >
-            <div className="bg-white rounded-2xl shadow-2xl p-8 text-center">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-indigo-100 flex items-center justify-center">
-                <ImageIcon className="w-8 h-8 text-indigo-600" />
-              </div>
-              <p className="text-xl font-semibold text-gray-900">Drop files here</p>
-              <p className="text-sm text-gray-500 mt-1">Images and documents supported</p>
-            </div>
+            <span className="text-indigo-600 font-medium">Drop file here</span>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Image Attachments Preview */}
+      {/* Input Area */}
+      <div className="flex items-end gap-2">
+        <div className="flex-1 relative">
+          <textarea
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={placeholder}
+            disabled={isLoading}
+            className={cn(
+              'w-full min-h-[44px] max-h-[200px] resize-none rounded-xl border border-gray-200',
+              'px-4 py-3 pr-24 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20',
+              'focus:border-indigo-500 transition-all duration-200',
+              isLoading && 'opacity-50 cursor-not-allowed'
+            )}
+            rows={1}
+          />
+          
+          {/* Toolbar */}
+          <div className="absolute right-2 bottom-2 flex items-center gap-1">
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isLoading}
+              className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+              title="Attach file"
+            >
+              <Paperclip className="w-4 h-4" />
+            </button>
+            
+            {enableVoice && (
+              <button
+                onClick={onVoiceStart}
+                disabled={isLoading}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                title="Voice input"
+              >
+                <Mic className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Send Button */}
+        <Button
+          onClick={onSend}
+          disabled={isLoading || (!value.trim() && !hasAttachments)}
+          className="h-11 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl"
+        >
+          {isLoading ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Send className="w-4 h-4" />
+          )}
+        </Button>
+      </div>
+
+      {/* Feature Toggles */}
+      <div className="flex items-center gap-2 mt-2">
+        {onWebSearchToggle && (
+          <button
+            onClick={onWebSearchToggle}
+            className={cn(
+              'flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium transition-all duration-200',
+              isWebSearchEnabled
+                ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            )}
+          >
+            <Globe className="w-3 h-3" />
+            Web Search
+          </button>
+        )}
+        
+        {onCodeModeToggle && (
+          <button
+            onClick={onCodeModeToggle}
+            className={cn(
+              'flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium transition-all duration-200',
+              isCodeModeEnabled
+                ? 'bg-purple-100 text-purple-700 border border-purple-200'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            )}
+          >
+            <Code2 className="w-3 h-3" />
+            Code
+          </button>
+        )}
+      </div>
+
+      {/* File Attachments */}
       <AnimatePresence>
-        {imageAttachments.length > 0 && (
+        {fileAttachments.length > 0 && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="flex flex-wrap gap-2 mb-3"
+            className="flex flex-wrap gap-2 mt-3"
           >
-            {imageAttachments.map((attachment) => (
+            {fileAttachments.map((attachment) => (
               <motion.div
                 key={attachment.id}
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.8, opacity: 0 }}
-                className="relative group"
+                className={cn(
+                  'flex items-center gap-2 px-3 py-2 rounded-lg border',
+                  attachment.status === 'error'
+                    ? 'bg-red-50 border-red-200'
+                    : attachment.status === 'complete'
+                    ? 'bg-emerald-50 border-emerald-200'
+                    : 'bg-indigo-50 border-indigo-100'
+                )}
               >
-                <div className="w-20 h-20 rounded-lg overflow-hidden border border-gray-200 bg-gray-100">
-                  {attachment.url ? (
-                    <img 
-                      src={attachment.url} 
-                      alt={attachment.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <ImageIcon className="w-6 h-6 text-gray-400" />
-                    </div>
-                  )}
-                </div>
-                
-                {/* Status Overlay */}
-                {attachment.status === 'uploading' && (
-                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                    <Loader2 className="w-5 h-5 text-white animate-spin" />
-                  </div>
+                {attachment.status === 'error' ? (
+                  <AlertCircle className="w-4 h-4 text-red-600" />
+                ) : attachment.status === 'complete' ? (
+                  <Check className="w-4 h-4 text-emerald-600" />
+                ) : (
+                  <Loader2 className="w-4 h-4 text-indigo-600 animate-spin" />
                 )}
-                {attachment.status === 'error' && (
-                  <div className="absolute inset-0 bg-red-500/50 flex items-center justify-center">
-                    <AlertCircle className="w-5 h-5 text-white" />
-                  </div>
-                )}
-                
-                {/* Remove Button */}
+                <span className="text-sm truncate max-w-[150px]">{attachment.name}</span>
                 {onRemoveAttachment && (
                   <button
                     onClick={() => onRemoveAttachment(attachment.id)}
-                    className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="p-0.5 rounded hover:bg-black/10"
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -217,44 +252,13 @@ export function ChatInput({
         )}
       </AnimatePresence>
 
-      {/* File Attachments */}
-      <AnimatePresence>
-        {fileAttachments.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="flex flex-wrap gap-2 mb-3"
-          >
-            {fileAttachments.map((attachment) => (
-              <motion.div
-                key={attachment.id}
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.8, opacity: 0 }}
-                className={cn(
-                  'flex flex-col gap-1.5 px-3 py-2 border rounded-lg min-w-[200px] max-w-[300px]',
-                  attachment.status === 'error'
-                    ? 'bg-red-50 border-red-200'
-                    : attachment.status === 'complete'
-                    ? 'bg-emerald-50 border-emerald-200'
-                    : 'bg-indigo-50 border-indigo-100'
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  {attachment.status === 'error' ? (
-                    <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
-                  ) : attachment.status === 'complete' ? (
-                    <Check className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                  ) : attachment.status === 'uploading' ? (
-                    <Loader2 className="w-4 h-4 text-indigo-600 animate-spin flex-shrink-0" />
-                  ) : (
-                    <FileText className="w-4 h-4 text-indigo-600 flex-shrink-0" />
-                  )}
-                  <span
-                    className={cn(
-                      'text-sm max-w-[150px] truncate',
-                      attachment.status === 'error'
-                        ? 'text-red-900'
-                        : attachment.status === 'complete'
-                        ? 'text-emerald-900'
+      <input
+        ref={fileInputRef}
+        type="file"
+        onChange={handleFileSelect}
+        className="hidden"
+        accept="*/*"
+      />
+    </div>
+  );
+}

@@ -1,85 +1,8 @@
-export interface ReasoningStep {
-  type: 'tool' | 'data' | 'thought' | 'decision';
-  content: string;
-  details?: string;
-  timestamp?: string;
-}
+export type ChatRole = 'user' | 'assistant' | 'system';
 
-export interface ReasoningData {
-  steps: ReasoningStep[];
-  toolsConsidered?: string[];
-  dataLookedUp?: string[];
-  whyThisAnswer?: string;
-  executionTimeMs?: number;
-}
+export type ChatMode = 'standard' | 'agent';
 
-// Web Search types
-export interface SearchResult {
-  title: string;
-  url: string;
-  snippet: string;
-  source?: string;
-  publishedDate?: string;
-}
-
-export interface WebSearchData {
-  query: string;
-  status: 'searching' | 'completed' | 'error';
-  results?: SearchResult[];
-  error?: string;
-  searchTimeMs?: number;
-}
-
-// Code Execution types
-export interface CodeExecutionResult {
-  stdout: string;
-  stderr: string;
-  exitCode: number;
-  executionTimeMs: number;
-  memoryUsedMb?: number;
-}
-
-export interface CodeExecutionData {
-  code: string;
-  language: string;
-  status: 'running' | 'completed' | 'error' | 'timeout';
-  result?: CodeExecutionResult;
-  error?: string;
-}
-
-// Image Analysis types
-export interface ImageAnalysisResult {
-  description: string;
-  objects?: string[];
-  text?: string;
-  labels?: string[];
-  confidence?: number;
-}
-
-export interface ImageUpload {
-  id: string;
-  file: File;
-  preview: string;
-  status: 'uploading' | 'analyzing' | 'completed' | 'error';
-  progress: number;
-  result?: ImageAnalysisResult;
-  error?: string;
-}
-
-export interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
-  attachments?: Attachment[];
-  reasoning?: ReasoningData;
-  isThinking?: boolean;
-  // New Kimi-like features
-  webSearch?: WebSearchData;
-  codeExecution?: CodeExecutionData;
-  imageAnalysis?: ImageAnalysisResult;
-  suggestedReplies?: string[];
-}
+export type AttachmentStatus = 'uploading' | 'complete' | 'error';
 
 export interface Attachment {
   id: string;
@@ -87,7 +10,127 @@ export interface Attachment {
   type: string;
   size: number;
   url?: string;
-  status?: 'uploading' | 'processing' | 'complete' | 'error';
-  uploadProgress?: number;
+  status: AttachmentStatus;
+  progress?: number;
+}
+
+export interface Message {
+  id: string;
+  role: ChatRole;
+  content: string;
+  attachments?: Attachment[];
+  timestamp?: string;
+  metadata?: {
+    webSearch?: WebSearchResult;
+    codeExecution?: CodeExecutionResult;
+    imageAnalysis?: string;
+  };
+}
+
+export interface CodeExecutionResult {
+  output: string;
   error?: string;
-  metadata?:
+  executionTime: number;
+}
+
+export interface WebSearchResult {
+  query: string;
+  results: {
+    title: string;
+    url: string;
+    snippet: string;
+  }[];
+}
+
+export interface ChatCompletionRequest {
+  model: string;
+  messages: {
+    role: ChatRole;
+    content: string;
+  }[];
+  temperature?: number;
+  max_tokens?: number;
+  stream?: boolean;
+}
+
+export interface ChatCompletionResponse {
+  id: string;
+  object: string;
+  created: number;
+  model: string;
+  choices: {
+    index: number;
+    message: {
+      role: ChatRole;
+      content: string;
+    };
+    finish_reason: string;
+  }[];
+  usage: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
+}
+
+export interface Document {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  url: string;
+  projectId?: string;
+  uploadedAt: string;
+  metadata?: {
+    pageCount?: number;
+    extractedText?: string;
+    summary?: string;
+  };
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+  documents: Document[];
+}
+
+export interface User {
+  id: string;
+  email: string;
+  name?: string;
+  role: 'admin' | 'user';
+  createdAt: string;
+}
+
+export interface Formula {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  formula: string;
+  variables: {
+    name: string;
+    description: string;
+    unit?: string;
+  }[];
+  example?: string;
+}
+
+export interface CostEstimate {
+  id: string;
+  projectType: string;
+  size: number;
+  unit: string;
+  location: string;
+  baseCost: number;
+  locationFactor: number;
+  totalCost: number;
+  breakdown: {
+    category: string;
+    cost: number;
+    percentage: number;
+  }[];
+}
