@@ -49,8 +49,8 @@ const mockResult: AnalysisResult = {
   moduleId: 'ifc',
   fileName: 'Building-Model.ifc',
   status: 'completed',
-  createdAt: new Date(),
-  completedAt: new Date(),
+  createdAt: new Date().toISOString(),
+  completedAt: new Date().toISOString(),
   summary: 'IFC model analysis completed. 15,847 entities across 42 types.',
   details: {
     schema: 'IFC4',
@@ -90,9 +90,10 @@ export default function IfcPage() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  const handleUpload = async (_files: File[]) => {
-    // Use _files to avoid unused variable warning
-    console.log('Uploading files:', _files.length);
+  const handleUpload = async (file: File) => {
+    if (!file) return;
+    // Use file to avoid unused variable warning
+    console.log('Uploading files:', file.length);
     setIsAnalyzing(true);
     await new Promise((resolve) => setTimeout(resolve, 3000));
     setResult(mockResult);
@@ -115,8 +116,8 @@ export default function IfcPage() {
         className="mb-8"
       >
         <FileUpload
-          acceptedFormats={ACCEPTED_FORMATS}
-          maxFileSize={MAX_FILE_SIZE}
+          acceptedTypes={ACCEPTED_FORMATS.join(',')}
+          maxSize={MAX_FILE_SIZE}
           onUpload={handleUpload}
         />
       </motion.div>
@@ -146,14 +147,14 @@ export default function IfcPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-lg">
-                    {((result.details as IfcDetails)?.buildingInfo)?.name}
+                    {(((result.details as any) as IfcDetails)?.buildingInfo)?.name}
                   </CardTitle>
                   <p className="text-sm text-gray-500 mt-1">
-                    {(result.details as IfcDetails)?.buildingInfo?.description}
+                    {((result.details as any) as IfcDetails)?.buildingInfo?.description}
                   </p>
                 </div>
                 <Badge className="bg-cyan-100 text-cyan-700">
-                  {(result.details as IfcDetails)?.schema}
+                  {((result.details as any) as IfcDetails)?.schema}
                 </Badge>
               </div>
             </CardHeader>
@@ -162,25 +163,25 @@ export default function IfcPage() {
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <p className="text-sm text-gray-500">Site Area</p>
                   <p className="text-lg font-semibold text-gray-900">
-                    {(result.details as IfcDetails)?.buildingInfo?.siteArea}
+                    {((result.details as any) as IfcDetails)?.buildingInfo?.siteArea}
                   </p>
                 </div>
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <p className="text-sm text-gray-500">Building Height</p>
                   <p className="text-lg font-semibold text-gray-900">
-                    {(result.details as IfcDetails)?.buildingInfo?.buildingHeight}
+                    {((result.details as any) as IfcDetails)?.buildingInfo?.buildingHeight}
                   </p>
                 </div>
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <p className="text-sm text-gray-500">Floors</p>
                   <p className="text-lg font-semibold text-gray-900">
-                    {(result.details as IfcDetails)?.buildingInfo?.floors}
+                    {((result.details as any) as IfcDetails)?.buildingInfo?.floors}
                   </p>
                 </div>
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <p className="text-sm text-gray-500">Rooms</p>
                   <p className="text-lg font-semibold text-gray-900">
-                    {(result.details as IfcDetails)?.buildingInfo?.rooms}
+                    {((result.details as any) as IfcDetails)?.buildingInfo?.rooms}
                   </p>
                 </div>
               </div>
@@ -202,7 +203,7 @@ export default function IfcPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
-                    {(result.details as IfcDetails)?.elementCounts?.map((element, index) => (
+                    {((result.details as any) as IfcDetails)?.elementCounts?.map((element, index) => (
                       <div
                         key={index}
                         className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors"
@@ -233,7 +234,7 @@ export default function IfcPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
-                    {(result.details as IfcDetails)?.spaces?.map((space, index) => (
+                    {((result.details as any) as IfcDetails)?.spaces?.map((space, index) => (
                       <div
                         key={index}
                         className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors"
@@ -262,7 +263,7 @@ export default function IfcPage() {
                     <Box className="w-5 h-5 text-indigo-500" />
                     <div>
                       <p className="text-sm text-gray-500">Entities</p>
-                      <p className="font-semibold">{(result.details as IfcDetails)?.entities?.toLocaleString()}</p>
+                      <p className="font-semibold">{((result.details as any) as IfcDetails)?.entities?.toLocaleString()}</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -271,7 +272,7 @@ export default function IfcPage() {
                     <Layers className="w-5 h-5 text-emerald-500" />
                     <div>
                       <p className="text-sm text-gray-500">Types</p>
-                      <p className="font-semibold">{(result.details as IfcDetails)?.types}</p>
+                      <p className="font-semibold">{((result.details as any) as IfcDetails)?.types}</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -281,7 +282,7 @@ export default function IfcPage() {
                     <div>
                       <p className="text-sm text-gray-500">Relationships</p>
                       <p className="font-semibold">
-                        {(result.details as IfcDetails)?.relationships?.toLocaleString()}
+                        {((result.details as any) as IfcDetails)?.relationships?.toLocaleString()}
                       </p>
                     </div>
                   </CardContent>
@@ -292,7 +293,7 @@ export default function IfcPage() {
                     <div>
                       <p className="text-sm text-gray-500">Properties</p>
                       <p className="font-semibold">
-                        {(result.details as IfcDetails)?.properties?.toLocaleString()}
+                        {((result.details as any) as IfcDetails)?.properties?.toLocaleString()}
                       </p>
                     </div>
                   </CardContent>

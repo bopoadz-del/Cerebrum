@@ -46,10 +46,7 @@ export default function ImagePage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [processingResult, setProcessingResult] = useState<ProcessingResult | null>(null);
 
-  const handleUpload = async (files: File[]) => {
-    if (files.length === 0) return;
-    
-    const file = files[0];
+  const handleUpload = async (file: File) => {
     setIsAnalyzing(true);
     setError(null);
     setResult(null);
@@ -162,8 +159,8 @@ export default function ImagePage() {
         className="mb-8"
       >
         <FileUpload
-          acceptedFormats={ACCEPTED_FORMATS}
-          maxFileSize={MAX_FILE_SIZE}
+          acceptedTypes={ACCEPTED_FORMATS.join(',')}
+          maxSize={MAX_FILE_SIZE}
           onUpload={handleUpload}
           multiple={false}
         />

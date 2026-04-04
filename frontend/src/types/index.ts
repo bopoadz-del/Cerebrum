@@ -116,7 +116,39 @@ export interface Formula {
     description: string;
     unit?: string;
   }[];
+  parameters?: {
+    name: string;
+    description: string;
+    unit?: string;
+    default?: number;
+  }[];
   example?: string;
+}
+
+export interface AnalysisResult {
+  id: string;
+  type: string;
+  fileName?: string;
+  summary?: string;
+  status: 'pending' | 'processing' | 'completed' | 'error';
+  result?: string;
+  error?: string;
+  createdAt: string;
+  completedAt?: string;
+  details?: {
+    extractedText?: string;
+    wordCount?: number;
+    confidence?: number;
+    entities?: Array<{
+      text: string;
+      type: string;
+    }>;
+    geometry?: {
+      elementCount?: number;
+      materialCount?: number;
+      totalVolume?: number;
+    };
+  };
 }
 
 export interface CostEstimate {

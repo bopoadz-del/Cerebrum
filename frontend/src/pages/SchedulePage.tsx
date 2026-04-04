@@ -33,11 +33,11 @@ const MAX_FILE_SIZE = 50; // MB
 // Mock analysis result
 const mockResult: AnalysisResult = {
   id: '1',
-  moduleId: 'schedule',
+  type: 'schedule',
   fileName: 'Project-Schedule.xer',
   status: 'completed',
-  createdAt: new Date(),
-  completedAt: new Date(),
+  createdAt: new Date().toISOString(),
+  completedAt: new Date().toISOString(),
   summary: 'Schedule analysis completed with 3 critical issues found',
   details: {
     criticalPath: ['Task A', 'Task B', 'Task C'],
@@ -60,9 +60,10 @@ export default function SchedulePage() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  const handleUpload = async (_files: File[]) => {
-    // Use _files to avoid unused variable warning
-    console.log('Uploading files:', _files.length);
+  const handleUpload = async (file: File) => {
+    if (!file) return;
+    // Use file to avoid unused variable warning
+    console.log('Uploading files:', file.length);
     setIsAnalyzing(true);
     // Simulate API call
     await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -87,8 +88,8 @@ export default function SchedulePage() {
         className="mb-8"
       >
         <FileUpload
-          acceptedFormats={ACCEPTED_FORMATS}
-          maxFileSize={MAX_FILE_SIZE}
+          acceptedTypes={ACCEPTED_FORMATS.join(',')}
+          maxSize={MAX_FILE_SIZE}
           onUpload={handleUpload}
         />
       </motion.div>

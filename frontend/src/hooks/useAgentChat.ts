@@ -90,7 +90,7 @@ I'm your autonomous construction intelligence assistant. I can:
 • \`/agent enhance\` - Analyze and improve code quality
 
 How can I help you today?`,
-      timestamp: new Date(),
+      timestamp: new Date().toISOString(),
     },
     ...initialMessages,
   ]);
@@ -474,7 +474,7 @@ Just type your request and I'll route it to the appropriate layer!`;
       id: uuidv4(),
       role: 'user',
       content: content,
-      timestamp: new Date(),
+      timestamp: new Date().toISOString(),
       attachments: attachments.length > 0 ? [...attachments] : undefined,
     };
 
@@ -489,7 +489,7 @@ Just type your request and I'll route it to the appropriate layer!`;
       id: thinkingMessageId,
       role: 'assistant',
       content: '',
-      timestamp: new Date(),
+      timestamp: new Date().toISOString(),
       isThinking: true,
     };
     setMessages((prev) => [...prev, thinkingMessage]);
@@ -518,7 +518,7 @@ Just type your request and I'll route it to the appropriate layer!`;
           id: uuidv4(),
           role: 'assistant',
           content: response,
-          timestamp: new Date(),
+          timestamp: new Date().toISOString(),
           reasoning,
         };
         
@@ -582,7 +582,7 @@ Just type your request and I'll route it to the appropriate layer!`;
               id: uuidv4(),
               role: 'assistant',
               content: responseText,
-              timestamp: new Date(),
+              timestamp: new Date().toISOString(),
               reasoning: finalReasoning,
             };
             
@@ -605,7 +605,7 @@ Just type your request and I'll route it to the appropriate layer!`;
               id: uuidv4(),
               role: 'assistant',
               content: responseText,
-              timestamp: new Date(),
+              timestamp: new Date().toISOString(),
               reasoning,
             };
             
@@ -628,7 +628,7 @@ Just type your request and I'll route it to the appropriate layer!`;
             id: uuidv4(),
             role: 'assistant',
             content: `I understand: "${content}"\n\nThe agent system may be unavailable. Try:\n• Check your connection\n• Use /agent status to verify\n• Try again in a moment`,
-            timestamp: new Date(),
+            timestamp: new Date().toISOString(),
             reasoning,
           };
           
@@ -643,7 +643,7 @@ Just type your request and I'll route it to the appropriate layer!`;
         id: uuidv4(),
         role: 'assistant',
         content: `❌ Error: ${error instanceof Error ? error.message : 'Something went wrong'}`,
-        timestamp: new Date(),
+        timestamp: new Date().toISOString(),
       };
       
       // Replace thinking message with error
@@ -708,7 +708,7 @@ Just type your request and I'll route it to the appropriate layer!`;
             id: uuidv4(),
             role: 'assistant',
             content: `📄 **Processed ${processing.metadata.type}: ${file.name}**\n\n✅ Extracted ${processing.metadata.wordCount || 'content'} and indexed to this chat context.\n\n**Suggested questions:**\n• "Summarize this document"\n• "Extract tables and data"\n• "Find costs and pricing"\n• "What are the key dates?"\n\nOr ask anything else about this file.`,
-            timestamp: new Date(),
+            timestamp: new Date().toISOString(),
           };
           setMessages((prev) => [...prev, systemMessage]);
         } else {
@@ -725,7 +725,7 @@ Just type your request and I'll route it to the appropriate layer!`;
             id: uuidv4(),
             role: 'assistant',
             content: `❌ **Failed to process ${file.name}**\n\n${processing.error || indexing.message || 'Unknown error'}`,
-            timestamp: new Date(),
+            timestamp: new Date().toISOString(),
           };
           setMessages((prev) => [...prev, errorMessage]);
         }
@@ -737,7 +737,7 @@ Just type your request and I'll route it to the appropriate layer!`;
           id: uuidv4(),
           role: 'assistant',
           content: `❌ **Failed to process ${file.name}**\n\n${error instanceof Error ? error.message : 'Unknown error'}`,
-          timestamp: new Date(),
+          timestamp: new Date().toISOString(),
         };
         setMessages((prev) => [...prev, errorMessage]);
       } finally {
@@ -752,6 +752,7 @@ Just type your request and I'll route it to the appropriate layer!`;
           name: file.name,
           type: file.type,
           size: file.size,
+          status: 'uploading',
         };
         setAttachments((prev) => [...prev, tempAttachment]);
         
@@ -790,7 +791,7 @@ Just type your request and I'll route it to the appropriate layer!`;
           id: uuidv4(),
           role: 'assistant',
           content: `📄 **Uploaded: ${file.name}**\n\n✅ File ready. You can now ask questions about this file.`,
-          timestamp: new Date(),
+          timestamp: new Date().toISOString(),
         };
         setMessages((prev) => [...prev, systemMessage]);
       } catch (error) {
@@ -801,7 +802,7 @@ Just type your request and I'll route it to the appropriate layer!`;
           id: uuidv4(),
           role: 'assistant',
           content: `❌ **Failed to upload ${file.name}**\n\n${error instanceof Error ? error.message : 'Upload failed'}`,
-          timestamp: new Date(),
+          timestamp: new Date().toISOString(),
         };
         setMessages((prev) => [...prev, errorMessage]);
       } finally {

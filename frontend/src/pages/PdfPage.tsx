@@ -49,10 +49,8 @@ export default function PdfPage() {
   const [error, setError] = useState<string | null>(null);
   const [processingResult, setProcessingResult] = useState<ProcessingResult | null>(null);
 
-  const handleUpload = async (files: File[]) => {
-    if (files.length === 0) return;
+  const handleUpload = async (file: File) => {
     
-    const file = files[0];
     setIsAnalyzing(true);
     setError(null);
     setResult(null);
@@ -163,8 +161,8 @@ export default function PdfPage() {
         className="mb-8"
       >
         <FileUpload
-          acceptedFormats={ACCEPTED_FORMATS}
-          maxFileSize={MAX_FILE_SIZE}
+          acceptedTypes={ACCEPTED_FORMATS.join(',')}
+          maxSize={MAX_FILE_SIZE}
           onUpload={handleUpload}
           multiple={false}
         />
