@@ -443,4 +443,13 @@ class Settings(BaseSettings):
         return f"http://{host}:{self.PORT}"
 
 
-# Global settings instance - Pydantic validates SECRET_KEY on ins
+# Global settings instance - Pydantic validates SECRET_KEY on instantiation
+settings = Settings()
+
+
+def get_settings() -> Settings:
+    """Get application settings.
+    
+    Returns the global settings instance.
+    """
+    return settings
