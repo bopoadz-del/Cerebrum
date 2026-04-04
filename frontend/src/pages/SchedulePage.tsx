@@ -40,19 +40,10 @@ const mockResult: AnalysisResult = {
   completedAt: new Date().toISOString(),
   summary: 'Schedule analysis completed with 3 critical issues found',
   details: {
-    criticalPath: ['Task A', 'Task B', 'Task C'],
-    delays: [
-      { task: 'Foundation Work', days: 5, reason: 'Weather conditions' },
-      { task: 'Electrical Installation', days: 2, reason: 'Material shortage' },
-    ],
-    resourceConflicts: [
-      { resource: 'Team Alpha', tasks: ['Task 1', 'Task 2'], dates: 'Jan 15-20' },
-    ],
-    recommendations: [
-      'Consider adding buffer time for weather-dependent tasks',
-      'Prioritize electrical material procurement',
-      'Reallocate Team Alpha resources to avoid conflicts',
-    ],
+    extractedText: 'Schedule analysis completed',
+    wordCount: 100,
+    confidence: 0.95,
+    entities: [],
   },
 };
 
@@ -63,7 +54,7 @@ export default function SchedulePage() {
   const handleUpload = async (file: File) => {
     if (!file) return;
     // Use file to avoid unused variable warning
-    console.log('Uploading files:', file.length);
+    console.log('Uploading file:', file.name);
     setIsAnalyzing(true);
     // Simulate API call
     await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -90,7 +81,7 @@ export default function SchedulePage() {
         <FileUpload
           acceptedTypes={ACCEPTED_FORMATS.join(',')}
           maxSize={MAX_FILE_SIZE}
-          onUpload={handleUpload}
+          attachments={[]} onUpload={handleUpload}
         />
       </motion.div>
 

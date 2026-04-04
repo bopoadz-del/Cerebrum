@@ -163,8 +163,7 @@ export default function PdfPage() {
         <FileUpload
           acceptedTypes={ACCEPTED_FORMATS.join(',')}
           maxSize={MAX_FILE_SIZE}
-          onUpload={handleUpload}
-          multiple={false}
+          attachments={[]} onUpload={handleUpload}
         />
       </motion.div>
 

@@ -38,11 +38,11 @@ const mockFiles = [
 
 const mockResult: AnalysisResult = {
   id: '1',
-  moduleId: 'archive',
+  type: 'analysis',
   fileName: 'Project-Backup.zip',
   status: 'completed',
-  createdAt: new Date(),
-  completedAt: new Date(),
+  createdAt: new Date().toISOString(),
+  completedAt: new Date().toISOString(),
   summary: 'Archive analysis completed. 312 files found across 15 folders.',
   details: {
     totalFiles: 312,
@@ -65,9 +65,9 @@ export default function ArchivePage() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const handleUpload = async (_files: File[]) => {
-    // Use _files to avoid unused variable warning
-    console.log('Uploading files:', _files.length);
+  const handleUpload = async (_file: File) => {
+    // Use file to avoid unused variable warning
+    console.log('Uploading files:', 1);
     setIsAnalyzing(true);
     await new Promise((resolve) => setTimeout(resolve, 2000));
     setResult(mockResult);
@@ -96,7 +96,7 @@ export default function ArchivePage() {
         <FileUpload
           acceptedTypes={ACCEPTED_FORMATS.join(',')}
           maxSize={MAX_FILE_SIZE}
-          onUpload={handleUpload}
+          attachments={[]} onUpload={handleUpload}
         />
       </motion.div>
 

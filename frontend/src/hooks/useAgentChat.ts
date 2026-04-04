@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Message, Attachment, ReasoningData, ReasoningStep } from '@/types';
+import type { Message, Attachment, ReasoningStep } from '@/types';
 import { STORAGE_KEYS } from '@/context/AuthContext';
 import { processAndIndexFile, validateFileOnSelect, type FileValidationResult } from '@/lib/fileProcessing';
 
@@ -27,7 +27,7 @@ interface AgentResponse {
   related_conversations?: string[];
   suggested_next_actions?: string[];
   timestamp: string;
-  reasoning?: ReasoningData;
+  reasoning?: any;
 }
 
 interface MemoryResult {
@@ -490,8 +490,7 @@ Just type your request and I'll route it to the appropriate layer!`;
       role: 'assistant',
       content: '',
       timestamp: new Date().toISOString(),
-      isThinking: true,
-    };
+          };
     setMessages((prev) => [...prev, thinkingMessage]);
 
     try {
@@ -503,7 +502,7 @@ Just type your request and I'll route it to the appropriate layer!`;
         
         const response = await handleAgentCommand(command, args);
         
-        const reasoning: ReasoningData = {
+        const reasoning: any = {
           steps: [
             { type: 'thought', content: 'Detected agent command', details: `Command: ${command}` },
             { type: 'tool', content: 'Agent Command Handler', details: `Executed /agent ${command}` },
@@ -568,7 +567,7 @@ Just type your request and I'll route it to the appropriate layer!`;
             }
             
             // Use agent's reasoning if provided, otherwise build from result
-            const finalReasoning: ReasoningData = result.reasoning || {
+            const finalReasoning: any = result.reasoning || {
               steps: [
                 ...reasoningSteps,
                 { type: 'decision', content: 'Generated response using agent layer', details: `Execution time: ${result.execution_time_ms || 'unknown'}ms` },
@@ -591,7 +590,7 @@ Just type your request and I'll route it to the appropriate layer!`;
           } else if (webSearchResult) {
             responseText += 'I found these web results for your query. Let me know if you need more specific information!';
             
-            const reasoning: ReasoningData = {
+            const reasoning: any = {
               steps: [
                 ...reasoningSteps,
                 { type: 'decision', content: 'Returned web search results', details: 'No agent result available' },
@@ -614,7 +613,7 @@ Just type your request and I'll route it to the appropriate layer!`;
           }
         } else {
           // Fallback to regular chat
-          const reasoning: ReasoningData = {
+          const reasoning: any = {
             steps: [
               { type: 'thought', content: 'Agent system unavailable' },
               { type: 'decision', content: 'Fell back to local response', details: 'Agent returned no result' },
@@ -678,7 +677,7 @@ Just type your request and I'll route it to the appropriate layer!`;
           name: file.name,
           type: file.type,
           size: file.size,
-          status: 'processing',
+          status: 'uploading',
         };
         setAttachments((prev) => [...prev, tempAttachment]);
         
@@ -693,12 +692,7 @@ Just type your request and I'll route it to the appropriate layer!`;
             ...tempAttachment,
             status: 'complete',
             url: indexing.message,
-            metadata: {
-              wordCount: processing.metadata.wordCount,
-              type: processing.metadata.type,
-              indexed: true,
-            },
-          };
+                      };
           setAttachments((prev) =>
             prev.map((a) => (a.id === tempAttachment.id ? finalAttachment : a))
           );

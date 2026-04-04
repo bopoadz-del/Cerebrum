@@ -20,11 +20,27 @@ export interface Message {
   content: string;
   attachments?: Attachment[];
   timestamp?: string;
+  isThinking?: boolean;
+  reasoning?: ReasoningStep[];
   metadata?: {
     webSearch?: WebSearchResult;
     codeExecution?: CodeExecutionResult;
     imageAnalysis?: string;
   };
+}
+
+export interface ReasoningStep {
+  type: 'tool' | 'data' | 'thought' | 'decision';
+  content: string;
+  title?: string;
+  details?: string;
+  timestamp?: string;
+  tools?: string[];
+  data?: any;
+}
+
+export interface ReasoningData {
+  steps: ReasoningStep[];
 }
 
 export interface CodeExecutionResult {
@@ -135,20 +151,7 @@ export interface AnalysisResult {
   error?: string;
   createdAt: string;
   completedAt?: string;
-  details?: {
-    extractedText?: string;
-    wordCount?: number;
-    confidence?: number;
-    entities?: Array<{
-      text: string;
-      type: string;
-    }>;
-    geometry?: {
-      elementCount?: number;
-      materialCount?: number;
-      totalVolume?: number;
-    };
-  };
+  details?: any; // Flexible details for different analysis types
 }
 
 export interface CostEstimate {

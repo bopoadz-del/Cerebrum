@@ -46,7 +46,7 @@ const MAX_FILE_SIZE = 200; // MB
 
 const mockResult: AnalysisResult = {
   id: '1',
-  moduleId: 'ifc',
+  type: 'analysis',
   fileName: 'Building-Model.ifc',
   status: 'completed',
   createdAt: new Date().toISOString(),
@@ -54,7 +54,7 @@ const mockResult: AnalysisResult = {
   summary: 'IFC model analysis completed. 15,847 entities across 42 types.',
   details: {
     schema: 'IFC4',
-    entities: 15847,
+    entities: [{text: 'IFC Entities', type: 'metadata'}],
     types: 42,
     relationships: 28456,
     properties: 45623,
@@ -93,7 +93,7 @@ export default function IfcPage() {
   const handleUpload = async (file: File) => {
     if (!file) return;
     // Use file to avoid unused variable warning
-    console.log('Uploading files:', file.length);
+    console.log('Uploading files:', 1);
     setIsAnalyzing(true);
     await new Promise((resolve) => setTimeout(resolve, 3000));
     setResult(mockResult);
@@ -118,7 +118,7 @@ export default function IfcPage() {
         <FileUpload
           acceptedTypes={ACCEPTED_FORMATS.join(',')}
           maxSize={MAX_FILE_SIZE}
-          onUpload={handleUpload}
+          attachments={[]} onUpload={handleUpload}
         />
       </motion.div>
 

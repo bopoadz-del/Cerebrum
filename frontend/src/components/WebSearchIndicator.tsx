@@ -1,6 +1,5 @@
 import { motion } from 'framer-motion';
 import { Globe, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 interface WebSearchIndicatorProps {
   query: string;

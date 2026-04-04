@@ -52,11 +52,11 @@ const forecastData = [
 
 const mockResult: AnalysisResult = {
   id: '1',
-  moduleId: 'forecast',
+  type: 'analysis',
   fileName: 'sales-data.csv',
   status: 'completed',
-  createdAt: new Date(),
-  completedAt: new Date(),
+  createdAt: new Date().toISOString(),
+  completedAt: new Date().toISOString(),
   summary: 'Forecast analysis completed. 4-month prediction with 92% accuracy.',
   details: {
     forecastPeriod: 4,
@@ -81,9 +81,9 @@ export default function ForecastPage() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  const handleUpload = async (_files: File[]) => {
-    // Use _files to avoid unused variable warning
-    console.log('Uploading files:', _files.length);
+  const handleUpload = async (_file: File) => {
+    // Use file to avoid unused variable warning
+    console.log('Uploading files:', 1);
     setIsAnalyzing(true);
     await new Promise((resolve) => setTimeout(resolve, 2000));
     setResult(mockResult);
@@ -108,7 +108,7 @@ export default function ForecastPage() {
         <FileUpload
           acceptedTypes={ACCEPTED_FORMATS.join(',')}
           maxSize={MAX_FILE_SIZE}
-          onUpload={handleUpload}
+          attachments={[]} onUpload={handleUpload}
         />
       </motion.div>
 

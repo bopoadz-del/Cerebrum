@@ -128,8 +128,8 @@ export function FormulaCard({ formula, index }: FormulaCardProps) {
                     {param.name}
                   </code>
                   <div className="flex-1">
-                    <span className="text-xs text-gray-500">{param.type}</span>
-                    {param.required && <span className="text-xs text-red-500 ml-2">required</span>}
+                    <span className="text-xs text-gray-500">{paramType}</span>
+                    {paramRequired && <span className="text-xs text-red-500 ml-2">required</span>}
                     {param.description && (
                       <p className="text-xs text-gray-600 mt-1">{param.description}</p>
                     )}
@@ -154,7 +154,7 @@ export function FormulaCard({ formula, index }: FormulaCardProps) {
               <div key={param.name} className="space-y-2">
                 <Label htmlFor={param.name}>
                   {param.name}
-                  {param.required && <span className="text-red-500 ml-1">*</span>}
+                  {paramRequired && <span className="text-red-500 ml-1">*</span>}
                 </Label>
                 <Input
                   id={param.name}
@@ -167,7 +167,7 @@ export function FormulaCard({ formula, index }: FormulaCardProps) {
                     }))
                   }
                 />
-                <p className="text-xs text-gray-500">Type: {param.type}</p>
+                <p className="text-xs text-gray-500">Type: {paramType}</p>
               </div>
             ))}
           </div>

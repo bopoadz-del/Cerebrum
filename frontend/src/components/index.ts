@@ -6,23 +6,12 @@ export { ReasoningDisplay } from './ReasoningDisplay';
 
 // File & Image Components
 export { FileUpload } from './FileUpload';
-export { 
-  ImageAnalysis, 
-  ImageThumbnail, 
-  ImagePreviewModal 
-} from './ImageAnalysis';
+export { ImageAnalysis } from './ImageAnalysis';
 
 // New Kimi-like Features
-export { 
-  WebSearchIndicator, 
-  WebSearchBadge 
-} from './WebSearchIndicator';
-export { 
-  CodeExecutionDisplay, 
-  InlineCode, 
-  CodeBlock 
-} from './CodeExecutionDisplay';
-export { MarkdownRenderer, MarkdownTable } from './MarkdownRenderer';
+export { WebSearchIndicator } from './WebSearchIndicator';
+export { CodeExecutionDisplay } from './CodeExecutionDisplay';
+export { MarkdownRenderer } from './MarkdownRenderer';
 
 // Legacy Components
 export { ChatInterfaceV2 } from './ChatInterfaceV2';

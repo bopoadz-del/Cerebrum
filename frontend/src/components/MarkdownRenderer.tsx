@@ -30,28 +30,28 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
               </code>
             );
           },
-          p({ children }) {
+          p({ children }: { children: React.ReactNode }) {
             return <p className="mb-2 last:mb-0">{children}</p>;
           },
-          ul({ children }) {
+          ul({ children }: { children: React.ReactNode }) {
             return <ul className="list-disc pl-4 mb-2">{children}</ul>;
           },
-          ol({ children }) {
+          ol({ children }: { children: React.ReactNode }) {
             return <ol className="list-decimal pl-4 mb-2">{children}</ol>;
           },
-          li({ children }) {
+          li({ children }: { children: React.ReactNode }) {
             return <li className="mb-1">{children}</li>;
           },
-          h1({ children }) {
+          h1({ children }: { children: React.ReactNode }) {
             return <h1 className="text-xl font-bold mb-2">{children}</h1>;
           },
-          h2({ children }) {
+          h2({ children }: { children: React.ReactNode }) {
             return <h2 className="text-lg font-bold mb-2">{children}</h2>;
           },
-          h3({ children }) {
+          h3({ children }: { children: React.ReactNode }) {
             return <h3 className="text-base font-bold mb-2">{children}</h3>;
           },
-          blockquote({ children }) {
+          blockquote({ children }: { children: React.ReactNode }) {
             return <blockquote className="border-l-4 border-gray-300 pl-4 italic mb-2">{children}</blockquote>;
           },
         }}

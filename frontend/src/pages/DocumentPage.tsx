@@ -38,11 +38,11 @@ const MAX_FILE_SIZE = 50; // MB
 
 const mockResult: AnalysisResult = {
   id: '1',
-  moduleId: 'document',
+  type: 'analysis',
   fileName: 'Project-Proposal.docx',
   status: 'completed',
-  createdAt: new Date(),
-  completedAt: new Date(),
+  createdAt: new Date().toISOString(),
+  completedAt: new Date().toISOString(),
   summary: 'Document analysis completed. 24 pages with 3,847 words processed.',
   details: {
     pages: 24,
@@ -73,9 +73,9 @@ export default function DocumentPage() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  const handleUpload = async (_files: File[]) => {
-    // Use _files to avoid unused variable warning
-    console.log('Uploading files:', _files.length);
+  const handleUpload = async (_file: File) => {
+    // Use file to avoid unused variable warning
+    console.log('Uploading files:', 1);
     setIsAnalyzing(true);
     await new Promise((resolve) => setTimeout(resolve, 2000));
     setResult(mockResult);
@@ -100,7 +100,7 @@ export default function DocumentPage() {
         <FileUpload
           acceptedTypes={ACCEPTED_FORMATS.join(',')}
           maxSize={MAX_FILE_SIZE}
-          onUpload={handleUpload}
+          attachments={[]} onUpload={handleUpload}
         />
       </motion.div>
 

@@ -41,11 +41,11 @@ const MAX_FILE_SIZE = 100; // MB
 
 const mockResult: AnalysisResult = {
   id: '1',
-  moduleId: 'cad',
+  type: 'analysis',
   fileName: 'Building-Floor-Plan.dwg',
   status: 'completed',
-  createdAt: new Date(),
-  completedAt: new Date(),
+  createdAt: new Date().toISOString(),
+  completedAt: new Date().toISOString(),
   summary: 'CAD analysis completed. 15 layers analyzed with 2 issues detected.',
   details: {
     layers: 15,
@@ -74,9 +74,9 @@ export default function CadPage() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  const handleUpload = async (_files: File[]) => {
-    // Use _files to avoid unused variable warning
-    console.log('Uploading files:', _files.length);
+  const handleUpload = async (_file: File) => {
+    // Use file to avoid unused variable warning
+    console.log('Uploading files:', 1);
     setIsAnalyzing(true);
     await new Promise((resolve) => setTimeout(resolve, 2500));
     setResult(mockResult);
@@ -101,7 +101,7 @@ export default function CadPage() {
         <FileUpload
           acceptedTypes={ACCEPTED_FORMATS.join(',')}
           maxSize={MAX_FILE_SIZE}
-          onUpload={handleUpload}
+          attachments={[]} onUpload={handleUpload}
         />
       </motion.div>
 
@@ -131,7 +131,7 @@ export default function CadPage() {
                 <Layers className="w-5 h-5 text-indigo-500" />
                 <div>
                   <p className="text-sm text-gray-500">Layers</p>
-                  <p className="font-semibold">{(result.details as CadDetails)?.layers}</p>
+                  <p className="font-semibold">{(result.details as any as CadDetails)?.layers}</p>
                 </div>
               </CardContent>
             </Card>
@@ -140,7 +140,7 @@ export default function CadPage() {
                 <Box className="w-5 h-5 text-emerald-500" />
                 <div>
                   <p className="text-sm text-gray-500">Entities</p>
-                  <p className="font-semibold">{((result.details as CadDetails)?.entities ?? 0).toLocaleString()}</p>
+                  <p className="font-semibold">{((result.details as any as CadDetails)?.entities ?? 0).toLocaleString()}</p>
                 </div>
               </CardContent>
             </Card>
@@ -149,7 +149,7 @@ export default function CadPage() {
                 <Ruler className="w-5 h-5 text-amber-500" />
                 <div>
                   <p className="text-sm text-gray-500">Dimensions</p>
-                  <p className="font-semibold">{(result.details as CadDetails)?.dimensions}</p>
+                  <p className="font-semibold">{(result.details as any as CadDetails)?.dimensions}</p>
                 </div>
               </CardContent>
             </Card>
@@ -158,7 +158,7 @@ export default function CadPage() {
                 <Box className="w-5 h-5 text-purple-500" />
                 <div>
                   <p className="text-sm text-gray-500">Blocks</p>
-                  <p className="font-semibold">{(result.details as CadDetails)?.blocks}</p>
+                  <p className="font-semibold">{(result.details as any as CadDetails)?.blocks}</p>
                 </div>
               </CardContent>
             </Card>
@@ -174,19 +174,19 @@ export default function CadPage() {
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <p className="text-sm text-gray-500">Total Area</p>
                   <p className="text-2xl font-semibold text-gray-900">
-                    {(result.details as CadDetails)?.measurements?.totalArea}
+                    {(result.details as any as CadDetails)?.measurements?.totalArea}
                   </p>
                 </div>
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <p className="text-sm text-gray-500">Perimeter</p>
                   <p className="text-2xl font-semibold text-gray-900">
-                    {(result.details as CadDetails)?.measurements?.perimeter}
+                    {(result.details as any as CadDetails)?.measurements?.perimeter}
                   </p>
                 </div>
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <p className="text-sm text-gray-500">Room Count</p>
                   <p className="text-2xl font-semibold text-gray-900">
-                    {(result.details as CadDetails)?.measurements?.roomCount}
+                    {(result.details as any as CadDetails)?.measurements?.roomCount}
                   </p>
                 </div>
               </div>
@@ -200,7 +200,7 @@ export default function CadPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {((result.details as CadDetails)?.layerSummary)?.map((layer, index) => (
+                {((result.details as any as CadDetails)?.layerSummary)?.map((layer, index) => (
                     <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div className="flex items-center gap-3">
                         <div
@@ -218,7 +218,7 @@ export default function CadPage() {
           </Card>
 
           {/* Issues */}
-          {((result.details as CadDetails)?.issues)?.length > 0 && (
+          {((result.details as any as CadDetails)?.issues)?.length > 0 && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
@@ -228,7 +228,7 @@ export default function CadPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {((result.details as CadDetails)?.issues)?.map((issue, index) => (
+                  {((result.details as any as CadDetails)?.issues)?.map((issue, index) => (
                       <div
                         key={index}
                         className={`flex items-start gap-3 p-3 rounded-lg ${

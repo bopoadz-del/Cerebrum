@@ -2,7 +2,6 @@ import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Image as ImageIcon, Upload, X, Loader2, Eye, Download } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 
 interface ImageAnalysisProps {
   onAnalyze?: (file: File) => void;

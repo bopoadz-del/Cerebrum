@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Brain, ChevronDown, Wrench, Database, Lightbulb, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { ReasoningData, ReasoningStep } from '@/types';
+import type { any, ReasoningStep } from '@/types';
 
 interface ReasoningDisplayProps {
-  reasoning?: ReasoningData;
+  reasoning?: any;
   isThinking?: boolean;
 }
 
