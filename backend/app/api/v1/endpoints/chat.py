@@ -7,9 +7,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from typing import List, Optional, Literal, Dict, Any
 import time
-import os
-import json
-import aiohttp
+import re
 
 from app.core.logging import get_logger
 
