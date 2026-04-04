@@ -1,0 +1,47 @@
+{
+  "Rules": [
+    {
+      "ID": "CerebrumBackupRetention",
+      "Status": "Enabled",
+      "Filter": {
+        "Prefix": "backups/"
+      },
+      "Transitions": [
+        {
+          "Days": 7,
+          "StorageClass": "STANDARD_IA"
+        },
+        {
+          "Days": 30,
+          "StorageClass": "GLACIER"
+        }
+      ],
+      "Expiration": {
+        "Days": 90
+      },
+      "NoncurrentVersionTransitions": [
+        {
+          "NoncurrentDays": 7,
+          "StorageClass": "STANDARD_IA"
+        },
+        {
+          "NoncurrentDays": 30,
+          "StorageClass": "GLACIER"
+        }
+      ],
+      "NoncurrentVersionExpiration": {
+        "NoncurrentDays": 90
+      }
+    },
+    {
+      "ID": "DeleteOldBackups",
+      "Status": "Enabled",
+      "Filter": {
+        "Prefix": "backups/"
+      },
+      "AbortIncompleteMultipartUpload": {
+        "DaysAfterInitiation": 7
+      }
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+"""Hydration compatibility package (stubs)."""

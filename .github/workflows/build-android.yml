@@ -1,0 +1,126 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: ./frontend/package-lock.json
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build web assets
+      run: npm run build
+      env:
+        VITE_API_URL: ${{ secrets.VITE_API_URL || 'https://blank-app-qc0o.onrender.com' }}
+        VITE_FRONTEND_URL: ${{ secrets.VITE_FRONTEND_URL || '' }}
+
+    - name: Sync Capacitor
+      run: npx cap sync android
+
+    - name: Setup JDK
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+
+    - name: Generate debug keystore (if not exists)
+      working-directory: ./frontend/android/app
+      run: |
+        if [ ! -f debug.keystore ]; then
+          keytool -genkey -v \
+            -keystore debug.keystore \
+            -storepass android \
+            -alias androiddebugkey \
+            -keypass android \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
+        fi
+
+    - name: Build Debug APK
+      working-directory: ./frontend/android
+      run: ./gradlew assembleDebug
+
+    - name: Upload Debug APK as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: debug-apk
+        path: frontend/android/app/build/outputs/apk/debug/app-debug.apk
+        retention-days: 30
+
+    - name: Rename APK with version
+      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+      run: |
+        VERSION=$(date +'%Y%m%d-%H%M%S')
+        COMMIT_SHA=${{ github.sha }}
+        SHORT_SHA=${COMMIT_SHA::7}
+        mkdir -p ./frontend/android/app/build/outputs/apk/debug/renamed
+        cp ./frontend/android/app/build/outputs/apk/debug/app-debug.apk \
+           ./frontend/android/app/build/outputs/apk/debug/renamed/cerebrum-${VERSION}-${SHORT_SHA}-debug.apk
+
+    - name: Upload Renamed APK
+      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+      uses: actions/upload-artifact@v4
+      with:
+        name: cerebrum-debug-apk
+        path: frontend/android/app/build/outputs/apk/debug/renamed/*.apk
+        retention-days: 90
+
+  # Optional: Create GitHub Release with APK (manual trigger only)
+  create-release:
+    needs: build-android
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: write
+
+    steps:
+    - name: Download APK artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: debug-apk
+        path: ./apk
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: v${{ github.run_number }}
+        name: Cerebrum Debug Build ${{ github.run_number }}
+        body: |
+          Automated debug build from commit ${{ github.sha }}
+          
+          ## Download
+          - APK: `app-debug.apk`
+          
+          ## Installation
+          1. Download the APK file
+          2. Enable "Install from Unknown Sources" in Android settings
+          3. Install the APK
+        files: ./apk/app-debug.apk
+        prerelease: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

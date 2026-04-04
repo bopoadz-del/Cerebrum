@@ -1,0 +1,37 @@
+# Simple Dockerfile for workers (doesn't require base image)
+# Use this until ghcr.io/bopoadz-del/cerebrum-ml-base:latest is publicly available
+
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV ENVIRONMENT=production
+
+WORKDIR /app
+RUN apt-get update && apt-get install -y \
+    gcc \
+    libpq-dev \
+    libpq5 \
+    curl \
+    wget \
+    gnupg \
+    lsb-release \
+    && rm -rf /var/lib/apt/lists/*
+
+# Add PostgreSQL 18 repo for matching pg_dump version
+RUN wget --quiet -O /usr/share/keyrings/postgresql.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc && \
+    echo "deb [signed-by=/usr/share/keyrings/postgresql.asc] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list && \
+    apt-get update && \
+    apt-get install -y postgresql-client-18 && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install all dependencies (including ML)
+COPY requirements-full.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements-full.txt
+
+# Cache-bust layer
+COPY .docker_nocache /tmp/.docker_nocache
+COPY . .
+
+# Worker-specific command should be set in render.yaml or dockerCommand

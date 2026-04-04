@@ -1,0 +1,203 @@
+# Render Deployment Configuration
+# https://render.com/docs/blueprint-spec
+
+services:
+  # Backend API Service
+  - type: web
+    name: cerebrum-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: cerebrum-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: cerebrum-redis
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "false"
+      - key: ENVIRONMENT
+        value: "production"
+      - key: CORS_ORIGINS
+        value: "https://cerebrum-frontend.onrender.com,https://cerebrum.ai,https://*.cerebrum.ai,https://*.onrender.com"
+      - key: SENTRY_ENABLED
+        value: "true"
+      - key: SENTRY_ENVIRONMENT
+        value: "production"
+      - key: USE_STUB_CONNECTORS
+        value: "true"
+      - key: PDP_ENABLED
+        value: "false"
+      - key: INITIAL_FORMULAS_PATH
+        value: "/app/data/formulas/initial_library.json"
+      # GOOGLE_REDIRECT_URI removed - Google Drive integration disabled
+      - key: FRONTEND_URL
+        value: "https://cerebrum-frontend.onrender.com"
+      - key: PUBLIC_BASE_URL
+        value: "https://cerebrum-api.onrender.com"
+      - key: API_BASE_URL
+        value: "https://cerebrum-api.onrender.com"
+      # WebSocket configuration - Render supports WebSockets natively
+      - key: WEBSOCKET_ENABLED
+        value: "true"
+      # Brave Search API Key for web search feature
+      # Set via Render dashboard: https://api.search.brave.com/
+      - key: BRAVE_API_KEY
+        sync: false
+      - key: USE_ML_EMBEDDINGS
+        value: "true"
+      - key: TRANSFORMERS_CACHE
+        value: "/data/models"
+      - key: CHROMADB_HOST
+        value: ""
+      - key: CHROMADB_PERSIST_DIRECTORY
+        value: "/data/chromadb"
+      - key: UPLOAD_DIR
+        value: "/data/uploads"
+      - key: PIP_CACHE_DIR
+        value: "/data/pip-cache"
+    healthCheckPath: /health/live
+    # Note: initialDelaySeconds not supported in Render Blueprint
+    # Migrations run in dockerCommand before app starts
+    dockerCommand: bash scripts/render_start.sh
+    autoDeploy: true
+    # Persistent disk for all caches (models, pip, chromadb, uploads)
+    disk:
+      name: cerebrum-data
+      mountPath: /data
+      sizeGB: 5
+    # Force redeploy on every push
+    buildFilter:
+      paths:
+        - backend/**/*.py
+        - backend/**/*.txt
+        - backend/**/*.sh
+        - backend/**/*.ini
+
+  # DB Backup Cron Job
+  - type: cron
+    name: db-backup
+    schedule: 0 2 * * *
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile.workers
+    dockerContext: ./backend
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: cerebrum-db
+          property: connectionString
+      - key: BACKUP_DIR
+        value: "/tmp/backups"
+      - key: BACKUP_RETENTION_DAYS
+        value: "30"
+    dockerCommand: bash /app/scripts/backup_cron.sh
+
+  # Celery Worker - Fast Queue
+  - type: worker
+    name: cerebrum-worker-fast
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile.workers
+    dockerContext: ./backend
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: cerebrum-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: cerebrum-redis
+          property: connectionString
+      - key: SECRET_KEY
+        fromService:
+          type: web
+          name: cerebrum-api
+          envVarKey: SECRET_KEY
+    dockerCommand: celery -A app.workers.celery_config worker --loglevel=info -Q celery_fast,trigger_events -n fast_worker@%h
+    autoDeploy: true
+
+  # Celery Worker - Slow Queue
+  - type: worker
+    name: cerebrum-worker-slow
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile.workers
+    dockerContext: ./backend
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: cerebrum-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: cerebrum-redis
+          property: connectionString
+      - key: SECRET_KEY
+        fromService:
+          type: web
+          name: cerebrum-api
+          envVarKey: SECRET_KEY
+    dockerCommand: celery -A app.workers.celery_config worker --loglevel=info -Q celery_slow,trigger_events -n slow_worker@%h
+    autoDeploy: true
+
+  # Celery Beat Scheduler
+  - type: worker
+    name: cerebrum-scheduler
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile.workers
+    dockerContext: ./backend
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: cerebrum-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: cerebrum-redis
+          property: connectionString
+      - key: SECRET_KEY
+        fromService:
+          type: web
+          name: cerebrum-api
+          envVarKey: SECRET_KEY
+    dockerCommand: celery -A app.workers.celery_config beat --loglevel=info
+    autoDeploy: true
+
+  # Frontend (Vite React App)
+  - type: web
+    name: cerebrum-frontend
+    runtime: static
+    buildCommand: cd frontend && npm ci --cache /tmp/npm-cache && npm run build
+    staticPublishPath: ./frontend/dist
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: cerebrum-api
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: npm_config_cache
+        value: "/tmp/npm-cache"
+    autoDeploy: true
+
+  # KeyValue (Redis) Service
+  - type: keyvalue
+    name: cerebrum-redis
+    plan: starter
+    ipAllowList: []
+
+databases:
+  - name: cerebrum-db
+    databaseName: cerebrum
+    user: cerebrum
+    plan: basic-256mb
+    ipAllowList: []
+
+version: "1"
+# Trigger deploy

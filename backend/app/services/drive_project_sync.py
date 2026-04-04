@@ -1,0 +1,586 @@
+from __future__ import annotations
+
+import uuid
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from googleapiclient.discovery import build
+from sqlalchemy.orm import Session
+
+from app.models.google_drive_project import GoogleDriveProject
+from app.models.integration import IntegrationProvider, IntegrationToken
+from app.models.project import Project, ProjectType
+from app.services.drive_project_detector import DetectedProjectType, FolderSummary, detect_project
+from app.services.google_drive_service import GoogleDriveService
+from app.core.config import settings
+
+
+def _map_project_type(t: DetectedProjectType) -> ProjectType:
+    """Map detected project type to database enum."""
+    type_str = str(t).lower().strip()
+    
+    # Map common variations to valid enum values
+    mapping = {
+        'software_repo': ProjectType.SOFTWARE_REPO,
+        'client_consulting': ProjectType.CLIENT_CONSULTING,
+        'job_application': ProjectType.JOB_APPLICATION,
+        'legal_finance': ProjectType.LEGAL_FINANCE,
+        'research_notes': ProjectType.RESEARCH_NOTES,
+        'design_media': ProjectType.DESIGN_MEDIA,
+        'general_project': ProjectType.GENERAL_PROJECT,
+        'unknown': ProjectType.UNKNOWN,
+        # Handle legacy/incorrect values
+        'construction': ProjectType.GENERAL_PROJECT,
+        'renovation': ProjectType.GENERAL_PROJECT,
+        'consulting': ProjectType.CLIENT_CONSULTING,
+        'finance': ProjectType.LEGAL_FINANCE,
+        'legal': ProjectType.LEGAL_FINANCE,
+        'research': ProjectType.RESEARCH_NOTES,
+        'design': ProjectType.DESIGN_MEDIA,
+    }
+    
+    return mapping.get(type_str, ProjectType.UNKNOWN)
+
+
+def _list_folders_root(drive) -> List[Dict[str, Any]]:
+    q = "trashed=false and 'root' in parents and mimeType='application/vnd.google-apps.folder'"
+    res = drive.files().list(
+        pageSize=200,
+        q=q,
+        orderBy="modifiedTime desc",
+        fields="files(id,name,modifiedTime)",
+    ).execute()
+    return res.get("files", [])
+
+
+def _list_children(drive, folder_id: str, page_size: int = 250) -> List[Dict[str, Any]]:
+    q = f"trashed=false and '{folder_id}' in parents"
+    res = drive.files().list(
+        pageSize=page_size,
+        q=q,
+        orderBy="modifiedTime desc",
+        fields="files(id,name,mimeType,modifiedTime,size)",
+    ).execute()
+    return res.get("files", [])
+
+
+def _indexable_drive_file(mime: str, name: str) -> bool:
+    # Minimal demo filter: index documents that likely contain text.
+    # (Your document_parser already handles Google Docs export + PDFs in memory.)
+    if mime in (
+        "application/pdf",
+        "text/plain",
+        "text/markdown",
+        "application/vnd.google-apps.document",
+        "application/vnd.google-apps.presentation",
+        "application/vnd.google-apps.spreadsheet",
+    ):
+        return True
+    lower = (name or "").lower()
+    return lower.endswith((".md", ".txt", ".pdf", ".csv"))
+
+
+def _index_files_sync(
+    db: Session,
+    file_ids: List[str],
+    file_info_map: Dict[str, Dict],
+    user_id: uuid.UUID,
+    access_token: str
+) -> int:
+    """
+    Synchronously index files into ChromaDB.
+    Returns number of successfully indexed files.
+    NOTE: Does NOT commit - caller is responsible for session management.
+    """
+    from app.services.chroma_service import get_chroma_service
+    from app.services.document_parser import extract_text_from_drive_file
+    from app.models.document import Document
+    import asyncio
+    
+    chroma = get_chroma_service()
+    indexed_count = 0
+    
+    # Process each file
+    for file_id in file_ids:
+        file_info = file_info_map.get(file_id, {})
+        file_name = file_info.get('name', 'Unknown')
+        mime_type = file_info.get('mimeType', 'application/pdf')
+        
+        try:
+            # Check if already indexed
+            existing = db.query(Document).filter(
+                Document.drive_id == file_id
+            ).first()
+            
+            if existing and existing.status == "indexed":
+                indexed_count += 1
+                continue
+            
+            # Extract text via Drive API (async function in sync context)
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                text = loop.run_until_complete(
+                    extract_text_from_drive_file(file_id, access_token, mime_type)
+                )
+            finally:
+                loop.close()
+            
+            if not text or len(text) < 50:
+                continue
+            
+            # Index in ChromaDB
+            doc_id = f"drive_{file_id}"
+            metadata = {
+                'drive_id': file_id,
+                'name': file_name,
+                'mime_type': mime_type,
+                'user_id': str(user_id),
+                'content_preview': text[:500]
+            }
+            
+            success = chroma.add_document(doc_id, text, metadata)
+            
+            if success:
+                # Save to database (don't commit - caller manages session)
+                if existing:
+                    existing.content = text[:2000]
+                    existing.status = "indexed"
+                    existing.updated_at = datetime.utcnow()
+                else:
+                    doc = Document(
+                        drive_id=file_id,
+                        filename=file_name,
+                        content=text[:2000],
+                        mime_type=mime_type,
+                        status="indexed",
+                        user_id=str(user_id)
+                    )
+                    db.add(doc)
+                
+                indexed_count += 1
+                
+        except Exception as e:
+            print(f"Failed to index file {file_id}: {e}")
+            continue
+    
+    return indexed_count
+
+
+def discover_and_upsert_drive_projects(
+    db: Session,
+    user_id: uuid.UUID,
+    *,
+    min_score: float = 2.0,
+    max_root_folders: int = 200,
+    max_children_per_folder: int = 250,
+    index_now: bool = True,
+    max_files_per_project: int = 50,
+    access_token: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Folder-first metadata scan:
+      - list root folders (My Drive)
+      - shallow list children for anchors
+      - run detector
+      - upsert Project + GoogleDriveProject mapping
+
+    If index_now=True:
+      - select indexable child files (capped)
+      - queue Celery batch indexing using existing process_drive_file_batch()
+
+    Args:
+        access_token: Optional pre-refreshed access token to avoid double refresh
+
+    Returns counts + ids for UI/debug.
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    # Wrap everything in try-except to catch any unexpected errors
+    try:
+        return _discover_and_upsert_drive_projects_impl(
+            db, user_id,
+            min_score=min_score,
+            max_root_folders=max_root_folders,
+            max_children_per_folder=max_children_per_folder,
+            index_now=index_now,
+            max_files_per_project=max_files_per_project,
+            access_token=access_token
+        )
+    except Exception as e:
+        import traceback
+        logger.error(f"CRITICAL ERROR in discover_and_upsert_drive_projects: {e}\n{traceback.format_exc()}")
+        return {
+            "status": "error",
+            "message": f"Internal error: {type(e).__name__}: {str(e)}",
+            "detected": 0,
+            "updated": 0,
+            "created_projects": 0
+        }
+
+
+def _discover_and_upsert_drive_projects_impl(
+    db: Session,
+    user_id: uuid.UUID,
+    *,
+    min_score: float = 2.0,
+    max_root_folders: int = 200,
+    max_children_per_folder: int = 250,
+    index_now: bool = True,
+    max_files_per_project: int = 50,
+    access_token: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Internal implementation - wrapped by discover_and_upsert_drive_projects"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    logger.info(f"Starting drive project discovery for user {user_id}")
+    
+    # Validate inputs
+    if not user_id:
+        logger.error("user_id is required")
+        return {"status": "error", "message": "User ID is required", "detected": 0, "updated": 0}
+    
+    if not db:
+        logger.error("Database session is required")
+        return {"status": "error", "message": "Database session is required", "detected": 0, "updated": 0}
+    
+    # Use raw query to avoid column mismatch issues during migrations
+    from sqlalchemy import text
+    result = db.execute(
+        text("""
+            SELECT access_token, refresh_token, expiry, scopes, token_uri, client_id, client_secret
+            FROM integration_tokens 
+            WHERE user_id = :user_id 
+            AND service = 'google_drive' 
+            AND is_active = true
+            LIMIT 1
+        """),
+        {"user_id": str(user_id)}
+    )
+    row = result.fetchone()
+    
+    if not row:
+        logger.error(f"No Google Drive token found for user {user_id}")
+        return {"status": "error", "message": "Google Drive not connected", "detected": 0, "updated": 0}
+    
+    logger.info(f"Found Google Drive token for user {user_id}")
+    
+    # Create a simple object to hold token data
+    class SimpleToken:
+        pass
+    
+    tok = SimpleToken()
+    # Use pre-refreshed access_token if provided, otherwise use from DB
+    db_access_token = row[0]
+    tok.access_token = access_token if access_token else db_access_token
+    tok.refresh_token = row[1]
+    tok.expiry = row[2]
+    tok.scopes = row[3]
+    tok.token_uri = row[4] or "https://oauth2.googleapis.com/token"
+    tok.client_id = row[5]
+    tok.client_secret = row[6]
+    
+    # Validate we have an access token
+    if not tok.access_token:
+        logger.error(f"No access token available for user {user_id}")
+        return {"status": "error", "message": "No access token available. Please reconnect Google Drive.", "detected": 0, "updated": 0, "requires_reconnect": True}
+    
+    # If we have a pre-refreshed token, treat it as not expired
+    if access_token:
+        logger.info(f"Using pre-refreshed access token for user {user_id}")
+        tok.expiry = None  # Skip expiry check since we already refreshed
+
+    # Build credentials directly from token data (avoid get_credentials which may fail on refresh)
+    from google.oauth2.credentials import Credentials
+    from google.auth.transport.requests import Request
+    
+    creds = Credentials(
+        token=tok.access_token,
+        refresh_token=tok.refresh_token,
+        token_uri=tok.token_uri,
+        client_id=tok.client_id or settings.GOOGLE_CLIENT_ID,
+        client_secret=tok.client_secret or settings.GOOGLE_CLIENT_SECRET,
+        scopes=['https://www.googleapis.com/auth/drive.readonly', 'https://www.googleapis.com/auth/drive.file', 'https://www.googleapis.com/auth/drive.metadata.readonly']
+    )
+    
+    # Check expiry and refresh if needed
+    if tok.expiry:
+        from datetime import datetime, timezone, timedelta
+        expiry = tok.expiry
+        if expiry.tzinfo is None:
+            expiry = expiry.replace(tzinfo=timezone.utc)
+        if datetime.now(timezone.utc) >= expiry - timedelta(minutes=5):
+            if not tok.refresh_token:
+                logger.error(f"Token expired for user {user_id} but no refresh_token available")
+                return {
+                    "status": "error", 
+                    "message": "Google Drive session expired. Please disconnect and reconnect your Google Drive account to enable offline access.", 
+                    "detected": 0, 
+                    "updated": 0,
+                    "requires_reconnect": True
+                }
+            
+            logger.info(f"Token expired for user {user_id}, refreshing using Google auth library...")
+            try:
+                # Use Google's Request class for the refresh
+                from google.auth.transport.requests import Request as GoogleRequest
+                creds.refresh(GoogleRequest())
+                
+                # Update token in DB
+                new_token = creds.token
+                db.execute(
+                    text("""
+                        UPDATE integration_tokens 
+                        SET access_token = :access_token, updated_at = NOW()
+                        WHERE user_id = :user_id AND service = 'google_drive'
+                    """),
+                    {"access_token": new_token, "user_id": str(user_id)}
+                )
+                db.commit()
+                # IMPORTANT: Update tok.access_token so subsequent code uses the refreshed token
+                tok.access_token = new_token
+                # Also update the creds object we built earlier
+                creds = Credentials(
+                    token=new_token,
+                    refresh_token=tok.refresh_token,
+                    token_uri=tok.token_uri,
+                    client_id=tok.client_id or settings.GOOGLE_CLIENT_ID,
+                    client_secret=tok.client_secret or settings.GOOGLE_CLIENT_SECRET,
+                    scopes=['https://www.googleapis.com/auth/drive.readonly', 'https://www.googleapis.com/auth/drive.file', 'https://www.googleapis.com/auth/drive.metadata.readonly']
+                )
+                logger.info(f"Token refreshed successfully for user {user_id}, new token: {new_token[:20]}...")
+            except Exception as e:
+                import traceback
+                logger.error(f"Failed to refresh token: {e}\n{traceback.format_exc()}")
+                error_msg = str(e)
+                if "invalid_grant" in error_msg.lower():
+                    return {
+                        "status": "error", 
+                        "message": "Google Drive authorization revoked or expired. Please reconnect your account.", 
+                        "detected": 0, 
+                        "updated": 0,
+                        "requires_reconnect": True
+                    }
+                return {"status": "error", "message": f"Google Drive auth failed: {error_msg}", "detected": 0, "updated": 0}
+    
+    logger.info(f"Got valid credentials for user {user_id}")
+
+    try:
+        drive = build("drive", "v3", credentials=creds, cache_discovery=False)
+        logger.info(f"Built Drive service for user {user_id}")
+    except Exception as e:
+        logger.error(f"Failed to build Drive service for user {user_id}: {e}")
+        return {"status": "error", "message": f"Failed to initialize Drive service: {str(e)}", "detected": 0, "updated": 0}
+
+    try:
+        root_folders = _list_folders_root(drive)[:max_root_folders]
+        logger.info(f"Found {len(root_folders)} root folders for user {user_id}")
+    except Exception as e:
+        logger.error(f"Failed to list root folders for user {user_id}: {e}")
+        return {"status": "error", "message": f"Failed to list Drive folders: {str(e)}", "detected": 0, "updated": 0}
+
+    detected = 0
+    created_projects = 0
+    updated_mappings = 0
+    created_mappings = 0
+    queued_index_jobs = 0
+    mapping_ids: List[str] = []
+    project_ids: List[str] = []
+
+    for folder in root_folders:
+        folder_id = folder.get("id")
+        folder_name = folder.get("name") or "Untitled"
+        
+        # Ensure fresh transaction state for each folder
+        # If previous iteration failed, rollback to clear aborted state
+        try:
+            db.rollback()
+        except Exception:
+            pass  # No active transaction to rollback
+
+        children = _list_children(drive, folder_id, page_size=max_children_per_folder)
+        child_names = tuple(c.get("name", "") for c in children if c.get("name"))
+        child_mimes = tuple(c.get("mimeType", "") for c in children if c.get("mimeType"))
+
+        summary = FolderSummary(
+            folder_id=folder_id,
+            folder_name=folder_name,
+            child_names=child_names,
+            child_mime_types=child_mimes,
+            modified_time_iso=folder.get("modifiedTime"),
+        )
+        dp = detect_project(summary)
+
+        if dp.score < min_score:
+            continue
+
+        detected += 1
+        ptype = _map_project_type(dp.project_type)
+        
+        # Ensure ptype is a valid ProjectType enum, not a string
+        if isinstance(ptype, str):
+            logger.warning(f"Project type mapping returned string '{ptype}' instead of enum, using UNKNOWN")
+            ptype = ProjectType.UNKNOWN
+        elif not isinstance(ptype, ProjectType):
+            logger.warning(f"Project type mapping returned unexpected type {type(ptype)}, using UNKNOWN")
+            ptype = ProjectType.UNKNOWN
+
+        mapping: Optional[GoogleDriveProject] = db.query(GoogleDriveProject).filter(
+            GoogleDriveProject.user_id == user_id,
+            GoogleDriveProject.root_folder_id == folder_id,
+        ).first()
+
+        reasons_payload = [{"signal": r.signal, "weight": r.weight, "detail": r.detail} for r in dp.reasons]
+
+        if mapping is None:
+            proj = Project(
+                name=folder_name,
+                type=ptype.value if isinstance(ptype, ProjectType) else str(ptype),
+                tags=list(dp.tags),
+                meta={
+                    "source": "google_drive",
+                    "root_folder_id": folder_id,
+                    "confidence": dp.confidence,
+                    "score": dp.score,
+                    "reasons": reasons_payload,
+                    "entry_points": list(dp.entry_points),
+                },
+            )
+            db.add(proj)
+            db.flush()  # assigns proj.id
+
+            mapping = GoogleDriveProject(
+                user_id=user_id,
+                project_id=proj.id,
+                root_folder_id=folder_id,
+                root_folder_name=folder_name,
+                score=float(dp.score),
+                confidence=float(dp.confidence),
+                reasons=reasons_payload,
+                entry_points=list(dp.entry_points),
+                tags=list(dp.tags),
+                indexing_status="idle",
+                indexing_progress={"indexed": 0, "total": 0},
+                last_scanned_at=datetime.utcnow(),
+                deleted=False,
+            )
+            db.add(mapping)
+
+            created_projects += 1
+            created_mappings += 1
+            project_ids.append(str(proj.id))
+        else:
+            mapping.root_folder_name = folder_name
+            mapping.score = float(dp.score)
+            mapping.confidence = float(dp.confidence)
+            mapping.reasons = reasons_payload
+            mapping.entry_points = list(dp.entry_points)
+            mapping.tags = list(dp.tags)
+            mapping.last_scanned_at = datetime.utcnow()
+            mapping.deleted = False
+
+            proj = db.query(Project).filter(Project.id == mapping.project_id).first()
+            if proj:
+                proj.name = folder_name
+                proj.type = ptype.value if isinstance(ptype, ProjectType) else str(ptype)
+                proj.tags = list(dp.tags)
+                meta = dict(proj.meta or {})
+                meta.update(
+                    {
+                        "source": "google_drive",
+                        "root_folder_id": folder_id,
+                        "confidence": dp.confidence,
+                        "score": dp.score,
+                        "reasons": reasons_payload,
+                        "entry_points": list(dp.entry_points),
+                    }
+                )
+                proj.meta = meta
+
+            updated_mappings += 1
+            project_ids.append(str(mapping.project_id))
+
+        # --- Index files now ---
+        if index_now:
+            # only immediate child files (not folders), indexable types only, capped
+            file_ids: List[str] = []
+            file_info_map: Dict[str, Dict] = {}
+            for c in children:
+                mime = c.get("mimeType") or ""
+                if mime == "application/vnd.google-apps.folder":
+                    continue
+                if not _indexable_drive_file(mime, c.get("name") or ""):
+                    continue
+                fid = c.get("id")
+                if fid:
+                    file_ids.append(fid)
+                    file_info_map[fid] = c
+                if len(file_ids) >= max_files_per_project:
+                    break
+
+            if file_ids:
+                # Update UI status to running
+                mapping.indexing_status = "running"
+                mapping.indexing_progress = {"indexed": 0, "total": len(file_ids)}
+                
+                # Try synchronous indexing first (works without Celery worker)
+                indexed_count = 0
+                indexing_error = None
+                try:
+                    # Use creds.token which is the refreshed token
+                    current_token = creds.token if creds.valid else tok.access_token
+                    indexed_count = _index_files_sync(
+                        db, file_ids, file_info_map, user_id, current_token
+                    )
+                    mapping.indexing_status = "done"
+                    mapping.indexing_progress = {"indexed": indexed_count, "total": len(file_ids)}
+                    mapping.last_indexed_at = datetime.utcnow()
+                except Exception as e:
+                    print(f"Sync indexing failed: {e}")
+                    indexing_error = str(e)
+                    # Fall back to Celery if sync fails
+                    mapping.indexing_status = "queued"
+                    try:
+                        from app.tasks import process_drive_file_batch
+                        # Use creds.token which is the refreshed token
+                        current_token = creds.token if creds.valid else tok.access_token
+                        process_drive_file_batch.delay(
+                            file_ids=file_ids,
+                            user_id=str(user_id),
+                            access_token=current_token,
+                        )
+                    except Exception as celery_err:
+                        print(f"Celery also failed: {celery_err}")
+                        mapping.indexing_status = "error"
+                
+                queued_index_jobs += 1
+
+        mapping_ids.append(str(mapping.id))
+        
+        # Commit after each folder is processed to avoid session bloat
+        # and prevent detached instance errors
+        try:
+            db.commit()
+        except Exception as e:
+            logger.error(f"Failed to commit folder {folder_id}: {e}")
+            try:
+                db.rollback()
+            except Exception:
+                pass  # Ignore rollback errors
+            # Continue with next folder instead of failing completely
+            continue
+
+    logger.info(f"Discovery complete for user {user_id}: detected={detected}, created={created_projects}")
+    
+    return {
+        "status": "success",
+        "detected": detected,
+        "created_projects": created_projects,
+        "created_mappings": created_mappings,
+        "updated_mappings": updated_mappings,
+        "queued_index_jobs": queued_index_jobs,
+        "mapping_ids": mapping_ids[:20],
+        "project_ids": project_ids[:20],
+    }

@@ -1,0 +1,40 @@
+#!/bin/bash
+set -euo pipefail
+
+echo "=== Cerebrum AI Startup ==="
+echo "Timestamp: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+echo "Environment: ${ENVIRONMENT:-production}"
+echo
+
+echo "[1/4] Validating environment..."
+: "${DATABASE_URL:?FATAL: DATABASE_URL not set}"
+: "${SECRET_KEY:?FATAL: SECRET_KEY not set}"
+: "${REDIS_URL:?FATAL: REDIS_URL not set}"
+echo "OK: Environment variables validated"
+echo
+
+echo "[2/4] Verifying Redis connection..."
+python3 << 'PY'
+import os, sys, redis
+try:
+    r = redis.from_url(os.getenv('REDIS_URL'))
+    r.ping()
+    print("OK: Redis connection verified")
+except Exception as e:
+    print(f"ERROR: Redis connection failed: {e}", file=sys.stderr)
+    sys.exit(1)
+PY
+echo
+
+echo "[3/4] Running WebSocket diagnostic..."
+python3 /app/websocket_diagnostic.py || echo "WARNING: WebSocket diagnostic failed"
+echo
+
+echo "[4/4] Starting Uvicorn server..."
+exec uvicorn app.main:app \
+  --host 0.0.0.0 \
+  --port "${PORT:-8000}" \
+  --proxy-headers \
+  --workers "${WEB_CONCURRENCY:-1}" \
+  --access-log \
+  --log-level info

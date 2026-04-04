@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    <key>CFBundleDisplayName</key>
+    <string>Cerebrum</string>
+    <key>CFBundleExecutable</key>
+    <string>App</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.cerebrum.app</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>$(PRODUCT_NAME)</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0</string>
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>com.cerebrum.app</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>cerebrum</string>
+            </array>
+        </dict>
+    </array>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>LSRequiresIPhoneOS</key>
+    <true/>
+    <key>UILaunchStoryboardName</key>
+    <string>LaunchScreen</string>
+    <key>UIMainStoryboardFile</key>
+    <string>Main</string>
+    <key>UIRequiredDeviceCapabilities</key>
+    <array>
+        <string>arm64</string>
+    </array>
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+    <key>UISupportedInterfaceOrientations~ipad</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationPortraitUpsideDown</string>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+    <key>UIViewControllerBasedStatusBarAppearance</key>
+    <true/>
+
+    <!-- Privacy Descriptions - REQUIRED for App Store -->
+    
+    <!-- Camera Access -->
+    <key>NSCameraUsageDescription</key>
+    <string>Cerebrum needs access to your camera to capture photos for upload and document scanning.</string>
+
+    <!-- Photo Library Access -->
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Cerebrum needs access to your photo library to upload and manage your images and documents.</string>
+    <key>NSPhotoLibraryAddUsageDescription</key>
+    <string>Cerebrum needs permission to save files to your photo library.</string>
+
+    <!-- File Access -->
+    <key>NSFileProviderDomainUsageDescription</key>
+    <string>Cerebrum needs access to your files for document management and synchronization.</string>
+
+    <!-- Microphone (for video recording and speech recognition) -->
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Cerebrum needs access to your microphone for video recording and voice input.</string>
+
+    <!-- Speech Recognition -->
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>Cerebrum uses speech recognition to convert your voice into text for chat input. Audio is processed locally on your device and sent to Apple\'s servers for transcription.</string>
+
+    <!-- Local Network (for development) -->
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>Cerebrum uses your local network for development and debugging purposes.</string>
+
+    <!-- Background Modes -->
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>fetch</string>
+        <string>processing</string>
+        <string>remote-notification</string>
+    </array>
+
+    <!-- App Groups (for file sharing) -->
+    <key>com.apple.security.application-groups</key>
+    <array>
+        <string>group.com.cerebrum.app</string>
+    </array>
+
+    <!-- iCloud Configuration -->
+    <key>iCloudContainerEnvironment</key>
+    <string>Production</string>
+</dict>
+</plist>

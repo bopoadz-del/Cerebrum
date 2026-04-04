@@ -1,0 +1,241 @@
+"""
+API Version 1 Router
+Defines the v1 API routes and versioning configuration.
+"""
+
+from fastapi import APIRouter
+import logging
+
+logger = logging.getLogger(__name__)
+
+# Import core endpoints
+from app.api.v1.endpoints import auth, admin, dejavu, formulas, sessions, connectors, chat
+from app.api.health import router as health_router
+
+# Import construction/industry endpoints (these have prefixes already)
+from app.api.v1.endpoints import bim, economics, vdc, edge, enterprise, portal
+from app.api.v1.endpoints import integrations, warehouse, ml
+
+# Try to import optional endpoints
+try:
+    from app.api.v1.endpoints import documents
+    DOCUMENTS_AVAILABLE = True
+    logger.info("Documents endpoints loaded")
+except Exception as e:
+    DOCUMENTS_AVAILABLE = False
+    logger.warning(f"Documents endpoints not available: {e}")
+
+try:
+    from app.api.v1.endpoints import state
+    STATE_AVAILABLE = True
+    logger.info("State endpoints loaded")
+except Exception as e:
+    STATE_AVAILABLE = False
+    logger.warning(f"State endpoints not available: {e}")
+
+try:
+    from app.api.v1.endpoints import iot
+    IOT_AVAILABLE = True
+    logger.info("IoT endpoints loaded")
+except Exception as e:
+    IOT_AVAILABLE = False
+    logger.warning(f"IoT endpoints not available: {e}")
+
+try:
+    from app.api.v1.endpoints import safety
+    SAFETY_AVAILABLE = True
+    logger.info("Safety endpoints loaded")
+except Exception as e:
+    SAFETY_AVAILABLE = False
+    logger.warning(f"Safety endpoints not available: {e}")
+
+# Import or create stub endpoints for missing routers (no prefix in stubs)
+try:
+    from app.api.v1.endpoints import users
+    logger.info("Users endpoints loaded")
+except Exception as e:
+    logger.warning(f"Users endpoints not available, using stub: {e}")
+    from app.api.v1.endpoints.stub_users import router as users
+
+try:
+    from app.api.v1.endpoints import projects
+    logger.info("Projects endpoints loaded")
+except Exception as e:
+    logger.warning(f"Projects endpoints not available, using stub: {e}")
+    from app.api.v1.endpoints.stub_projects import router as projects
+
+try:
+    from app.api.v1.endpoints import registry
+    logger.info("Registry endpoints loaded")
+except Exception as e:
+    logger.warning(f"Registry endpoints not available, using stub: {e}")
+    from app.api.v1.endpoints.stub_registry import router as registry
+
+try:
+    from app.api.v1.endpoints import coding
+    logger.info("Coding endpoints loaded")
+except Exception as e:
+    logger.warning(f"Coding endpoints not available, using stub: {e}")
+    from app.api.v1.endpoints.stub_coding import router as coding
+
+try:
+    from app.api.v1.endpoints import quality
+    logger.info("Quality endpoints loaded")
+except Exception as e:
+    logger.warning(f"Quality endpoints not available, using stub: {e}")
+    from app.api.v1.endpoints.stub_quality import router as quality
+
+# Import agent endpoints
+try:
+    from app.agent.endpoints import router as agent_router
+    AGENT_AVAILABLE = True
+    logger.info("Agent endpoints loaded")
+except Exception as e:
+    AGENT_AVAILABLE = False
+    logger.warning(f"Agent endpoints not available: {e}")
+
+# Import enhanced agent endpoints
+try:
+    from app.agent.enhanced_endpoints import router as enhanced_agent_router
+    ENHANCED_AGENT_AVAILABLE = True
+    logger.info("Enhanced agent endpoints loaded")
+except Exception as e:
+    ENHANCED_AGENT_AVAILABLE = False
+    logger.warning(f"Enhanced agent endpoints not available: {e}")
+
+
+# Import self-modification endpoints
+try:
+    from app.agent.self_modification_endpoints import router as self_mod_router
+    SELF_MOD_AVAILABLE = True
+    logger.info("Self-modification endpoints loaded")
+except Exception as e:
+    SELF_MOD_AVAILABLE = False
+    logger.warning(f"Self-modification endpoints not available: {e}")
+
+# Import code enhancement endpoints
+try:
+    from app.agent.enhancement_endpoints import router as enhancement_router
+    ENHANCEMENT_AVAILABLE = True
+    logger.info("Code enhancement endpoints loaded")
+except Exception as e:
+    ENHANCEMENT_AVAILABLE = False
+    logger.warning(f"Code enhancement endpoints not available: {e}")
+
+# Import web search endpoints
+try:
+    from app.agent.web_search_endpoints import router as web_search_router
+    WEB_SEARCH_AVAILABLE = True
+    logger.info("Web search endpoints loaded")
+except Exception as e:
+    WEB_SEARCH_AVAILABLE = False
+    logger.warning(f"Web search endpoints not available: {e}")
+
+# Import WebSocket router
+try:
+    from app.agent.websocket import websocket_router
+    WEBSOCKET_AVAILABLE = True
+    logger.info("WebSocket endpoint loaded successfully")
+except Exception as e:
+    WEBSOCKET_AVAILABLE = False
+    import traceback
+    logger.error(f"WebSocket endpoint NOT loaded: {e}")
+    logger.error(f"WebSocket import traceback: {traceback.format_exc()}")
+
+# Import Voice router
+try:
+    from app.api.v1.endpoints import voice as voice_router
+    VOICE_AVAILABLE = True
+    logger.info("Voice endpoints loaded")
+except Exception as e:
+    VOICE_AVAILABLE = False
+    logger.warning(f"Voice endpoints not available: {e}")
+
+# Create main router - MUST BE NAMED api_v1_router for main.py
+api_v1_router = APIRouter()
+
+# Include core endpoints (auth, admin, dejavu, formulas, sessions, connectors already have prefixes)
+api_v1_router.include_router(health_router, tags=["health"])
+api_v1_router.include_router(auth.router)  # prefix="/auth" already in router
+api_v1_router.include_router(admin.router)  # prefix="/admin" already in router
+api_v1_router.include_router(chat.router)  # prefix="/chat" already in router
+api_v1_router.include_router(dejavu.router)  # prefix="/dejavu" already in router
+api_v1_router.include_router(formulas.router)  # prefix="/formulas" already in router
+api_v1_router.include_router(sessions.router)  # prefix="/sessions" already in router
+api_v1_router.include_router(connectors.router)  # prefix="/connectors" already in router
+
+# Include stubs (need prefix added)
+api_v1_router.include_router(users, prefix="/users", tags=["users"])
+api_v1_router.include_router(projects, prefix="/projects", tags=["projects"])
+api_v1_router.include_router(registry, prefix="/registry", tags=["registry"])
+api_v1_router.include_router(coding, prefix="/coding", tags=["coding"])
+api_v1_router.include_router(quality, prefix="/quality", tags=["quality"])
+
+# Include construction/industry endpoints (already have prefixes)
+api_v1_router.include_router(bim.router)  # prefix="/bim" already in router
+api_v1_router.include_router(economics.router)  # prefix="/economics" already in router
+api_v1_router.include_router(vdc.router)  # prefix="/vdc" already in router
+api_v1_router.include_router(integrations.router)  # prefix="/integrations" already in router
+api_v1_router.include_router(warehouse.router, prefix="/warehouse", tags=["warehouse"])  # no prefix in router
+api_v1_router.include_router(ml.router)  # prefix="/ml" already in router
+api_v1_router.include_router(edge.router)  # prefix="/edge" already in router
+api_v1_router.include_router(enterprise.router)  # prefix="/enterprise" already in router
+api_v1_router.include_router(portal.router)  # prefix="/portal" already in router
+
+# Include optional endpoints conditionally
+if DOCUMENTS_AVAILABLE:
+    api_v1_router.include_router(documents.router)  # prefix="/documents" already in router
+
+if IOT_AVAILABLE:
+    api_v1_router.include_router(iot.router, prefix="/iot", tags=["iot"])
+
+if SAFETY_AVAILABLE:
+    api_v1_router.include_router(safety.router)  # prefix="/safety" already in router
+
+# Include agent endpoints
+if AGENT_AVAILABLE:
+    api_v1_router.include_router(agent_router, prefix="/agent", tags=["agent"])
+
+# Include enhanced agent endpoints
+if ENHANCED_AGENT_AVAILABLE:
+    api_v1_router.include_router(enhanced_agent_router, prefix="/agent/v2", tags=["agent-enhanced"])
+
+# Include self-modification endpoints
+if SELF_MOD_AVAILABLE:
+    api_v1_router.include_router(self_mod_router, prefix="/agent/self-mod", tags=["agent-self-mod"])
+
+# Include code enhancement endpoints
+if ENHANCEMENT_AVAILABLE:
+    api_v1_router.include_router(enhancement_router, prefix="/agent/enhance", tags=["agent-enhancement"])
+
+# Include web search endpoints
+if WEB_SEARCH_AVAILABLE:
+    api_v1_router.include_router(web_search_router, prefix="/agent/web-search", tags=["agent-web-search"])
+
+# Include WebSocket endpoint - mounted under /agent/v2 for ws://host:port/api/v1/agent/v2/ws
+if WEBSOCKET_AVAILABLE:
+    api_v1_router.include_router(websocket_router, prefix="/agent/v2", tags=["websocket"])
+    logger.info("WebSocket router included at /api/v1/agent/v2/ws")
+else:
+    logger.error("WebSocket router NOT included - import failed")
+
+# Add WebSocket status endpoint
+@api_v1_router.get("/websocket/status", tags=["websocket"])
+async def websocket_status():
+    """Check WebSocket availability status."""
+    return {
+        "websocket_available": WEBSOCKET_AVAILABLE,
+        "endpoints": {
+            "agent_ws": "/api/v1/agent/v2/ws" if WEBSOCKET_AVAILABLE else None,
+            "voice_ws": "/api/v1/voice/realtime" if VOICE_AVAILABLE else None,
+        },
+        "message": "WebSocket is available" if WEBSOCKET_AVAILABLE else "WebSocket is not available"
+    }
+
+# Include Voice endpoints (WebSocket for real-time audio)
+if VOICE_AVAILABLE:
+    api_v1_router.include_router(voice_router.router, prefix="/voice", tags=["voice"])
+
+# Include state store endpoints
+if STATE_AVAILABLE:
+    api_v1_router.include_router(state.router)  # prefix="/state" already in router

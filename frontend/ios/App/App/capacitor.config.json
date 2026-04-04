@@ -1,0 +1,51 @@
+{
+	"appId": "com.cerebrum.app",
+	"appName": "Cerebrum",
+	"webDir": "dist",
+	"server": {
+		"androidScheme": "https",
+		"iosScheme": "https",
+		"cleartext": true
+	},
+	"plugins": {
+		"SplashScreen": {
+			"launchShowDuration": 2000,
+			"launchAutoHide": true,
+			"backgroundColor": "#000000",
+			"androidSplashResourceName": "splash",
+			"androidScaleType": "CENTER_CROP",
+			"showSpinner": true,
+			"androidSpinnerStyle": "large",
+			"iosSpinnerStyle": "small",
+			"spinnerColor": "#999999"
+		},
+		"LocalNotifications": {
+			"smallIcon": "ic_stat_icon_config_sample",
+			"iconColor": "#000000"
+		},
+		"PushNotifications": {
+			"presentationOptions": [
+				"badge",
+				"sound",
+				"alert"
+			]
+		}
+	},
+	"android": {
+		"allowMixedContent": true,
+		"captureInput": true
+	},
+	"ios": {
+		"contentInset": "always",
+		"allowsLinkPreview": false,
+		"scrollEnabled": true,
+		"backgroundColor": "#000000"
+	},
+	"packageClassList": [
+		"SpeechRecognition",
+		"CAPCameraPlugin",
+		"FilesystemPlugin",
+		"LocalNotificationsPlugin",
+		"PreferencesPlugin"
+	]
+}

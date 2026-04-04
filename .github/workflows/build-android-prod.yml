@@ -1,0 +1,120 @@
+name: Build Android APK (Production)
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Release type'
+        required: true
+        default: 'internal'
+        type: choice
+        options:
+          - internal
+          - beta
+          - production
+      version_name:
+        description: 'Version name (e.g., 1.2.3)'
+        required: false
+        type: string
+
+jobs:
+  build-android-production:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: ./frontend/package-lock.json
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build web assets
+      run: npm run build
+      env:
+        VITE_API_URL: ${{ secrets.VITE_API_URL }}
+        VITE_FRONTEND_URL: ${{ secrets.VITE_FRONTEND_URL }}
+
+    - name: Sync Capacitor
+      run: npx cap sync android
+
+    - name: Setup JDK
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+
+    - name: Decode and install keystore
+      working-directory: ./frontend/android/app
+      run: |
+        echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > release.keystore
+
+    - name: Build Release APK
+      working-directory: ./frontend/android
+      run: ./gradlew assembleRelease
+      env:
+        KEYSTORE_PATH: ./app/release.keystore
+        KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+
+    - name: Sign APK (if not auto-signed by Gradle)
+      uses: r0adkll/sign-android-release@v1
+      with:
+        releaseDirectory: frontend/android/app/build/outputs/apk/release
+        signingKeyBase64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        alias: ${{ secrets.ANDROID_KEY_ALIAS }}
+        keyStorePassword: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        keyPassword: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      env:
+        BUILD_TOOLS_VERSION: "34.0.0"
+
+    - name: Rename APK with version
+      run: |
+        VERSION="${{ inputs.version_name || github.run_number }}"
+        COMMIT_SHA=${{ github.sha }}
+        SHORT_SHA=${COMMIT_SHA::7}
+        mkdir -p ./frontend/android/app/build/outputs/apk/release/renamed
+        cp ./frontend/android/app/build/outputs/apk/release/app-release-unsigned.apk \
+           ./frontend/android/app/build/outputs/apk/release/renamed/cerebrum-v${VERSION}-${SHORT_SHA}.apk
+
+    - name: Upload Release APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: cerebrum-release-apk
+        path: frontend/android/app/build/outputs/apk/release/renamed/*.apk
+        retention-days: 90
+
+    - name: Create GitHub Release
+      if: inputs.release_type == 'production' || inputs.release_type == 'beta'
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: v${{ inputs.version_name || github.run_number }}
+        name: Cerebrum ${{ inputs.version_name || github.run_number }} (${{ inputs.release_type }})
+        body: |
+          ## Cerebrum Android Release
+          
+          **Version:** ${{ inputs.version_name || github.run_number }}
+          **Type:** ${{ inputs.release_type }}
+          **Commit:** ${{ github.sha }}
+          
+          ## Installation
+          1. Download the APK file below
+          2. Enable "Install from Unknown Sources" in Android settings
+          3. Install the APK
+        files: frontend/android/app/build/outputs/apk/release/renamed/*.apk
+        prerelease: ${{ inputs.release_type != 'production' }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
