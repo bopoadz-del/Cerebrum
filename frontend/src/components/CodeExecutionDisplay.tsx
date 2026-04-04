@@ -3,8 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Check, X, Copy, CheckCheck, Terminal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 interface CodeExecutionDisplayProps {
   code: string;
@@ -32,6 +30,24 @@ export function CodeExecutionDisplay({
     navigator.clipboard.writeText(code);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  // Simple syntax highlighting for common keywords
+  const highlightCode = (code: string) => {
+    const keywords = ['def', 'class', 'if', 'else', 'elif', 'for', 'while', 'return', 'import', 'from', 'try', 'except', 'with', 'as'];
+    const strings = /(".*?"|'.*?')/g;
+    const comments = /(#.*$)/gm;
+    
+    let highlighted = code
+      .replace(strings, '<span class="text-green-400">$1</span>')
+      .replace(comments, '<span class="text-gray-500">$1</span>');
+    
+    keywords.forEach(keyword => {
+      const regex = new RegExp(`\\b(${keyword})\\b`, 'g');
+      highlighted = highlighted.replace(regex, '<span class="text-purple-400">$1</span>');
+    });
+    
+    return highlighted;
   };
 
   return (
@@ -75,13 +91,11 @@ export function CodeExecutionDisplay({
       </div>
 
       {/* Code */}
-      <SyntaxHighlighter
-        style={oneDark}
-        language={language}
-        customStyle={{ margin: 0, borderRadius: 0 }}
-      >
-        {code}
-      </SyntaxHighlighter>
+      <div className="bg-gray-900 p-4 overflow-x-auto">
+        <pre className="text-sm font-mono text-gray-300">
+          <code dangerouslySetInnerHTML={{ __html: highlightCode(code) }} />
+        </pre>
+      </div>
 
       {/* Output */}
       <AnimatePresence>

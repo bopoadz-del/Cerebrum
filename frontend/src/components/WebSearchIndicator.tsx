@@ -1,14 +1,16 @@
 import { motion } from 'framer-motion';
 import { Globe, Loader2 } from 'lucide-react';
 
+interface WebSearchResult {
+  title: string;
+  url: string;
+  snippet: string;
+}
+
 interface WebSearchIndicatorProps {
   query: string;
   isSearching: boolean;
-  results?: {
-    title: string;
-    url: string;
-    snippet: string;
-  }[];
+  results?: WebSearchResult[];
 }
 
 export function WebSearchIndicator({ query, isSearching, results }: WebSearchIndicatorProps) {

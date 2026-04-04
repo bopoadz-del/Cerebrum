@@ -3,13 +3,22 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, X, FileText, Image as ImageIcon, Loader2, Check, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import type { Attachment } from '@/types';
+
+type AttachmentStatus = 'uploading' | 'complete' | 'error';
+
+interface Attachment {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  status: AttachmentStatus;
+}
 
 interface FileUploadProps {
   attachments: Attachment[];
   onRemove?: (id: string) => void;
   onUpload?: (file: File) => void;
-  maxSize?: number; // in MB
+  maxSize?: number;
   acceptedTypes?: string;
   className?: string;
 }
@@ -54,7 +63,7 @@ export function FileUpload({
     return <FileText className="w-5 h-5" />;
   };
 
-  const getStatusIcon = (status: Attachment['status']) => {
+  const getStatusIcon = (status: AttachmentStatus) => {
     switch (status) {
       case 'uploading':
         return <Loader2 className="w-4 h-4 animate-spin" />;

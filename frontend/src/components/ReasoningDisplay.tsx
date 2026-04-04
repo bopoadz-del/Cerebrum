@@ -2,10 +2,24 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Brain, ChevronDown, Wrench, Database, Lightbulb, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { any, ReasoningStep } from '@/types';
+
+interface ReasoningStep {
+  type: 'tool' | 'data' | 'thought' | 'decision';
+  content: string;
+  details?: string;
+  timestamp?: string;
+}
+
+interface ReasoningData {
+  steps?: ReasoningStep[];
+  toolsConsidered?: string[];
+  dataLookedUp?: string[];
+  whyThisAnswer?: string;
+  executionTimeMs?: number;
+}
 
 interface ReasoningDisplayProps {
-  reasoning?: any;
+  reasoning?: ReasoningData;
   isThinking?: boolean;
 }
 
