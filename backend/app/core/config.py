@@ -373,13 +373,30 @@ class Settings(BaseSettings):
     @property
     def cors_origins_list(self) -> List[str]:
         """Parse CORS_ORIGINS string into list."""
-        # Always include production frontend URL
-        default_origins = ["http://localhost:3000", "https://cerebrum-frontend.onrender.com"]
+        # Always include production frontend URLs
+        default_origins = [
+            "http://localhost:3000",
+            "http://localhost:5173",
+            "https://cerebrum-frontend.onrender.com",
+            "https://cerebrum.ai",
+            "https://*.cerebrum.ai",
+            "https://*.onrender.com",
+        ]
         if not self.CORS_ORIGINS:
             return default_origins
+        
+        # Parse environment origins
         env_origins = [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
-        # Merge env origins with defaults, removing duplicates
-        return list(dict.fromkeys(env_origins + default_origins))
+        
+        # Merge all, removing duplicates while preserving order
+        all_origins = []
+        seen = set()
+        for origin in default_origins + env_origins:
+            if origin not in seen:
+                seen.add(origin)
+                all_origins.append(origin)
+        
+        return all_origins
     
     @property
     def cors_methods_list(self) -> List[str]:

@@ -205,9 +205,21 @@ def create_application() -> FastAPI:
     )
     
     # Trusted Host Middleware (OWASP security)
+    # Allow all hosts in development, restrict in production
+    allowed_hosts = [
+        "*.onrender.com",
+        "cerebrum-api.onrender.com",
+        "cerebrum.ai",
+        "*.cerebrum.ai",
+        "localhost",
+        "127.0.0.1",
+    ]
+    if settings.DEBUG:
+        allowed_hosts.append("*")  # Allow all in debug mode
+    
     app.add_middleware(
         TrustedHostMiddleware,
-        allowed_hosts=["*.onrender.com", "cerebrum.ai", "*.cerebrum.ai", "localhost", "127.0.0.1"]
+        allowed_hosts=allowed_hosts
     )
     
     # Rate limiting middleware (must be early) - use SlowAPIMiddleware
