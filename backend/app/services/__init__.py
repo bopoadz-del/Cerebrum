@@ -18,7 +18,7 @@ from app.services.image_understanding import (
     ImageAnalysisResult,
     AnalysisType,
 )
-from app.services.formula_runtime import get_formula_runtime
+from app.services.formula_runtime import get_formula_by_id, evaluate_formula_by_id, get_formulas
 
 __all__ = [
     "ChromaService",
@@ -36,5 +36,7 @@ __all__ = [
     "get_image_understanding_service",
     "ImageAnalysisResult",
     "AnalysisType",
-    "get_formula_runtime",
+    "get_formula_by_id",
+    "evaluate_formula_by_id",
+    "get_formulas",
 ]
