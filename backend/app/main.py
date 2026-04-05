@@ -127,13 +127,42 @@ async def lifespan(app: FastAPI):
         sys.exit(1)
     
     # =============================================================================
-    # Start Ollama (Local LLM)
+    # Start Ollama (Local LLM) - Install at runtime if needed
     # =============================================================================
     ollama_started = False
     if os.getenv("DISABLE_OLLAMA", "false").lower() != "true":
         try:
             import subprocess
             import time
+            import shutil
+            
+            # Check if Ollama binary exists and install if needed
+            ollama_path = shutil.which("ollama")
+            if not ollama_path:
+                logger.info("Ollama not found, installing...")
+                # Install Ollama using official install script (detects architecture)
+                install_result = subprocess.run(
+                    ["curl", "-fsSL", "https://ollama.com/install.sh"],
+                    capture_output=True,
+                    text=True,
+                    timeout=120
+                )
+                if install_result.returncode == 0:
+                    # Run the install script
+                    script_result = subprocess.run(
+                        ["sh"],
+                        input=install_result.stdout,
+                        capture_output=True,
+                        text=True,
+                        timeout=180
+                    )
+                    if script_result.returncode == 0:
+                        logger.info("Ollama installed successfully")
+                        ollama_path = shutil.which("ollama") or "/usr/local/bin/ollama"
+                    else:
+                        logger.warning("Ollama install script failed", stderr=script_result.stderr[:200])
+                else:
+                    logger.warning("Failed to download Ollama install script")
             
             # Check if Ollama is already running
             import aiohttp
@@ -146,11 +175,11 @@ async def lifespan(app: FastAPI):
             except:
                 pass
             
-            if not ollama_started:
+            if not ollama_started and ollama_path:
                 # Start Ollama in background
                 logger.info("Starting Ollama server...")
                 subprocess.Popen(
-                    ["ollama", "serve"],
+                    [ollama_path, "serve"],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                     start_new_session=True
