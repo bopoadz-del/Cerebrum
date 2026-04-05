@@ -1,14 +1,12 @@
 # Cerebrum ML Base Image with Ollama
 # This is the BASE image - build once, cache forever
-# Contains: Python ML stack + Ollama + Pre-downloaded models
+# Contains: Python ML stack + Ollama binary (models download at runtime)
 #
 # Build with:
 #   docker build -f Dockerfile.base -t ghcr.io/bopoadz-del/cerebrum-ml-base:ollama .
 #   docker push ghcr.io/bopoadz-del/cerebrum-ml-base:ollama
 
 FROM python:3.11-slim-bookworm
-
-ARG MODELS="gemma3:270m,nomic-embed-text"
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
@@ -52,22 +50,6 @@ ENV OLLAMA_NUM_PARALLEL=1
 ENV OLLAMA_MAX_LOADED_MODELS=1
 
 # =============================================================================
-# PRE-DOWNLOAD MODELS (This is the heavy layer - cached in base image)
-# =============================================================================
-# Start Ollama temporarily, pull models, then stop
-RUN echo "Downloading models: ${MODELS}" && \
-    ollama serve & \
-    sleep 5 && \
-    for model in $(echo $MODELS | tr ',' ' '); do \
-        echo "Pulling $model..."; \
-        ollama pull $model; \
-    done && \
-    pkill ollama || true
-
-# Verify models are downloaded
-RUN echo "Installed models:" && ls -la /root/.ollama/models/manifests/ 2>/dev/null || echo "No manifests found"
-
-# =============================================================================
 # PYTHON ML STACK
 # =============================================================================
 COPY requirements.txt /tmp/requirements.txt
@@ -75,10 +57,9 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r /tmp/requirements.txt
 
 # Pre-download EasyOCR models (English only to save space)
-RUN python3 -c "import easyocr; reader = easyocr.Reader(['en'], gpu=False, verbose=False)" 2>/dev/null || echo "EasyOCR will download models at runtime"
+RUN python3 -c "import easyocr; reader = easyocr.Reader(['en'], gpu=False, verbose=False)" 2>/dev/null || echo "EasyOCR will download at runtime"
 
 EXPOSE 11434 8000
 
 # Base image doesn't run anything - it's just the foundation
 # Main Dockerfile will add app code and set CMD
-# Trigger build: Sun Apr  5 07:20:26 PM CST 2026
