@@ -1,8 +1,83 @@
-__pycache__/
-*.pyc
-.venv/
-tests/
+# Docker Build Context Ignore
+# These files are excluded from COPY . .
+# Smaller context = faster builds
+
+# Git
 .git/
-.github/
+.gitignore
+.gitattributes
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.dmypy.json
+
+# Node (if any)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Local development
+.env
+.env.local
+.env.*.local
 *.log
-CACHE_INVALIDATION=1771606385
+logs/
+tmp/
+temp/
+
+# Documentation
+*.md
+docs/
+README*
+CHANGELOG*
+LICENSE*
+
+# Tests (not needed in production image)
+tests/
+test/
+*_test.py
+*_tests.py
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+azure-pipelines.yml
+
+# Docker itself (prevents recursion)
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Local data (mount as volumes instead)
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Cache files
+.cache/
+*.cache
