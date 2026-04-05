@@ -127,6 +127,56 @@ async def lifespan(app: FastAPI):
         sys.exit(1)
     
     # =============================================================================
+    # Start Ollama (Local LLM)
+    # =============================================================================
+    ollama_started = False
+    if os.getenv("DISABLE_OLLAMA", "false").lower() != "true":
+        try:
+            import subprocess
+            import time
+            
+            # Check if Ollama is already running
+            import aiohttp
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get("http://localhost:11434/api/tags", timeout=2) as resp:
+                        if resp.status == 200:
+                            logger.info("Ollama already running")
+                            ollama_started = True
+            except:
+                pass
+            
+            if not ollama_started:
+                # Start Ollama in background
+                logger.info("Starting Ollama server...")
+                subprocess.Popen(
+                    ["ollama", "serve"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    start_new_session=True
+                )
+                
+                # Wait for Ollama to be ready (max 30 seconds)
+                for i in range(30):
+                    await asyncio.sleep(1)
+                    try:
+                        async with aiohttp.ClientSession() as session:
+                            async with session.get("http://localhost:11434/api/tags", timeout=2) as resp:
+                                if resp.status == 200:
+                                    data = await resp.json()
+                                    models = [m.get("name") for m in data.get("models", [])]
+                                    logger.info("Ollama started successfully", models=models)
+                                    ollama_started = True
+                                    break
+                    except:
+                        pass
+                
+                if not ollama_started:
+                    logger.warning("Ollama failed to start within 30 seconds")
+        except Exception as e:
+            logger.warning("Failed to start Ollama", error=str(e))
+    
+    # =============================================================================
     # Pre-initialize Enhanced Agent (Fix 502 timeout on /chat/completions)
     # =============================================================================
     
@@ -164,6 +214,15 @@ async def lifespan(app: FastAPI):
     if local_watcher:
         from app.platform.local_filesystem.watcher import stop_watcher
         stop_watcher()
+    
+    # Shutdown Ollama
+    if ollama_started:
+        try:
+            import subprocess
+            subprocess.run(["pkill", "-f", "ollama serve"], capture_output=True)
+            logger.info("Ollama stopped")
+        except:
+            pass
     
     # Shutdown
     logger.info("Shutting down Cerebrum AI Platform")
