@@ -1,6 +1,8 @@
 # Cerebrum API - Uses pre-built ML base image with Ollama
 # Heavy ML deps (torch, chromadb, etc.) are cached in the base image
 # Ollama runs locally for air-gapped LLM inference
+# 
+# OPTIMIZED FOR RENDER: Heavy installs are early (cached), code is late (frequent changes)
 
 FROM ghcr.io/bopoadz-del/cerebrum-ml-base:latest
 
@@ -12,7 +14,9 @@ ENV OLLAMA_HOST=http://localhost:11434
 
 WORKDIR /app
 
-# Install PostgreSQL client, Tesseract OCR, and Ollama dependencies
+# =============================================================================
+# LAYER 1: System dependencies (rarely changes - heavily cached)
+# =============================================================================
 RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     gnupg \
@@ -29,61 +33,37 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr-jpn \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Ollama
-RUN curl -fsSL https://ollama.com/install.sh | sh
+# =============================================================================
+# LAYER 2: Ollama installation (rarely changes - heavily cached)
+# =============================================================================
+RUN curl -fsSL https://ollama.com/install.sh | sh && \
+    mkdir -p /root/.ollama/models
 
-# Create Ollama models directory
-RUN mkdir -p /root/.ollama/models
-
-# Add PostgreSQL 18 repo for matching pg_dump version
+# =============================================================================
+# LAYER 3: PostgreSQL client (rarely changes - cached)
+# =============================================================================
 RUN wget --quiet -O /usr/share/keyrings/postgresql.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc && \
     echo "deb [signed-by=/usr/share/keyrings/postgresql.asc] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list && \
     apt-get update && \
     apt-get install -y postgresql-client-18 && \
     rm -rf /var/lib/apt/lists/*
 
-# Install lightweight app dependencies (ML deps already in base image)
-# Use cache mount for pip packages (persistent across builds)
+# =============================================================================
+# LAYER 4: Python dependencies (changes when requirements.txt changes - cached)
+# =============================================================================
 COPY requirements.txt .
 RUN --mount=type=cache,target=/data/pip-cache \
     pip install --upgrade pip && \
     pip install -r requirements.txt
 
-# Cache-bust layer
+# =============================================================================
+# LAYER 5: Application code (changes frequently - NOT cached)
+# =============================================================================
 COPY .docker_nocache /tmp/.docker_nocache
 COPY websocket_diagnostic.py .
+COPY start.sh /app/start.sh
+RUN chmod +x /app/start.sh
 COPY . .
-
-# Create startup script that runs Ollama + FastAPI
-RUN echo '#!/bin/bash\n\
-# Start Ollama in background\n\
-ollama serve &\n\
-OLLAMA_PID=$!\n\
-\n\
-# Wait for Ollama to be ready\n\
-echo "Waiting for Ollama..."\n\
-for i in {1..30}; do\n\
-    if curl -s http://localhost:11434/api/tags > /dev/null 2>&1; then\n\
-        echo "Ollama ready!"\n\
-        break\n\
-    fi\n\
-    sleep 1\n\
-done\n\
-\n\
-# Pull models on first run (Render ephemeral filesystem)\n\
-echo "Checking models..."\n\
-if ! ollama list | grep -q "gemma3:270m"; then\n\
-    echo "Pulling gemma3:270m (this may take a few minutes)..."\n\
-    ollama pull gemma3:270m\n\
-fi\n\
-if ! ollama list | grep -q "qwen2.5:0.5b"; then\n\
-    echo "Pulling qwen2.5:0.5b (this may take a few minutes)..."\n\
-    ollama pull qwen2.5:0.5b\n\
-fi\n\
-\n\
-echo "Models ready. Starting FastAPI..."\n\
-exec uvicorn app.main:app --host 0.0.0.0 --port 8000\n\
-' > /app/start.sh && chmod +x /app/start.sh
 
 EXPOSE 8000
 
