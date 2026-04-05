@@ -118,6 +118,38 @@ async def health_metrics() -> Dict[str, Any]:
     }
 
 
+@router.get("/ollama", status_code=status.HTTP_200_OK)
+async def ollama_health() -> Dict[str, Any]:
+    """Ollama (Local LLM) health check."""
+    import aiohttp
+    
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get("http://localhost:11434/api/tags", timeout=5) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    models = [m.get("name") for m in data.get("models", [])]
+                    return {
+                        "ok": True,
+                        "service": "ollama",
+                        "version": "0.5.7",
+                        "models": models,
+                        "model_count": len(models),
+                    }
+                else:
+                    return {
+                        "ok": False,
+                        "service": "ollama",
+                        "error": f"HTTP {resp.status}",
+                    }
+    except Exception as e:
+        return {
+            "ok": False,
+            "service": "ollama",
+            "error": str(e),
+        }
+
+
 # =============================================================================
 # Standard Kubernetes/Render Health Check Aliases
 # =============================================================================
