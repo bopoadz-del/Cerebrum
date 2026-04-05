@@ -1,18 +1,25 @@
-name: Build ML Base Image
+name: Build ML Base Image with Ollama
 
 on:
-  # Manual trigger
+  # Manual trigger only (for now)
   workflow_dispatch:
+    inputs:
+      models:
+        description: 'Models to pre-download (comma-separated)'
+        required: true
+        default: 'gemma3:270m,nomic-embed-text'
+        type: string
   
   # Weekly rebuild (Sunday at 2 AM UTC)
   schedule:
     - cron: '0 2 * * 0'
   
-  # When requirements-ml.txt changes
+  # When base Dockerfile or requirements change
   push:
+    branches: [main]
     paths:
-      - 'backend/requirements-ml.txt'
-      - 'Dockerfile.base'
+      - 'backend/requirements.txt'
+      - 'backend/Dockerfile.base'
 
 env:
   REGISTRY: ghcr.io
@@ -45,16 +52,27 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=latest
-            type=sha,prefix=,suffix=,format=short
+            type=raw,value=ollama
+            type=raw,value=ollama-${{ github.run_number }}
+            type=sha,prefix=ollama-,format=short
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: .
-          file: ./Dockerfile.base
+          context: ./backend
+          file: ./backend/Dockerfile.base
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          build-args: |
+            MODELS=${{ github.event.inputs.models || 'gemma3:270m,nomic-embed-text' }}
+
+      - name: Image summary
+        run: |
+          echo "✅ Base image built successfully!"
+          echo "Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ollama"
+          echo ""
+          echo "To use in your main Dockerfile:"
+          echo "  FROM ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ollama"
