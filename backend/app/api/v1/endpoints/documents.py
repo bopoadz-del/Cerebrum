@@ -1226,3 +1226,46 @@ async def enhanced_ocr_endpoint(
     except Exception as e:
         logger.error(f"Enhanced OCR failed: {e}")
         raise HTTPException(status_code=500, detail=f"OCR failed: {str(e)}")
+
+
+@router.post("/classify")
+async def classify_document_endpoint(
+    file: UploadFile = File(...),
+    use_llm: bool = Form(default=True, description="Use LLM for classification"),
+    current_user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """
+    Classify document type using ML (local LLM) with rule-based fallback.
+    
+    Detects document types:
+    - invoice, receipt, contract, change_order
+    - safety_report, daily_report
+    - blueprint, specification, submittal
+    - rfi, rfq, permit
+    - meeting_minutes, correspondence
+    
+    Returns document type, category, confidence, and key indicators.
+    """
+    try:
+        from app.pipelines.document_classification_v2 import DocumentClassificationPipeline
+        
+        # Read file
+        content = await file.read()
+        
+        if len(content) == 0:
+            raise HTTPException(status_code=400, detail="Empty file")
+        
+        if len(content) > 20 * 1024 * 1024:  # 20MB limit
+            raise HTTPException(status_code=413, detail="File too large (max 20MB)")
+        
+        # Classify
+        pipeline = DocumentClassificationPipeline(use_llm=use_llm)
+        result = await pipeline.classify(content, file.filename)
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Document classification failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Classification failed: {str(e)}")
