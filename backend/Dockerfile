@@ -8,19 +8,19 @@ ENV OLLAMA_MODELS=/root/.ollama/models
 
 WORKDIR /app
 
-# System dependencies + Tesseract OCR
+# System dependencies + Tesseract OCR + lsb-release for PostgreSQL repo
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    wget curl ca-certificates \
+    wget curl ca-certificates lsb-release \
     tesseract-ocr tesseract-ocr-eng \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Ollama binary directly from ollama.com
-RUN curl -L https://ollama.com/download/ollama-linux-amd64 -o /usr/local/bin/ollama \
+# Install Ollama binary (follow redirects with -L)
+RUN curl -fsSL https://ollama.com/download/ollama-linux-amd64 -o /usr/local/bin/ollama \
     && chmod +x /usr/local/bin/ollama
 
 # PostgreSQL client
 RUN wget --quiet -O /usr/share/keyrings/postgresql.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc \
-    && echo "deb [signed-by=/usr/share/keyrings/postgresql.asc] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
+    && echo "deb [signed-by=/usr/share/keyrings/postgresql.asc] http://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
     && apt-get update \
     && apt-get install -y --no-install-recommends postgresql-client-18 \
     && rm -rf /var/lib/apt/lists/*
