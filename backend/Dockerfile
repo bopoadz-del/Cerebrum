@@ -8,7 +8,7 @@ ENV OLLAMA_MODELS=/root/.ollama/models
 
 WORKDIR /app
 
-# System dependencies + Tesseract OCR
+# System dependencies + Tesseract OCR + PostgreSQL client
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl ca-certificates \
     tesseract-ocr tesseract-ocr-eng \
@@ -21,8 +21,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # App code
 COPY . .
+RUN chmod +x start.sh
 
 EXPOSE 8000 11434
 
-# Start FastAPI (Ollama installs at runtime via main.py with proper arch detection)
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Render overrides this, but we keep it for reference
+CMD ["./start.sh"]

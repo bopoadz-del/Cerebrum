@@ -127,81 +127,58 @@ async def lifespan(app: FastAPI):
         sys.exit(1)
     
     # =============================================================================
-    # Start Ollama (Local LLM) - Install at runtime if needed
+    # Start Ollama (Local LLM) - Check if already running
     # =============================================================================
     ollama_started = False
     if os.getenv("DISABLE_OLLAMA", "false").lower() != "true":
         try:
             import subprocess
-            import time
             import shutil
-            
-            # Check if Ollama binary exists and install if needed
-            ollama_path = shutil.which("ollama")
-            if not ollama_path:
-                logger.info("Ollama not found, installing...")
-                # Install Ollama using official install script (detects architecture)
-                install_result = subprocess.run(
-                    ["curl", "-fsSL", "https://ollama.com/install.sh"],
-                    capture_output=True,
-                    text=True,
-                    timeout=120
-                )
-                if install_result.returncode == 0:
-                    # Run the install script
-                    script_result = subprocess.run(
-                        ["sh"],
-                        input=install_result.stdout,
-                        capture_output=True,
-                        text=True,
-                        timeout=180
-                    )
-                    if script_result.returncode == 0:
-                        logger.info("Ollama installed successfully")
-                        ollama_path = shutil.which("ollama") or "/usr/local/bin/ollama"
-                    else:
-                        logger.warning("Ollama install script failed", stderr=script_result.stderr[:200])
-                else:
-                    logger.warning("Failed to download Ollama install script")
-            
-            # Check if Ollama is already running
             import aiohttp
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.get("http://localhost:11434/api/tags", timeout=2) as resp:
-                        if resp.status == 200:
-                            logger.info("Ollama already running")
-                            ollama_started = True
-            except:
-                pass
             
-            if not ollama_started and ollama_path:
-                # Start Ollama in background
-                logger.info("Starting Ollama server...")
-                subprocess.Popen(
-                    [ollama_path, "serve"],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                    start_new_session=True
-                )
-                
-                # Wait for Ollama to be ready (max 30 seconds)
-                for i in range(30):
-                    await asyncio.sleep(1)
-                    try:
-                        async with aiohttp.ClientSession() as session:
-                            async with session.get("http://localhost:11434/api/tags", timeout=2) as resp:
-                                if resp.status == 200:
-                                    data = await resp.json()
-                                    models = [m.get("name") for m in data.get("models", [])]
-                                    logger.info("Ollama started successfully", models=models)
-                                    ollama_started = True
-                                    break
-                    except:
-                        pass
+            # Check if Ollama binary exists
+            ollama_path = shutil.which("ollama")
+            
+            if ollama_path:
+                # Check if Ollama is already running
+                try:
+                    async with aiohttp.ClientSession() as session:
+                        async with session.get("http://localhost:11434/api/tags", timeout=2) as resp:
+                            if resp.status == 200:
+                                logger.info("Ollama already running")
+                                ollama_started = True
+                except:
+                    pass
                 
                 if not ollama_started:
-                    logger.warning("Ollama failed to start within 30 seconds")
+                    # Start Ollama in background
+                    logger.info("Starting Ollama server...")
+                    subprocess.Popen(
+                        [ollama_path, "serve"],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        start_new_session=True
+                    )
+                    
+                    # Wait for Ollama to be ready (max 30 seconds)
+                    for i in range(30):
+                        await asyncio.sleep(1)
+                        try:
+                            async with aiohttp.ClientSession() as session:
+                                async with session.get("http://localhost:11434/api/tags", timeout=2) as resp:
+                                    if resp.status == 200:
+                                        data = await resp.json()
+                                        models = [m.get("name") for m in data.get("models", [])]
+                                        logger.info("Ollama started successfully", models=models)
+                                        ollama_started = True
+                                        break
+                        except:
+                            pass
+                    
+                    if not ollama_started:
+                        logger.warning("Ollama failed to start within 30 seconds")
+            else:
+                logger.info("Ollama not installed - skipping (install via Render shell if needed)")
         except Exception as e:
             logger.warning("Failed to start Ollama", error=str(e))
     
