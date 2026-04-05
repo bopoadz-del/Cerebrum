@@ -8,13 +8,16 @@ echo "========================================"
 echo "Cerebrum API + Ollama Startup"
 echo "========================================"
 
+# Default models to download
+MODELS="${OLLAMA_MODELS:-gemma3:270m nomic-embed-text}"
+
 # Start Ollama in background
-echo "[1/3] Starting Ollama server..."
+echo "[1/4] Starting Ollama server..."
 ollama serve &
 OLLAMA_PID=$!
 
 # Wait for Ollama to be ready
-echo "[2/3] Waiting for Ollama to be ready..."
+echo "[2/4] Waiting for Ollama to be ready..."
 for i in {1..30}; do
     if curl -s http://localhost:11434/api/tags > /dev/null 2>&1; then
         echo "✓ Ollama is ready"
@@ -27,9 +30,23 @@ for i in {1..30}; do
     sleep 1
 done
 
+# Pull models if they don't exist
+echo "[3/4] Checking/pulling models: $MODELS"
+for model in $MODELS; do
+    if ! ollama list | grep -q "$model"; then
+        echo "  → Pulling $model..."
+        ollama pull $model
+        echo "  ✓ $model ready"
+    else
+        echo "  ✓ $model already exists"
+    fi
+done
+
 # List available models
-echo "[3/3] Available models:"
-curl -s http://localhost:11434/api/tags | python3 -c "import sys, json; data=json.load(sys.stdin); print('\n'.join([f'  - {m[\"name\"]}' for m in data.get('models', [])]))" || echo "  (Could not list models)"
+echo "[4/4] Available models:"
+ollama list | tail -n +2 | while read line; do
+    echo "  → $line"
+done
 
 echo ""
 echo "========================================"
