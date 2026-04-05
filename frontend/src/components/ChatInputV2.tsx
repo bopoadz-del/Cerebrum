@@ -36,6 +36,9 @@ interface ChatInputV2Props {
   isLoading?: boolean;
   placeholder?: string;
   isUploading?: boolean;
+  webSearchEnabled?: boolean;
+  codeModeEnabled?: boolean;
+  imageModeEnabled?: boolean;
 }
 
 const menuItems = [
@@ -61,6 +64,9 @@ export function ChatInputV2({
   isLoading = false,
   placeholder = 'Type a message...',
   isUploading = false,
+  webSearchEnabled = false,
+  codeModeEnabled = false,
+  imageModeEnabled = false,
 }: ChatInputV2Props) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isVoiceRecorderOpen, setIsVoiceRecorderOpen] = useState(false);

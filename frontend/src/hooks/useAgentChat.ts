@@ -72,6 +72,8 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
   const [isLoading, setIsLoading] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
+  const [codeModeEnabled, setCodeModeEnabled] = useState(false);
+  const [imageModeEnabled, setImageModeEnabled] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [currentLayer, setCurrentLayer] = useState<string>('coding');
   
@@ -800,6 +802,10 @@ Just type your request and I'll route it to the appropriate layer!`;
     currentLayer,
     webSearchEnabled,
     setWebSearchEnabled,
+    codeModeEnabled,
+    setCodeModeEnabled,
+    imageModeEnabled,
+    setImageModeEnabled,
     sendMessage,
     addAttachment,
     removeAttachment,

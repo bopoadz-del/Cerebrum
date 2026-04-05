@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Layers, Brain, Bot, Globe } from 'lucide-react';
+import { Plus, Layers, Brain, Bot, Globe, Code2, Image as ImageIcon } from 'lucide-react';
 import { ChatMessage } from './ChatMessage';
 import { ChatInputV2 } from './ChatInputV2';
 import { SmartContextToggle } from './SmartContextToggle';
@@ -36,6 +36,10 @@ export function AgentChatInterface({ projectName, chatTitle, onNewChat, sessionT
     currentLayer,
     webSearchEnabled,
     setWebSearchEnabled,
+    codeModeEnabled,
+    setCodeModeEnabled,
+    imageModeEnabled,
+    setImageModeEnabled,
     sendMessage,
     addAttachment,
     removeAttachment,
@@ -127,10 +131,40 @@ export function AgentChatInterface({ projectName, chatTitle, onNewChat, sessionT
                 ? "bg-blue-100 text-blue-700 border border-blue-200"
                 : "bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200"
             )}
-            title={webSearchEnabled ? "Web search enabled - query will be sent to Brave Search" : "Enable web search"}
+            title={webSearchEnabled ? "Web search enabled" : "Enable web search"}
           >
             <Globe className={cn("w-4 h-4", webSearchEnabled && "text-blue-600")} />
-            {webSearchEnabled ? 'Search' : 'Search'}
+            Search
+          </button>
+
+          {/* Code Mode Toggle */}
+          <button
+            onClick={() => setCodeModeEnabled(!codeModeEnabled)}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
+              codeModeEnabled
+                ? "bg-purple-100 text-purple-700 border border-purple-200"
+                : "bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200"
+            )}
+            title={codeModeEnabled ? "Code mode enabled" : "Enable code mode"}
+          >
+            <Code2 className={cn("w-4 h-4", codeModeEnabled && "text-purple-600")} />
+            Code
+          </button>
+
+          {/* Image Mode Toggle */}
+          <button
+            onClick={() => setImageModeEnabled(!imageModeEnabled)}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
+              imageModeEnabled
+                ? "bg-green-100 text-green-700 border border-green-200"
+                : "bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200"
+            )}
+            title={imageModeEnabled ? "Image analysis enabled" : "Enable image mode"}
+          >
+            <ImageIcon className={cn("w-4 h-4", imageModeEnabled && "text-green-600")} />
+            Image
           </button>
           
           <SmartContextToggle onToggle={handleSmartContextToggle} />
@@ -230,6 +264,9 @@ export function AgentChatInterface({ projectName, chatTitle, onNewChat, sessionT
           isUploading={isUploading}
           attachments={attachments}
           onRemoveAttachment={removeAttachment}
+          webSearchEnabled={webSearchEnabled}
+          codeModeEnabled={codeModeEnabled}
+          imageModeEnabled={imageModeEnabled}
           placeholder="Ask the agent anything... (try: Calculate drywall costs, /agent help)"
         />
       </div>
