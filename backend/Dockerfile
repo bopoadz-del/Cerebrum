@@ -57,3 +57,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
 CMD ["./start.sh"]
+# Base image: Sun Apr  5 08:12:20 PM CST 2026
