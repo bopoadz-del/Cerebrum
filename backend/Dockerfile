@@ -5,7 +5,6 @@ ENV PYTHONUNBUFFERED=1
 ENV ENVIRONMENT=production
 ENV OLLAMA_HOST=0.0.0.0:11434
 ENV OLLAMA_MODELS=/root/.ollama/models
-ENV PATH="/usr/local/bin:${PATH}"
 
 WORKDIR /app
 
@@ -15,10 +14,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr tesseract-ocr-eng \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Ollama binary directly (faster, no install script)
-RUN curl -L https://github.com/ollama/ollama/releases/download/v0.5.7/ollama-linux-amd64 -o /usr/local/bin/ollama \
-    && chmod +x /usr/local/bin/ollama \
-    && ollama --version
+# Install Ollama binary directly from ollama.com
+RUN curl -L https://ollama.com/download/ollama-linux-amd64 -o /usr/local/bin/ollama \
+    && chmod +x /usr/local/bin/ollama
 
 # PostgreSQL client
 RUN wget --quiet -O /usr/share/keyrings/postgresql.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc \
