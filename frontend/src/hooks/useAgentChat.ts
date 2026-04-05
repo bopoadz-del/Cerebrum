@@ -62,34 +62,7 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
     {
       id: 'welcome',
       role: 'assistant',
-      content: `👋 **Welcome to Cerebrum AI Agent!**
-
-I'm your autonomous construction intelligence assistant. I can:
-
-**🏗️ Construction Tasks:**
-• Analyze BIM models and extract quantities
-• Calculate costs using RSMeans data
-• Check for design clashes
-• Generate material takeoffs
-
-**🤖 Agent Capabilities:**
-• Search through project history and conversations (use \`/search\`)
-• Navigate between system layers (coding, economics, VDC, etc.)
-• Self-modify to add new features
-• Enhance and improve my own code
-
-**💬 Try asking:**
-• "Calculate drywall costs for Building A"
-• "Search for previous foundation discussions" (use \`/search\`)
-• "What layers are available?"
-• "Analyze this invoice and flag discrepancies"
-
-**🛠️ Agent Commands:**
-• \`/agent status\` - Check agent status
-• \`/agent layers\` - List available layers
-• \`/agent enhance\` - Analyze and improve code quality
-
-How can I help you today?`,
+      content: 'What would you like to know?',
       timestamp: new Date().toISOString(),
     },
     ...initialMessages,

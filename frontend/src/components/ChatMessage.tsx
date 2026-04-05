@@ -5,7 +5,6 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { CodeExecutionDisplay } from './CodeExecutionDisplay';
-import { ReasoningDisplay } from './ReasoningDisplay';
 import type { Message } from '@/types';
 
 interface ChatMessageProps {
@@ -80,19 +79,6 @@ export function ChatMessage({
             <MarkdownRenderer content={message.content} />
           )}
         </div>
-
-        {/* Reasoning Display */}
-        {!isUser && message.reasoning && (
-          <ReasoningDisplay 
-            reasoning={{
-              steps: message.reasoning,
-              toolsConsidered: message.reasoning
-                .filter(r => r.type === 'tool')
-                .map(r => r.content),
-              whyThisAnswer: 'Based on the reasoning steps above',
-            }} 
-          />
-        )}
 
         {/* Attachments */}
         {message.attachments && message.attachments.length > 0 && (

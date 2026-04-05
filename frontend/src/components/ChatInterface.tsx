@@ -16,6 +16,8 @@ interface ChatInterfaceProps {
   messages: Message[];
   onSendMessage: (content: string, attachments?: Attachment[]) => void;
   onFileUpload?: (file: File) => void;
+  onClearChat?: () => void;
+  onExportChat?: () => void;
   isLoading?: boolean;
   className?: string;
   enableFileUpload?: boolean;
@@ -28,6 +30,8 @@ export function ChatInterface({
   messages,
   onSendMessage,
   onFileUpload,
+  onClearChat,
+  onExportChat,
   isLoading = false,
   className,
   enableFileUpload = true,
@@ -94,6 +98,28 @@ export function ChatInterface({
         </div>
         
         <div className="flex items-center gap-2">
+          {onExportChat && (
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="text-gray-500"
+              onClick={onExportChat}
+              title="Export chat"
+            >
+              <Download className="w-5 h-5" />
+            </Button>
+          )}
+          {onClearChat && (
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="text-gray-500"
+              onClick={onClearChat}
+              title="Clear chat"
+            >
+              <Trash2 className="w-5 h-5" />
+            </Button>
+          )}
           <Button variant="ghost" size="icon" className="text-gray-500">
             <Settings className="w-5 h-5" />
           </Button>
@@ -104,16 +130,8 @@ export function ChatInterface({
       <ScrollArea ref={scrollAreaRef} className="flex-1 px-4 py-4">
         <div className="space-y-4 max-w-3xl mx-auto">
           {messages.length === 0 && (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mx-auto mb-4">
-                <Sparkles className="w-8 h-8 text-white" />
-              </div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">
-                Welcome to Cerebrum AI
-              </h2>
-              <p className="text-gray-500 max-w-md mx-auto">
-                Your construction intelligence assistant. Ask about costs, formulas, or upload documents for analysis.
-              </p>
+            <div className="text-center py-12 text-gray-400">
+              Start a conversation...
             </div>
           )}
 
