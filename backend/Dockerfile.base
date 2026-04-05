@@ -81,3 +81,4 @@ EXPOSE 11434 8000
 
 # Base image doesn't run anything - it's just the foundation
 # Main Dockerfile will add app code and set CMD
+# Trigger build: Sun Apr  5 07:20:26 PM CST 2026
