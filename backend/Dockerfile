@@ -3,6 +3,9 @@ FROM python:3.11-slim-bookworm
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV ENVIRONMENT=production
+ENV OLLAMA_HOST=0.0.0.0:11434
+ENV OLLAMA_MODELS=/root/.ollama/models
+ENV PATH="/usr/local/bin:${PATH}"
 
 WORKDIR /app
 
@@ -12,10 +15,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr tesseract-ocr-eng \
     && rm -rf /var/lib/apt/lists/*
 
-# Ollama install (runtime download)
-RUN curl -fsSL https://ollama.com/install.sh | sh
-ENV OLLAMA_HOST=0.0.0.0:11434
-ENV OLLAMA_MODELS=/root/.ollama/models
+# Install Ollama binary directly (not via install script)
+RUN curl -L https://github.com/ollama/ollama/releases/download/v0.5.7/ollama-linux-amd64 -o /usr/local/bin/ollama && \
+    chmod +x /usr/local/bin/ollama && \
+    ollama --version
 
 # PostgreSQL client
 RUN wget --quiet -O /usr/share/keyrings/postgresql.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc && \
