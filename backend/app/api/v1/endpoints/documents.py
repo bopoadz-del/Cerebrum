@@ -1107,3 +1107,122 @@ async def get_zvec_stats_legacy(
 ) -> Dict[str, Any]:
     """Legacy endpoint - redirects to ChromaDB stats."""
     return await get_chroma_stats(current_user)
+
+
+# =============================================================================
+# Phase 3.2: Enhanced Document Extraction
+# =============================================================================
+
+@router.post("/extract")
+async def extract_document_data_endpoint(
+    file: UploadFile = File(...),
+    doc_type: Optional[str] = Form(default=None, description="Document type: invoice, receipt, contract"),
+    use_llm: bool = Form(default=True, description="Use LLM for extraction"),
+    current_user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """
+    Extract structured data from documents using OCR + LLM.
+    
+    Supports invoices, receipts, contracts with automatic field extraction:
+    - Invoice: vendor, invoice_number, dates, amounts, line_items
+    - Receipt: merchant, date, items, total
+    - Contract: parties, dates, value, key_terms
+    
+    Uses local LLM (Ollama) with rule-based fallback for reliability.
+    """
+    try:
+        from app.pipelines.document_extraction import DocumentExtractionPipeline, DocumentType
+        
+        # Read file
+        content = await file.read()
+        
+        if len(content) == 0:
+            raise HTTPException(status_code=400, detail="Empty file")
+        
+        if len(content) > 20 * 1024 * 1024:  # 20MB limit
+            raise HTTPException(status_code=413, detail="File too large (max 20MB)")
+        
+        # Parse document type
+        doc_type_enum = None
+        if doc_type:
+            try:
+                doc_type_enum = DocumentType(doc_type.lower())
+            except ValueError:
+                pass
+        
+        # Extract
+        pipeline = DocumentExtractionPipeline(use_llm=use_llm)
+        result = await pipeline.extract_document(content, file.filename, doc_type_enum)
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Document extraction failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Extraction failed: {str(e)}")
+
+
+@router.post("/extract/enhanced-ocr")
+async def enhanced_ocr_endpoint(
+    file: UploadFile = File(...),
+    language: str = Form(default="eng"),
+    mode: str = Form(default="auto", description="OCR mode: auto, tesseract, easyocr"),
+    deskew: bool = Form(default=True),
+    current_user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """
+    Enhanced OCR with deskewing, contrast enhancement, and multi-engine support.
+    
+    Features:
+    - Automatic deskewing (rotation correction)
+    - CLAHE contrast enhancement
+    - Auto-selection between Tesseract (documents) and EasyOCR (scene text)
+    - Better accuracy for scanned and photographed documents
+    """
+    try:
+        from app.pipelines.ocr import EnhancedOCR, OCREngine, OCRLanguage, OCRMode as OCRModeEnum
+        
+        # Read file
+        content = await file.read()
+        
+        if len(content) == 0:
+            raise HTTPException(status_code=400, detail="Empty file")
+        
+        if len(content) > 10 * 1024 * 1024:  # 10MB limit for OCR
+            raise HTTPException(status_code=413, detail="File too large (max 10MB)")
+        
+        # Determine engine
+        engine_map = {
+            "auto": OCREngine.AUTO,
+            "tesseract": OCREngine.TESSERACT,
+            "easyocr": OCREngine.EASYOCR
+        }
+        engine = engine_map.get(mode.lower(), OCREngine.AUTO)
+        
+        # Process
+        ocr = EnhancedOCR(default_engine=engine)
+        
+        lang = OCRLanguage(language) if language in [l.value for l in OCRLanguage] else OCRLanguage.ENGLISH
+        
+        if file.filename.lower().endswith('.pdf'):
+            result = await ocr.process_pdf(content, language=lang)
+        else:
+            result = await ocr.process_image(content, language=lang, engine=engine)
+        
+        return {
+            "text": result.text,
+            "confidence": result.confidence,
+            "language": result.language,
+            "word_count": result.word_count,
+            "page_count": result.page_count,
+            "processing_time": result.processing_time,
+            "engine_used": result.metadata.get("engine", "tesseract"),
+            "blocks": [b.to_dict() for b in result.blocks]
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Enhanced OCR failed: {e}")
+        raise HTTPException(status_code=500, detail=f"OCR failed: {str(e)}")
