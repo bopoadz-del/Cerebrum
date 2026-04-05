@@ -32,20 +32,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install Ollama
 RUN curl -fsSL https://ollama.com/install.sh | sh
 
+# Create Ollama models directory
+RUN mkdir -p /root/.ollama/models
+
 # Add PostgreSQL 18 repo for matching pg_dump version
 RUN wget --quiet -O /usr/share/keyrings/postgresql.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc && \
     echo "deb [signed-by=/usr/share/keyrings/postgresql.asc] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list && \
     apt-get update && \
     apt-get install -y postgresql-client-18 && \
     rm -rf /var/lib/apt/lists/*
-
-# Pull small Ollama models (gemma3:270m is ~200MB, qwen2.5:0.5b is ~400MB)
-# Start Ollama temporarily to pull models
-RUN ollama serve & \
-    sleep 5 && \
-    ollama pull gemma3:270m && \
-    ollama pull qwen2.5:0.5b && \
-    pkill ollama
 
 # Install lightweight app dependencies (ML deps already in base image)
 # Use cache mount for pip packages (persistent across builds)
@@ -75,7 +70,18 @@ for i in {1..30}; do\n\
     sleep 1\n\
 done\n\
 \n\
-# Start FastAPI\n\
+# Pull models on first run (Render ephemeral filesystem)\n\
+echo "Checking models..."\n\
+if ! ollama list | grep -q "gemma3:270m"; then\n\
+    echo "Pulling gemma3:270m (this may take a few minutes)..."\n\
+    ollama pull gemma3:270m\n\
+fi\n\
+if ! ollama list | grep -q "qwen2.5:0.5b"; then\n\
+    echo "Pulling qwen2.5:0.5b (this may take a few minutes)..."\n\
+    ollama pull qwen2.5:0.5b\n\
+fi\n\
+\n\
+echo "Models ready. Starting FastAPI..."\n\
 exec uvicorn app.main:app --host 0.0.0.0 --port 8000\n\
 ' > /app/start.sh && chmod +x /app/start.sh
 
