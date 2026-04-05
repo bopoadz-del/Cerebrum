@@ -13,7 +13,9 @@ logger = get_logger(__name__)
 
 # Ollama configuration
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-DEFAULT_MODEL = os.getenv("LOCAL_LLM_MODEL", "llama3.2:1b")  # 800MB vs 2GB
+# Use smallest model for Render Starter tier (270M params, ~200MB)
+# Can upgrade to qwen2.5:0.5b (~400MB) or llama3.2:1b (1.3GB) if needed
+DEFAULT_MODEL = os.getenv("LOCAL_LLM_MODEL", "gemma3:270m")
 
 
 class LocalLLMService:
