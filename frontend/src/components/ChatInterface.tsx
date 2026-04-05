@@ -18,6 +18,8 @@ interface ChatInterfaceProps {
   onFileUpload?: (file: File) => void;
   onClearChat?: () => void;
   onExportChat?: () => void;
+  onRegenerate?: (messageIndex: number) => void;
+  onFeedback?: (messageIndex: number, type: 'up' | 'down') => void;
   isLoading?: boolean;
   className?: string;
   enableFileUpload?: boolean;
@@ -32,6 +34,8 @@ export function ChatInterface({
   onFileUpload,
   onClearChat,
   onExportChat,
+  onRegenerate,
+  onFeedback,
   isLoading = false,
   className,
   enableFileUpload = true,
@@ -79,6 +83,50 @@ export function ChatInterface({
     }
   };
 
+  const handleClearChat = () => {
+    if (onClearChat) {
+      onClearChat();
+    }
+    setAttachments([]);
+    setInput('');
+  };
+
+  const handleExportChat = () => {
+    if (onExportChat) {
+      onExportChat();
+      return;
+    }
+    // Default export implementation
+    const exportData = {
+      exportedAt: new Date().toISOString(),
+      messages: messages,
+    };
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `cerebrum-chat-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleRegenerate = (index: number) => {
+    if (onRegenerate) {
+      onRegenerate(index);
+    }
+  };
+
+  const handleFeedback = (index: number, type: 'up' | 'down') => {
+    if (onFeedback) {
+      onFeedback(index, type);
+    }
+    // Store feedback in localStorage for now
+    const feedbackKey = `feedback-${messages[index]?.id || index}`;
+    localStorage.setItem(feedbackKey, type);
+  };
+
   const handleRemoveAttachment = (id: string) => {
     setAttachments(prev => prev.filter(att => att.id !== id));
   };
@@ -103,7 +151,7 @@ export function ChatInterface({
               variant="ghost" 
               size="icon" 
               className="text-gray-500"
-              onClick={onExportChat}
+              onClick={handleExportChat}
               title="Export chat"
             >
               <Download className="w-5 h-5" />
@@ -114,7 +162,7 @@ export function ChatInterface({
               variant="ghost" 
               size="icon" 
               className="text-gray-500"
-              onClick={onClearChat}
+              onClick={handleClearChat}
               title="Clear chat"
             >
               <Trash2 className="w-5 h-5" />
@@ -140,6 +188,8 @@ export function ChatInterface({
               key={message.id || index}
               message={message}
               isLoading={isLoading && index === messages.length - 1 && message.role === 'assistant'}
+              onRegenerate={() => handleRegenerate(index)}
+              onFeedback={(type) => handleFeedback(index, type)}
             />
           ))}
           
