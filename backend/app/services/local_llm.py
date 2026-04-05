@@ -13,7 +13,7 @@ logger = get_logger(__name__)
 
 # Ollama configuration
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-DEFAULT_MODEL = os.getenv("LOCAL_LLM_MODEL", "llama3.2")
+DEFAULT_MODEL = os.getenv("LOCAL_LLM_MODEL", "llama3.2:1b")  # 800MB vs 2GB
 
 
 class LocalLLMService:
