@@ -33,10 +33,23 @@ try:
 except ImportError:
     CV2_AVAILABLE = False
 
+try:
+    import easyocr
+    EASYOCR_AVAILABLE = True
+except ImportError:
+    EASYOCR_AVAILABLE = False
+
 from app.core.logging import get_logger
 from app.core.config import settings
 
 logger = get_logger(__name__)
+
+
+class OCREngine(Enum):
+    """Available OCR engines."""
+    TESSERACT = "tesseract"
+    EASYOCR = "easyocr"
+    AUTO = "auto"  # Select best based on content
 
 
 class OCRLanguage(Enum):
@@ -299,12 +312,13 @@ class TesseractOCR:
             logger.error(f"PDF OCR processing failed: {e}")
             raise
     
-    async def _preprocess_image(self, image: Image.Image) -> Image.Image:
+    async def _preprocess_image(self, image: Image.Image, deskew: bool = True) -> Image.Image:
         """
-        Preprocess image for better OCR results.
+        Preprocess image for better OCR results with deskewing and enhancement.
         
         Args:
             image: PIL Image
+            deskew: Whether to apply deskewing
         
         Returns:
             Preprocessed image
@@ -316,26 +330,95 @@ class TesseractOCR:
             # Convert PIL to OpenCV format
             img_array = np.array(image)
             
+            # Deskew if requested
+            if deskew:
+                img_array = await self._deskew_image(img_array)
+            
             # Convert to grayscale if needed
             if len(img_array.shape) == 3:
                 gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
             else:
                 gray = img_array
             
+            # Enhance contrast with CLAHE
+            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+            enhanced = clahe.apply(gray)
+            
             # Denoise
-            denoised = cv2.fastNlMeansDenoising(gray, None, 10, 7, 21)
+            denoised = cv2.fastNlMeansDenoising(enhanced, None, 10, 7, 21)
             
             # Adaptive thresholding
             binary = cv2.adaptiveThreshold(
                 denoised, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                cv2.THRESH_BINARY, 11, 2
+                cv2.THRESH_BINARY, 15, 10
             )
             
+            # Morphological cleanup
+            kernel = np.ones((2, 2), np.uint8)
+            cleaned = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
+            
             # Convert back to PIL
-            return Image.fromarray(binary)
+            return Image.fromarray(cleaned)
             
         except Exception as e:
             logger.warning(f"Image preprocessing failed: {e}")
+            return image
+    
+    async def _deskew_image(self, image: np.ndarray) -> np.ndarray:
+        """
+        Deskew image using contour detection.
+        
+        Args:
+            image: OpenCV image array
+        
+        Returns:
+            Deskewed image
+        """
+        try:
+            # Convert to grayscale if needed
+            if len(image.shape) == 3:
+                gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+            else:
+                gray = image
+            
+            # Threshold to binary
+            _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+            
+            # Find all contours
+            contours, _ = cv2.findContours(binary, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+            
+            if not contours:
+                return image
+            
+            # Find the largest contour
+            largest_contour = max(contours, key=cv2.contourArea)
+            
+            # Get minimum area rectangle
+            rect = cv2.minAreaRect(largest_contour)
+            angle = rect[-1]
+            
+            # Adjust angle
+            if angle < -45:
+                angle = 90 + angle
+            
+            # Ignore small angles
+            if abs(angle) < 0.5:
+                return image
+            
+            # Rotate image
+            (h, w) = image.shape[:2]
+            center = (w // 2, h // 2)
+            M = cv2.getRotationMatrix2D(center, angle, 1.0)
+            rotated = cv2.warpAffine(image, M, (w, h),
+                                    flags=cv2.INTER_CUBIC,
+                                    borderMode=cv2.BORDER_CONSTANT,
+                                    borderValue=(255, 255, 255))
+            
+            logger.info(f"Deskewed image by {angle:.2f} degrees")
+            return rotated
+            
+        except Exception as e:
+            logger.warning(f"Deskew failed: {e}")
             return image
     
     def _reconstruct_text(self, blocks: List[OCRBlock]) -> str:
@@ -500,3 +583,400 @@ async def extract_text_from_image(
     
     result = await ocr.process_image(image_data, lang, proc_mode)
     return result
+
+
+class EnhancedOCR:
+    """
+    Enhanced OCR with multiple engines and advanced preprocessing.
+    Supports Tesseract (documents), EasyOCR (handwriting/scene text), and auto-selection.
+    """
+    
+    # Language mapping between Tesseract and EasyOCR
+    LANG_MAP = {
+        "eng": "en",
+        "spa": "es",
+        "fra": "fr",
+        "deu": "de",
+        "chi_sim": "ch_sim",
+        "chi_tra": "ch_tra",
+        "jpn": "ja",
+        "kor": "ko",
+        "ara": "ar",
+        "rus": "ru"
+    }
+    
+    def __init__(self, default_engine: OCREngine = OCREngine.AUTO):
+        self.default_engine = default_engine
+        self.tesseract = TesseractOCR() if TESSERACT_AVAILABLE else None
+        self._easyocr_reader = None
+        
+        if not self.tesseract:
+            logger.error("Tesseract not available - document OCR will fail")
+    
+    def _get_easyocr_reader(self, languages: List[str] = None):
+        """Lazy initialization of EasyOCR reader."""
+        if not EASYOCR_AVAILABLE:
+            raise ImportError("EasyOCR not installed")
+        
+        if self._easyocr_reader is None:
+            langs = languages or ['en']
+            logger.info(f"Initializing EasyOCR with languages: {langs}")
+            self._easyocr_reader = easyocr.Reader(langs, gpu=False)
+        
+        return self._easyocr_reader
+    
+    async def _deskew_image(self, image: np.ndarray) -> np.ndarray:
+        """
+        Deskew image using contour detection.
+        
+        Args:
+            image: OpenCV image array
+        
+        Returns:
+            Deskewed image
+        """
+        if not CV2_AVAILABLE:
+            return image
+        
+        try:
+            # Convert to grayscale if needed
+            if len(image.shape) == 3:
+                gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+            else:
+                gray = image
+            
+            # Threshold to binary
+            _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+            
+            # Find all contours
+            contours, _ = cv2.findContours(binary, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+            
+            if not contours:
+                return image
+            
+            # Find the largest contour (likely the text block)
+            largest_contour = max(contours, key=cv2.contourArea)
+            
+            # Get minimum area rectangle
+            rect = cv2.minAreaRect(largest_contour)
+            angle = rect[-1]
+            
+            # Adjust angle
+            if angle < -45:
+                angle = 90 + angle
+            
+            # Ignore small angles
+            if abs(angle) < 0.5:
+                return image
+            
+            # Rotate image
+            (h, w) = image.shape[:2]
+            center = (w // 2, h // 2)
+            M = cv2.getRotationMatrix2D(center, angle, 1.0)
+            rotated = cv2.warpAffine(image, M, (w, h),
+                                    flags=cv2.INTER_CUBIC,
+                                    borderMode=cv2.BORDER_CONSTANT,
+                                    borderValue=(255, 255, 255))
+            
+            logger.info(f"Deskewed image by {angle:.2f} degrees")
+            return rotated
+            
+        except Exception as e:
+            logger.warning(f"Deskew failed: {e}")
+            return image
+    
+    async def _enhance_contrast(self, image: np.ndarray) -> np.ndarray:
+        """
+        Enhance image contrast using CLAHE.
+        
+        Args:
+            image: OpenCV image array
+        
+        Returns:
+            Enhanced image
+        """
+        if not CV2_AVAILABLE:
+            return image
+        
+        try:
+            # Convert to grayscale if needed
+            if len(image.shape) == 3:
+                gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+            else:
+                gray = image
+            
+            # CLAHE (Contrast Limited Adaptive Histogram Equalization)
+            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+            enhanced = clahe.apply(gray)
+            
+            return enhanced
+            
+        except Exception as e:
+            logger.warning(f"Contrast enhancement failed: {e}")
+            return image if len(image.shape) == 2 else cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+    
+    async def _preprocess_enhanced(self, image: Image.Image, deskew: bool = True) -> Image.Image:
+        """
+        Enhanced preprocessing pipeline.
+        
+        Args:
+            image: PIL Image
+            deskew: Whether to apply deskewing
+        
+        Returns:
+            Preprocessed PIL Image
+        """
+        if not CV2_AVAILABLE:
+            return image
+        
+        try:
+            # Convert to OpenCV format
+            img_array = np.array(image)
+            
+            # Deskew if requested
+            if deskew:
+                img_array = await self._deskew_image(img_array)
+            
+            # Enhance contrast
+            enhanced = await self._enhance_contrast(img_array)
+            
+            # Denoise
+            denoised = cv2.fastNlMeansDenoising(enhanced, None, 10, 7, 21)
+            
+            # Adaptive thresholding with larger block size for better results
+            binary = cv2.adaptiveThreshold(
+                denoised, 255,
+                cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                cv2.THRESH_BINARY, 15, 10
+            )
+            
+            # Morphological operations to clean up
+            kernel = np.ones((2, 2), np.uint8)
+            cleaned = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
+            
+            return Image.fromarray(cleaned)
+            
+        except Exception as e:
+            logger.warning(f"Enhanced preprocessing failed: {e}")
+            return image
+    
+    def _detect_content_type(self, image: Image.Image) -> str:
+        """
+        Detect if image contains printed text or handwriting/scene text.
+        
+        Args:
+            image: PIL Image
+        
+        Returns:
+            "document" or "scene"
+        """
+        if not CV2_AVAILABLE:
+            return "document"
+        
+        try:
+            img_array = np.array(image)
+            if len(img_array.shape) == 3:
+                gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
+            else:
+                gray = img_array
+            
+            # Calculate edge density
+            edges = cv2.Canny(gray, 50, 150)
+            edge_density = np.sum(edges > 0) / edges.size
+            
+            # Calculate texture using Laplacian variance
+            laplacian_var = cv2.Laplacian(gray, cv2.CV_64F).var()
+            
+            # High edge density and variance suggest scene text/handwriting
+            if edge_density > 0.1 or laplacian_var > 500:
+                return "scene"
+            
+            return "document"
+            
+        except Exception as e:
+            logger.warning(f"Content type detection failed: {e}")
+            return "document"
+    
+    async def process_with_tesseract(
+        self,
+        image_data: bytes,
+        language: OCRLanguage = OCRLanguage.ENGLISH,
+        mode: OCRMode = OCRMode.STANDARD
+    ) -> OCRResult:
+        """Process with Tesseract OCR."""
+        if not self.tesseract:
+            raise RuntimeError("Tesseract not available")
+        
+        return await self.tesseract.process_image(image_data, language, mode, preprocess=True)
+    
+    async def process_with_easyocr(
+        self,
+        image_data: bytes,
+        language: str = "en"
+    ) -> OCRResult:
+        """Process with EasyOCR for handwriting/scene text."""
+        if not EASYOCR_AVAILABLE:
+            raise ImportError("EasyOCR not installed")
+        
+        import time
+        start_time = time.time()
+        
+        try:
+            # Load image
+            image = Image.open(io.BytesIO(image_data))
+            img_array = np.array(image)
+            
+            # Get EasyOCR reader
+            reader = self._get_easyocr_reader([language])
+            
+            # Run OCR
+            results = reader.readtext(img_array)
+            
+            # Parse results
+            blocks = []
+            texts = []
+            confidences = []
+            
+            for i, (bbox, text, conf) in enumerate(results):
+                # Calculate bbox coordinates
+                x_coords = [p[0] for p in bbox]
+                y_coords = [p[1] for p in bbox]
+                x = int(min(x_coords))
+                y = int(min(y_coords))
+                width = int(max(x_coords) - x)
+                height = int(max(y_coords) - y)
+                
+                block = OCRBlock(
+                    text=text,
+                    confidence=float(conf) * 100,
+                    x=x,
+                    y=y,
+                    width=width,
+                    height=height,
+                    block_num=i,
+                    par_num=0,
+                    line_num=i,
+                    word_num=0
+                )
+                blocks.append(block)
+                texts.append(text)
+                confidences.append(float(conf) * 100)
+            
+            full_text = ' '.join(texts)
+            avg_confidence = sum(confidences) / len(confidences) if confidences else 0
+            
+            return OCRResult(
+                text=full_text,
+                blocks=blocks,
+                confidence=avg_confidence,
+                language=language,
+                processing_time=time.time() - start_time,
+                word_count=len(full_text.split()),
+                metadata={"engine": "easyocr"}
+            )
+            
+        except Exception as e:
+            logger.error(f"EasyOCR processing failed: {e}")
+            raise
+    
+    async def process_image(
+        self,
+        image_data: bytes,
+        language: OCRLanguage = OCRLanguage.ENGLISH,
+        mode: OCRMode = OCRMode.STANDARD,
+        engine: OCREngine = OCREngine.AUTO
+    ) -> OCRResult:
+        """
+        Process image with selected or auto-detected OCR engine.
+        
+        Args:
+            image_data: Raw image bytes
+            language: OCR language
+            mode: Processing mode
+            engine: OCR engine to use (AUTO selects best)
+        
+        Returns:
+            OCRResult with extracted text
+        """
+        # Map language for EasyOCR
+        easy_lang = self.LANG_MAP.get(language.value, "en")
+        
+        # Auto-select engine
+        if engine == OCREngine.AUTO:
+            image = Image.open(io.BytesIO(image_data))
+            content_type = self._detect_content_type(image)
+            
+            if content_type == "scene" and EASYOCR_AVAILABLE:
+                logger.info("Auto-selected EasyOCR for scene text/handwriting")
+                engine = OCREngine.EASYOCR
+            else:
+                logger.info("Auto-selected Tesseract for document text")
+                engine = OCREngine.TESSERACT
+        
+        # Process with selected engine
+        if engine == OCREngine.EASYOCR:
+            try:
+                return await self.process_with_easyocr(image_data, easy_lang)
+            except Exception as e:
+                logger.warning(f"EasyOCR failed, falling back to Tesseract: {e}")
+                return await self.process_with_tesseract(image_data, language, mode)
+        else:
+            return await self.process_with_tesseract(image_data, language, mode)
+    
+    async def process_pdf(
+        self,
+        pdf_data: bytes,
+        language: OCRLanguage = OCRLanguage.ENGLISH,
+        mode: OCRMode = OCRMode.STANDARD,
+        dpi: int = 300
+    ) -> OCRResult:
+        """
+        Process PDF with enhanced OCR.
+        Uses Tesseract (best for documents) regardless of auto setting.
+        """
+        if not PDF2IMAGE_AVAILABLE:
+            raise ImportError("pdf2image is required for PDF OCR")
+        
+        import time
+        start_time = time.time()
+        
+        try:
+            # Convert PDF to images
+            images = pdf2image.convert_from_bytes(pdf_data, dpi=dpi)
+            
+            all_blocks = []
+            all_texts = []
+            all_confidences = []
+            
+            for page_num, image in enumerate(images):
+                logger.info(f"Processing PDF page {page_num + 1}/{len(images)}")
+                
+                # Convert PIL to bytes
+                img_buffer = io.BytesIO()
+                image.save(img_buffer, format='PNG')
+                img_data = img_buffer.getvalue()
+                
+                # Process page with Tesseract (best for documents)
+                result = await self.process_with_tesseract(image_data=img_data, language=language, mode=mode)
+                
+                all_blocks.extend(result.blocks)
+                all_texts.append(result.text)
+                all_confidences.append(result.confidence)
+            
+            full_text = '\n\n'.join(all_texts)
+            avg_confidence = sum(all_confidences) / len(all_confidences) if all_confidences else 0
+            
+            return OCRResult(
+                text=full_text,
+                blocks=all_blocks,
+                confidence=avg_confidence,
+                language=language.value,
+                processing_time=time.time() - start_time,
+                page_count=len(images),
+                word_count=len(full_text.split()),
+                metadata={"engine": "tesseract", "enhanced_preprocessing": True}
+            )
+            
+        except Exception as e:
+            logger.error(f"Enhanced PDF OCR failed: {e}")
+            raise
