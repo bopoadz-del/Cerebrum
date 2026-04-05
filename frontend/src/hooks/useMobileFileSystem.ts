@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { 
   fileSystem, 
   backgroundSync,
@@ -20,18 +21,49 @@ interface UseFileSystemOptions {
   autoLoad?: boolean;
 }
 
+interface FileEntry {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+  size: number;
+  modified: string;
+  mimeType?: string;
+}
+
 interface UseFileSystemReturn {
   files: FileMetadata[];
+  currentPath: string;
+  entries: FileEntry[];
   isLoading: boolean;
   error: string | null;
   permissions: boolean;
+  freeSpace: number;
+  totalSpace: number;
+  navigateTo: (path: string) => Promise<void>;
+  navigateUp: () => void;
   loadFiles: (subPath?: string) => Promise<void>;
   refresh: () => Promise<void>;
   requestPermissions: () => Promise<boolean>;
   readFile: (path: string) => Promise<string | Blob>;
   writeFile: (path: string, data: string) => Promise<void>;
-  deleteFile: (path: string) => Promise<void>;
+  deleteItem: (path: string, isDirectory: boolean) => Promise<void>;
   createFolder: (path: string) => Promise<void>;
+}
+
+// Detect MIME type from filename
+function getMimeType(filename: string): string {
+  const ext = filename.split('.').pop()?.toLowerCase() || '';
+  const mimeTypes: Record<string, string> = {
+    'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png', 'gif': 'image/gif', 'webp': 'image/webp',
+    'mp4': 'video/mp4', 'webm': 'video/webm', 'mov': 'video/quicktime',
+    'mp3': 'audio/mpeg', 'wav': 'audio/wav', 'ogg': 'audio/ogg',
+    'pdf': 'application/pdf',
+    'txt': 'text/plain', 'md': 'text/markdown',
+    'json': 'application/json', 'csv': 'text/csv',
+    'doc': 'application/msword', 'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'xls': 'application/vnd.ms-excel', 'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  };
+  return mimeTypes[ext] || 'application/octet-stream';
 }
 
 export function useMobileFileSystem(
@@ -40,13 +72,18 @@ export function useMobileFileSystem(
   const { folder = 'DOCUMENTS', autoLoad = true } = options;
   
   const [files, setFiles] = useState<FileMetadata[]>([]);
+  const [currentPath, setCurrentPath] = useState<string>('/');
+  const [entries, setEntries] = useState<FileEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [permissions, setPermissions] = useState(false);
+  const [freeSpace, setFreeSpace] = useState(0);
+  const [totalSpace, setTotalSpace] = useState(0);
 
   // Check permissions on mount
   useEffect(() => {
     checkPermissions();
+    loadStorageInfo();
   }, []);
 
   // Auto-load files if enabled
@@ -55,6 +92,35 @@ export function useMobileFileSystem(
       loadFiles();
     }
   }, [folder, permissions, autoLoad]);
+
+  const loadStorageInfo = useCallback(async () => {
+    try {
+      // Try to get storage info from device
+      // This is a best-effort - not all platforms support this
+      const info = await Filesystem.getUri({
+        directory: Directory.Documents,
+        path: ''
+      });
+      
+      // For Android, we can try to get stat of root
+      try {
+        const stat = await Filesystem.stat({
+          directory: Directory.ExternalStorage,
+          path: ''
+        });
+        // These are approximate - actual implementation varies by platform
+        setTotalSpace(stat.size || 0);
+        setFreeSpace(stat.mtime || 0); // Placeholder - actual free space needs native plugin
+      } catch {
+        // Fallback: use placeholder values
+        setTotalSpace(0);
+        setFreeSpace(0);
+      }
+    } catch {
+      setTotalSpace(0);
+      setFreeSpace(0);
+    }
+  }, []);
 
   const checkPermissions = useCallback(async () => {
     try {
@@ -75,24 +141,59 @@ export function useMobileFileSystem(
     return granted;
   }, [checkPermissions, autoLoad]);
 
-  const loadFiles = useCallback(async (subPath?: string) => {
+  const navigateTo = useCallback(async (path: string) => {
+    setCurrentPath(path);
+    await loadDirectory(path);
+  }, []);
+
+  const navigateUp = useCallback(() => {
+    if (currentPath === '/') return;
+    const parent = currentPath.split('/').slice(0, -1).join('/') || '/';
+    setCurrentPath(parent);
+    loadDirectory(parent);
+  }, [currentPath]);
+
+  const loadDirectory = useCallback(async (path: string) => {
     setIsLoading(true);
     setError(null);
     
     try {
-      const fileList = await fileSystem.listFiles(folder, subPath);
+      // Convert path to folder/subPath format
+      const parts = path.split('/').filter(Boolean);
+      const folderName = parts[0] || folder;
+      const subPath = parts.slice(1).join('/');
+      
+      const fileList = await fileSystem.listFiles(folderName as SpecialFolder, subPath || undefined);
+      
+      // Convert to FileEntry format
+      const mappedEntries: FileEntry[] = fileList.map(f => ({
+        name: f.name,
+        path: `${path === '/' ? '' : path}/${f.name}`,
+        isDirectory: f.isDirectory || false,
+        size: f.size || 0,
+        modified: f.modified?.toISOString() || new Date().toISOString(),
+        mimeType: f.isDirectory ? undefined : getMimeType(f.name),
+      }));
+      
+      setEntries(mappedEntries);
       setFiles(fileList);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load files');
+      setEntries([]);
       setFiles([]);
     } finally {
       setIsLoading(false);
     }
   }, [folder]);
 
+  const loadFiles = useCallback(async (subPath?: string) => {
+    await loadDirectory(subPath || currentPath);
+  }, [currentPath, loadDirectory]);
+
   const refresh = useCallback(async () => {
-    await loadFiles();
-  }, [loadFiles]);
+    await loadDirectory(currentPath);
+    await loadStorageInfo();
+  }, [currentPath, loadDirectory]);
 
   const readFile = useCallback(async (path: string) => {
     return fileSystem.readFile(path, folder);
@@ -103,8 +204,17 @@ export function useMobileFileSystem(
     await refresh();
   }, [folder, refresh]);
 
-  const deleteFile = useCallback(async (path: string) => {
-    await fileSystem.deleteFile(path, folder);
+  const deleteItem = useCallback(async (path: string, isDirectory: boolean) => {
+    if (isDirectory) {
+      await fileSystem.deleteDirectory?.(path, folder) || 
+      await Filesystem.rmdir({
+        directory: Directory.Documents,
+        path,
+        recursive: true
+      });
+    } else {
+      await fileSystem.deleteFile(path, folder);
+    }
     await refresh();
   }, [folder, refresh]);
 
@@ -115,15 +225,21 @@ export function useMobileFileSystem(
 
   return {
     files,
+    currentPath,
+    entries,
     isLoading,
     error,
     permissions,
+    freeSpace,
+    totalSpace,
+    navigateTo,
+    navigateUp,
     loadFiles,
     refresh,
     requestPermissions,
     readFile,
     writeFile,
-    deleteFile,
+    deleteItem,
     createFolder,
   };
 }
