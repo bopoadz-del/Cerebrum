@@ -10,15 +10,17 @@ WORKDIR /app
 
 # System dependencies + Tesseract OCR
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl ca-certificates \
+    curl ca-certificates tar \
     tesseract-ocr tesseract-ocr-eng \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Ollama (download binary directly, no install script)
-RUN curl -fsSL https://ollama.com/download/ollama-linux-amd64 -o /usr/local/bin/ollama \
-    && chmod +x /usr/local/bin/ollama
+# Install Ollama from GitHub releases (v0.5.7)
+RUN curl -fsSL https://github.com/ollama/ollama/releases/download/v0.5.7/ollama-linux-amd64.tgz -o /tmp/ollama.tgz \
+    && tar -xzf /tmp/ollama.tgz -C /usr/local \
+    && rm /tmp/ollama.tgz \
+    && /usr/local/bin/ollama --version
 
-# Install PostgreSQL client from Debian repos (not PGDG)
+# Install PostgreSQL client
 RUN apt-get update && apt-get install -y --no-install-recommends \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*
@@ -32,5 +34,4 @@ COPY . .
 
 EXPOSE 8000 11434
 
-# Start Ollama + FastAPI via main.py lifespan
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
