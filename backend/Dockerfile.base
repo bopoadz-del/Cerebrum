@@ -1,38 +1,23 @@
-# Cerebrum ML Base Image with Ollama
-# This is the BASE image - build once, cache forever
-# Contains: Python ML stack + Ollama binary (models download at runtime)
-
 FROM python:3.11-slim-bookworm
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
-ENV DEBIAN_FRONTEND=noninteractive
 
 WORKDIR /app
 
-# Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     wget curl ca-certificates pciutils \
     tesseract-ocr tesseract-ocr-eng \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Ollama binary (retry on failure)
-RUN set -ex && \
-    (curl -fsSL https://ollama.com/install.sh | sh || \
-     (sleep 5 && curl -fsSL https://ollama.com/install.sh | sh) || \
-     (sleep 10 && curl -fsSL https://ollama.com/install.sh | sh))
+# Install Ollama binary directly (amd64)
+RUN curl -L https://github.com/ollama/ollama/releases/download/v0.5.7/ollama-linux-amd64 -o /usr/local/bin/ollama && \
+    chmod +x /usr/local/bin/ollama
 
-# Verify Ollama installed
-RUN which ollama && ollama --version
-
-# Set Ollama environment
 ENV OLLAMA_HOST=0.0.0.0:11434
 ENV OLLAMA_MODELS=/root/.ollama/models
-ENV PATH="/root/.ollama/bin:${PATH}"
 
-# Install Python deps
 COPY requirements.txt /tmp/requirements.txt
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
 EXPOSE 11434 8000
