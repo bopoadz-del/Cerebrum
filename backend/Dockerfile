@@ -1,5 +1,4 @@
-# Use pre-built base image with Ollama + ML stack
-FROM ghcr.io/bopoadz-del/cerebrum-ml-base:ollama
+FROM python:3.11-slim-bookworm
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
@@ -9,15 +8,29 @@ ENV OLLAMA_MODELS=/root/.ollama/models
 
 WORKDIR /app
 
-# Install PostgreSQL client
+# System dependencies + Tesseract OCR
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl ca-certificates \
+    tesseract-ocr tesseract-ocr-eng \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Ollama (download binary directly, no install script)
+RUN curl -fsSL https://ollama.com/download/ollama-linux-amd64 -o /usr/local/bin/ollama \
+    && chmod +x /usr/local/bin/ollama
+
+# Install PostgreSQL client from Debian repos (not PGDG)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy app code (requirements already installed in base)
+# Python deps
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# App code
 COPY . .
 
 EXPOSE 8000 11434
 
-# Use uvicorn directly (Ollama starts from app/main.py lifespan)
+# Start Ollama + FastAPI via main.py lifespan
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

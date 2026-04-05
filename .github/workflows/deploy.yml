@@ -152,7 +152,7 @@ jobs:
 
       - name: Health check
         run: |
-          curl -f https://cerebrum.ai/health/ready || exit 1
+          curl -f https://cerebrum-api.onrender.com/health || exit 1
 
       - name: Notify on success
         if: success()
