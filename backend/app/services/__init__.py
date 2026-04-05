@@ -19,6 +19,12 @@ from app.services.image_understanding import (
     AnalysisType,
 )
 from app.services.formula_runtime import get_formula_by_id, evaluate_formula_by_id, get_formulas
+from app.services.local_llm import (
+    LocalLLMService,
+    get_local_llm,
+    is_local_llm_available,
+    generate_with_local_llm,
+)
 
 __all__ = [
     "ChromaService",
@@ -39,4 +45,8 @@ __all__ = [
     "get_formula_by_id",
     "evaluate_formula_by_id",
     "get_formulas",
+    "LocalLLMService",
+    "get_local_llm",
+    "is_local_llm_available",
+    "generate_with_local_llm",
 ]

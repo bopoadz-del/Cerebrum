@@ -1,6 +1,6 @@
 """
-Chat Completions API Endpoint - FIXED VERSION
-OpenAI-compatible chat completions for Cerebrum AI
+Chat Completions API Endpoint - LOCAL LLM VERSION
+OpenAI-compatible chat completions with local inference
 """
 
 from fastapi import APIRouter, HTTPException
@@ -10,6 +10,7 @@ import time
 import re
 
 from app.core.logging import get_logger
+from app.services.local_llm import is_local_llm_available, get_local_llm
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -252,23 +253,82 @@ Or switch to 🧠 **Agent Mode** for complex calculations!"""
 
 
 async def generate_simple_response(message: str, context: str) -> str:
-    """Generate a simple response without using the agent system."""
+    """Generate a simple response - tries local LLM first, falls back to rules."""
     message_lower = message.lower()
     
-    # Check for greetings
+    # Check for greetings - use rule-based (fast)
     if message_lower.strip() in ['hello', 'hi', 'hey', 'greetings'] or len(message_lower.strip()) < 10:
         return generate_conversational_response(message, context)
     
-    # Check for help
+    # Check for help - use rule-based
     if any(h in message_lower for h in ['what can you do', 'who are you', 'help']):
         return generate_conversational_response(message, context)
     
-    # Check for economics
-    if is_economics_query(message):
+    # Check for simple economics queries - use rule-based (fast, accurate)
+    if is_simple_economics_query(message):
         return await handle_economics_query(message)
     
-    # Default response
+    # Complex query - try local LLM
+    if is_local_llm_available():
+        try:
+            logger.info(f"Using local LLM for complex query: {message[:50]}...")
+            return await generate_local_llm_response(message, context)
+        except Exception as e:
+            logger.warning(f"Local LLM failed, falling back to rules: {e}")
+    
+    # Fallback to rule-based
     return generate_conversational_response(message, context)
+
+
+def is_simple_economics_query(message: str) -> bool:
+    """Check if this is a simple cost query that rules can handle."""
+    message_lower = message.lower()
+    
+    # Simple patterns that rules handle well
+    simple_patterns = [
+        r'cost of \w+',  # "cost of concrete"
+        r'\d+\s*(sq ft|sf|square feet)',  # "5000 sq ft warehouse"
+        r'price per \w+',  # "price per cubic yard"
+        r'estimate for \w+',  # "estimate for office"
+    ]
+    
+    for pattern in simple_patterns:
+        if re.search(pattern, message_lower):
+            return is_economics_query(message)
+    
+    return False
+
+
+async def generate_local_llm_response(message: str, context: str) -> str:
+    """Generate response using local LLM."""
+    llm = get_local_llm()
+    
+    # Build system prompt for construction AI
+    system_prompt = """You are Cerebrum AI, a construction intelligence assistant. 
+You help with construction cost estimation, document analysis, and building information.
+Be concise, professional, and practical. If you don't know something, say so.
+If the user needs specific cost data, suggest they use the /cost command."""
+    
+    # Build messages for chat API
+    messages = []
+    if context:
+        # Add context as previous messages
+        for line in context.split('\n')[-5:]:  # Last 5 lines
+            if line.startswith('user:'):
+                messages.append({"role": "user", "content": line[5:].strip()})
+            elif line.startswith('assistant:'):
+                messages.append({"role": "assistant", "content": line[10:].strip()})
+    
+    messages.append({"role": "user", "content": message})
+    
+    # Generate response
+    response = llm.chat(
+        messages=messages,
+        temperature=0.7,
+        max_tokens=2048
+    )
+    
+    return response
 
 
 @router.post("/completions", response_model=ChatCompletionResponse)
@@ -357,20 +417,56 @@ async def chat_completions(request: ChatCompletionRequest):
 @router.get("/models")
 async def list_models():
     """List available chat models."""
+    models = [
+        {
+            "id": "cerebrum-default",
+            "object": "model",
+            "created": int(time.time()),
+            "owned_by": "cerebrum-ai"
+        },
+        {
+            "id": "cerebrum-agent",
+            "object": "model",
+            "created": int(time.time()),
+            "owned_by": "cerebrum-ai"
+        }
+    ]
+    
+    # Add local LLM if available
+    if is_local_llm_available():
+        models.append({
+            "id": "cerebrum-local",
+            "object": "model",
+            "created": int(time.time()),
+            "owned_by": "local-llm"
+        })
+    
     return {
         "object": "list",
-        "data": [
-            {
-                "id": "cerebrum-default",
-                "object": "model",
-                "created": int(time.time()),
-                "owned_by": "cerebrum-ai"
-            },
-            {
-                "id": "cerebrum-agent",
-                "object": "model",
-                "created": int(time.time()),
-                "owned_by": "cerebrum-ai"
-            }
-        ]
+        "data": models
     }
+
+
+@router.get("/local-llm/status")
+async def local_llm_status():
+    """Check local LLM availability and model info."""
+    available = is_local_llm_available()
+    
+    status = {
+        "available": available,
+        "model": "llama3.2" if available else None,
+        "type": "local",
+        "message": "Local LLM ready" if available else "Ollama not running or model not loaded"
+    }
+    
+    if available:
+        try:
+            import requests
+            response = requests.get("http://localhost:11434/api/tags", timeout=5)
+            if response.status_code == 200:
+                models = response.json().get("models", [])
+                status["loaded_models"] = [m["name"] for m in models]
+        except:
+            pass
+    
+    return status
