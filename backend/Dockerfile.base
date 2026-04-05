@@ -1,10 +1,6 @@
 # Cerebrum ML Base Image with Ollama
 # This is the BASE image - build once, cache forever
 # Contains: Python ML stack + Ollama binary (models download at runtime)
-#
-# Build with:
-#   docker build -f Dockerfile.base -t ghcr.io/bopoadz-del/cerebrum-ml-base:ollama .
-#   docker push ghcr.io/bopoadz-del/cerebrum-ml-base:ollama
 
 FROM python:3.11-slim-bookworm
 
@@ -14,52 +10,29 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 WORKDIR /app
 
-# =============================================================================
-# SYSTEM DEPENDENCIES (Tesseract + Ollama requirements)
-# =============================================================================
+# Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    wget \
-    curl \
-    gnupg \
-    lsb-release \
-    ca-certificates \
-    # Tesseract OCR languages
-    tesseract-ocr \
-    tesseract-ocr-eng \
-    tesseract-ocr-spa \
-    tesseract-ocr-fra \
-    tesseract-ocr-deu \
-    tesseract-ocr-chi-sim \
-    tesseract-ocr-chi-tra \
-    tesseract-ocr-jpn \
-    tesseract-ocr-ara \
-    # Ollama requirements
-    pciutils \
+    wget curl ca-certificates pciutils \
+    tesseract-ocr tesseract-ocr-eng \
     && rm -rf /var/lib/apt/lists/*
 
-# =============================================================================
-# OLLAMA INSTALLATION
-# =============================================================================
-# Install Ollama binary (lightweight, ~50MB)
-RUN curl -fsSL https://ollama.com/install.sh | sh
+# Install Ollama binary (retry on failure)
+RUN set -ex && \
+    (curl -fsSL https://ollama.com/install.sh | sh || \
+     (sleep 5 && curl -fsSL https://ollama.com/install.sh | sh) || \
+     (sleep 10 && curl -fsSL https://ollama.com/install.sh | sh))
+
+# Verify Ollama installed
+RUN which ollama && ollama --version
 
 # Set Ollama environment
 ENV OLLAMA_HOST=0.0.0.0:11434
 ENV OLLAMA_MODELS=/root/.ollama/models
-ENV OLLAMA_NUM_PARALLEL=1
-ENV OLLAMA_MAX_LOADED_MODELS=1
+ENV PATH="/root/.ollama/bin:${PATH}"
 
-# =============================================================================
-# PYTHON ML STACK
-# =============================================================================
+# Install Python deps
 COPY requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r /tmp/requirements.txt
 
-# Pre-download EasyOCR models (English only to save space)
-RUN python3 -c "import easyocr; reader = easyocr.Reader(['en'], gpu=False, verbose=False)" 2>/dev/null || echo "EasyOCR will download at runtime"
-
 EXPOSE 11434 8000
-
-# Base image doesn't run anything - it's just the foundation
-# Main Dockerfile will add app code and set CMD
