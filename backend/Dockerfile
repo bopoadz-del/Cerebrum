@@ -12,12 +12,13 @@ ENV OLLAMA_HOST=http://localhost:11434
 
 WORKDIR /app
 
-# Install PostgreSQL client, Tesseract OCR, and Ollama
+# Install PostgreSQL client, Tesseract OCR, and Ollama dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     gnupg \
     lsb-release \
     curl \
+    zstd \
     tesseract-ocr \
     tesseract-ocr-eng \
     tesseract-ocr-spa \
