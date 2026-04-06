@@ -74,10 +74,21 @@ jobs:
         echo "=== Environment Check ==="
         echo "JAVA_HOME: $JAVA_HOME"
         java -version
+        echo "=== Android SDK Check ==="
+        sdkmanager --list_installed | head -20
         echo "=== Gradle Wrapper Check ==="
         ls -la gradlew
+        echo "=== Gradle Properties ==="
+        cat gradle.properties
         echo "=== Running Gradle Build ==="
-        ./gradlew assembleDebug --no-daemon --console=plain 2>&1
+        ./gradlew assembleDebug --no-daemon --console=plain --stacktrace --info 2>&1 || {
+          echo "=== BUILD FAILED - Checking for common issues ==="
+          echo "=== Disk Space ==="
+          df -h
+          echo "=== Memory ==="
+          free -h
+          exit 1
+        }
 
     - name: Upload Debug APK as artifact
       uses: actions/upload-artifact@v4
