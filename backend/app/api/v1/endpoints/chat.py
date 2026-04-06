@@ -360,7 +360,7 @@ Or switch to 🧠 **Agent Mode** for complex calculations!"""
 
 
 async def generate_simple_response(message: str, context: str) -> str:
-    """Generate a simple response - tries local LLM first, falls back to rules."""
+    """Generate a simple response - uses rule-based logic for construction queries."""
     message_lower = message.lower()
     
     # Check for greetings - use rule-based (fast)
@@ -371,19 +371,17 @@ async def generate_simple_response(message: str, context: str) -> str:
     if any(h in message_lower for h in ['what can you do', 'who are you', 'help']):
         return generate_conversational_response(message, context)
     
+    # Check for concrete volume calculation FIRST (before general economics)
+    if 'concrete' in message_lower and any(word in message_lower for word in ['volume', 'calculate', 'calculation', 'cubic', 'm3', 'yd3', 'foundation', 'slab']):
+        volume_result = calculate_concrete_volume(message)
+        if volume_result:
+            return volume_result
+    
     # Check for simple economics queries - use rule-based (fast, accurate)
     if is_simple_economics_query(message):
         return await handle_economics_query(message)
     
-    # Complex query - try local LLM
-    if is_local_llm_available():
-        try:
-            logger.info(f"Using local LLM for complex query: {message[:50]}...")
-            return await generate_local_llm_response(message, context)
-        except Exception as e:
-            logger.warning(f"Local LLM failed, falling back to rules: {e}")
-    
-    # Fallback to rule-based
+    # Fallback to rule-based conversational response
     return generate_conversational_response(message, context)
 
 
