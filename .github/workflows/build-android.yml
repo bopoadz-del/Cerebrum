@@ -68,6 +68,19 @@ jobs:
             -dname "CN=Android Debug,O=Android,C=US"
         fi
 
+    - name: Verify Capacitor Setup
+      working-directory: ./frontend
+      run: |
+        echo "=== Checking Capacitor Android ==="
+        ls -la node_modules/@capacitor/android/capacitor/ || echo "Capacitor Android not found!"
+        echo "=== Capacitor Doctor ==="
+        npx cap doctor || true
+
+    - name: Clean Build
+      working-directory: ./frontend/android
+      run: |
+        ./gradlew clean --no-daemon || true
+
     - name: Build Debug APK
       working-directory: ./frontend/android
       run: |
@@ -76,17 +89,13 @@ jobs:
         java -version
         echo "=== Android SDK Check ==="
         sdkmanager --list_installed | head -20
-        echo "=== Gradle Wrapper Check ==="
-        ls -la gradlew
         echo "=== Gradle Properties ==="
         cat gradle.properties
         echo "=== Running Gradle Build ==="
-        ./gradlew assembleDebug --no-daemon --console=plain --stacktrace --info 2>&1 || {
-          echo "=== BUILD FAILED - Checking for common issues ==="
+        ./gradlew assembleDebug --no-daemon --console=plain --stacktrace 2>&1 || {
+          echo "=== BUILD FAILED ==="
           echo "=== Disk Space ==="
           df -h
-          echo "=== Memory ==="
-          free -h
           exit 1
         }
 
