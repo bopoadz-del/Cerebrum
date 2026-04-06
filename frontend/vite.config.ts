@@ -8,16 +8,18 @@ export default defineConfig({
   plugins: [react()],
   build: {
     rollupOptions: {
-      external: [
-        'react-syntax-highlighter', 
-        'react-markdown',
-        'react-syntax-highlighter/dist/esm/styles/prism'
-      ]
-    }
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+          ui: ['framer-motion', 'lucide-react', 'tailwind-merge', 'clsx'],
+        }
+      }
+    },
+    chunkSizeWarningLimit: 1000
   },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
   },
-});
+})
