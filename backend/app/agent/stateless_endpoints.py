@@ -315,3 +315,24 @@ async def force_garbage_collection():
         "memory_after_mb": round(get_memory_mb(), 2),
         "timestamp": datetime.now().isoformat()
     }
+
+
+@router.get("/status/enhanced")
+async def get_enhanced_status():
+    """Get agent status - STATELESS mode."""
+    return {
+        "initialized": True,
+        "mode": "stateless",
+        "message": "Agent running in stateless mode (memory-optimized)",
+        "features": {
+            "memory_indexing": False,
+            "ml_embeddings": False,
+            "conversation_history": False,
+        },
+        "available_layers": [
+            "coding", "registry", "validation", "hotswap", "healing",
+            "prompts", "triggers", "economics", "vdc", "edge",
+            "portal", "enterprise", "connectors", "monitoring"
+        ],
+        "timestamp": datetime.now().isoformat()
+    }

@@ -555,7 +555,10 @@ export async function processAndIndexFile(
   if (!processing.success || !processing.text) {
     return {
       processing,
-      indexing: { success: false, message: processing.error || 'No content to index' },
+      indexing: { 
+        success: false, 
+        message: processing.error || 'OCR could not extract text. Please try a clearer image or PDF with selectable text.' 
+      },
     };
   }
   

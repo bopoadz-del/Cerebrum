@@ -327,6 +327,21 @@ def create_application() -> FastAPI:
                 }
             )
     
+    # MEMORY CLEANUP MIDDLEWARE - Force garbage collection after each request
+    @app.middleware("http")
+    async def memory_cleanup_middleware(request: Request, call_next):
+        """Force garbage collection after each request to prevent memory leaks."""
+        import gc
+        try:
+            response = await call_next(request)
+            # Force garbage collection after request completes
+            gc.collect()
+            return response
+        except Exception as exc:
+            # Still collect garbage even if request failed
+            gc.collect()
+            raise exc
+    
     # Include routers
     app.include_router(health_router, tags=["health"])
     app.include_router(api_v1_router, prefix="/api/v1")
