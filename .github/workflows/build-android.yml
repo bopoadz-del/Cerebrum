@@ -35,7 +35,9 @@ jobs:
         VITE_FRONTEND_URL: ${{ secrets.VITE_FRONTEND_URL || '' }}
 
     - name: Sync Capacitor
-      run: npx cap sync android
+      run: |
+        npx cap add android || true
+        npx cap sync android
 
     - name: Setup JDK
       uses: actions/setup-java@v4
