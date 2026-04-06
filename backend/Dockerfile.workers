@@ -1,5 +1,6 @@
 # Simple Dockerfile for workers (doesn't require base image)
 # Use this until ghcr.io/bopoadz-del/cerebrum-ml-base:latest is publicly available
+# Cache-bust: 2026-04-06-01
 
 FROM python:3.11-slim
 
