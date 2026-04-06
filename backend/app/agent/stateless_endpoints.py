@@ -184,12 +184,72 @@ def handle_formula_lookup(task: str) -> Dict[str, Any]:
     }
 
 
+def handle_steel_calculation(task: str) -> Dict[str, Any]:
+    """Handle steel/rebar calculation requests."""
+    import re
+    
+    # Extract area if provided
+    area_match = re.search(r'(\d+\.?\d*)\s*(sq\s*ft|sqft|m2|m²|square)', task.lower())
+    area_sqft = float(area_match.group(1)) if area_match else 1000  # Default 1000 sq ft
+    
+    # Rebar calculations
+    rebar_lbs_per_sqft = 1.5  # Average for slabs
+    total_rebar_lbs = area_sqft * rebar_lbs_per_sqft
+    total_rebar_tons = total_rebar_lbs / 2000
+    
+    # Cost calculations
+    cost_per_lb_installed = 1.0  # $1.00/lb installed average
+    total_cost = total_rebar_lbs * cost_per_lb_installed
+    
+    message = f"""🔩 **Steel/Rebar Calculation**
+
+**Area:** {area_sqft:,.0f} sq ft
+
+**Rebar Quantities:**
+• Total rebar: {total_rebar_lbs:,.0f} lbs ({total_rebar_tons:.2f} tons)
+• Density: ~{rebar_lbs_per_sqft} lbs/sq ft (typical for slabs)
+
+**Estimated Cost:**
+• ${total_cost:,.0f} (@ ${cost_per_lb_installed}/lb installed)
+
+**Typical Rebar Sizes:**
+• #4 (1/2") - slabs, footings
+• #5 (5/8") - beams, columns
+• #6 (3/4") - heavy loads
+
+*Note: Actual quantities depend on design loads and spacing.*"""
+    
+    return {
+        "success": True,
+        "action": "steel_calculation",
+        "layer": "economics",
+        "data": {
+            "area_sqft": area_sqft,
+            "rebar_lbs": total_rebar_lbs,
+            "rebar_tons": total_rebar_tons,
+            "cost": total_cost
+        },
+        "message": message,
+        "related_conversations": [],
+        "suggested_next_actions": ["Calculate concrete for this area", "Get formwork cost"],
+        "timestamp": datetime.now().isoformat()
+    }
+
+
 def handle_construction_task(task: str) -> Dict[str, Any]:
     """Handle construction-specific tasks without full agent."""
-    task_lower = task.lower()
+    task_lower = task.lower().strip()
     
-    # Concrete volume calculation
-    if any(word in task_lower for word in ["concrete", "volume", "calculate"]):
+    # Remove leading slash from commands
+    if task_lower.startswith('/'):
+        task_lower = task_lower[1:]
+    
+    # STEEL/REBAR calculation (check BEFORE concrete to avoid conflict)
+    if any(word in task_lower for word in ["steel", "rebar", "reinforcement"]):
+        return handle_steel_calculation(task)
+    
+    # Concrete volume calculation (needs dimensions)
+    if "concrete" in task_lower:
         return handle_concrete_calculation(task)
     
     # Cost estimates
@@ -200,7 +260,7 @@ def handle_construction_task(task: str) -> Dict[str, Any]:
     if any(word in task_lower for word in ["formula", "beam", "moment", "load", "deflection"]):
         return handle_formula_lookup(task)
     
-    # Default response
+    # Default response - show available commands
     return {
         "success": True,
         "action": "general_assistance",
@@ -211,24 +271,26 @@ def handle_construction_task(task: str) -> Dict[str, Any]:
 I can help you with:
 
 **📐 Calculations:**
-• Concrete volume: "Calculate concrete for 10x5x0.5m"
-• Steel quantities: "Calculate rebar for 1000 sq ft slab"
+• **Concrete:** "Calculate concrete for 10m x 5m x 0.3m"
+• **Steel:** "Calculate steel for 5000 sq ft"
+• **Rebar:** "Calculate rebar for foundation"
 
 **💰 Cost Estimates:**
-• RSMeans lookups: "Cost of concrete per cubic yard"
-• Project estimates: "Estimate cost for 5000 sq ft office"
+• **RSMeans:** "Cost of concrete per cubic yard"
+• **Projects:** "Estimate cost for 5000 sq ft office"
 
 **📊 Formulas:**
-• Beam calculations: "Formula for beam moment"
-• Structural: "Deflection formula for cantilever"
+• **Beam:** "Formula for beam moment"
+• **Deflection:** "Deflection formula for cantilever"
 
-Upload a document (PDF, image) for AI analysis of:
-• Contracts (parties, clauses, risks)
-• Floor plans (quantities, areas)
-• Schedules (activities, critical path)
+**Try these commands:**
+• `/formula beam` - Construction formulas
+• `/cost concrete` - RSMeans costs
+
+Upload a document for AI analysis!
 """,
         "related_conversations": [],
-        "suggested_next_actions": ["Calculate concrete", "Get cost estimate"],
+        "suggested_next_actions": ["Calculate concrete", "Calculate steel", "Get cost estimate"],
         "timestamp": datetime.now().isoformat()
     }
 
