@@ -108,38 +108,11 @@ jobs:
         path: frontend/android/app/build/outputs/apk/debug/app-debug.apk
         retention-days: 30
 
-    - name: Rename APK with version
-      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-      working-directory: ./frontend/android
-      run: |
-        VERSION=$(date +'%Y%m%d-%H%M%S')
-        COMMIT_SHA="${{ github.sha }}"
-        SHORT_SHA=$(echo "$COMMIT_SHA" | cut -c1-7)
-        
-        echo "Version: $VERSION"
-        echo "Short SHA: $SHORT_SHA"
-        
-        mkdir -p ./app/build/outputs/apk/debug/renamed
-        
-        # Check if APK exists
-        if [ -f "./app/build/outputs/apk/debug/app-debug.apk" ]; then
-          echo "Found APK, renaming..."
-          cp ./app/build/outputs/apk/debug/app-debug.apk \
-             ./app/build/outputs/apk/debug/renamed/cerebrum-${VERSION}-${SHORT_SHA}-debug.apk
-          echo "APK renamed successfully"
-          ls -la ./app/build/outputs/apk/debug/renamed/
-        else
-          echo "APK not found at expected path, listing files:"
-          find ./app/build/outputs -name "*.apk" -type f 2>/dev/null || echo "No APK files found"
-          exit 1
-        fi
-
-    - name: Upload Renamed APK
-      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    - name: Upload Debug APK as artifact
       uses: actions/upload-artifact@v4
       with:
-        name: cerebrum-debug-apk
-        path: frontend/android/app/build/outputs/apk/debug/renamed/*.apk
+        name: debug-apk
+        path: frontend/android/app/build/outputs/apk/debug/app-debug.apk
         retention-days: 90
 
   # Optional: Create GitHub Release with APK (manual trigger only)
