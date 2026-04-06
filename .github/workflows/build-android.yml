@@ -65,7 +65,14 @@ jobs:
 
     - name: Build Debug APK
       working-directory: ./frontend/android
-      run: ./gradlew assembleDebug --stacktrace --info
+      run: |
+        echo "=== Environment Check ==="
+        echo "JAVA_HOME: $JAVA_HOME"
+        java -version
+        echo "=== Gradle Wrapper Check ==="
+        ls -la gradlew
+        echo "=== Running Gradle Build ==="
+        ./gradlew assembleDebug --no-daemon --console=plain 2>&1
 
     - name: Upload Debug APK as artifact
       uses: actions/upload-artifact@v4
