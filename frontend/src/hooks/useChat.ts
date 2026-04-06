@@ -1,6 +1,9 @@
 import { useState, useCallback, useRef } from 'react';
 import type { Message, Attachment, ChatMode, CodeExecutionResult, WebSearchResult } from '@/types';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://cerebrum-api.onrender.com';
+const API_PREFIX = API_BASE_URL.endsWith('/api/v1') ? API_BASE_URL : `${API_BASE_URL}/api/v1`;
+
 interface UseChatOptions {
   apiUrl?: string;
   initialMessages?: Message[];
@@ -25,7 +28,7 @@ interface UseChatReturn {
 }
 
 export function useChat(options: UseChatOptions = {}): UseChatReturn {
-  const { apiUrl = '/api/v1', initialMessages = [], onError } = options;
+  const { apiUrl = API_PREFIX, initialMessages = [], onError } = options;
   
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [input, setInput] = useState('');
