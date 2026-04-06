@@ -58,7 +58,10 @@ class MemoryMonitor:
             self._psutil = psutil
             self._process = psutil.Process()
             self._has_psutil = True
-            logger.info(f"✅ Memory monitor active (warn: {warning_threshold_mb}MB, critical: {critical_threshold_mb}MB)")
+            logger.info(
+                f"✅ Memory monitor active (warn: {warning_threshold_mb}MB, "
+                f"critical: {critical_threshold_mb}MB)"
+            )
         except ImportError:
             logger.warning("psutil not available - memory monitoring disabled")
     
