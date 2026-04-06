@@ -17,7 +17,6 @@ import os
 import re
 import time
 import gc
-import psutil
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -25,6 +24,13 @@ router = APIRouter()
 # Memory tracking
 _request_count = 0
 _total_memory_increase = 0
+
+# Try to import psutil, fallback if not available
+try:
+    import psutil
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    PSUTIL_AVAILABLE = False
 
 
 class EnhancedTaskRequest(BaseModel):
@@ -49,8 +55,10 @@ class EnhancedTaskResponse(BaseModel):
 
 def get_memory_mb() -> float:
     """Get current process memory in MB."""
-    process = psutil.Process()
-    return process.memory_info().rss / 1024 / 1024
+    if PSUTIL_AVAILABLE:
+        process = psutil.Process()
+        return process.memory_info().rss / 1024 / 1024
+    return 0.0
 
 
 def handle_concrete_calculation(task: str) -> Dict[str, Any]:
@@ -267,14 +275,19 @@ async def execute_stateless(request: EnhancedTaskRequest):
 @router.get("/memory/profile")
 async def get_memory_profile():
     """Get memory profiling data."""
-    process = psutil.Process()
-    mem_info = process.memory_info()
-    
-    return {
-        "memory_mb": {
+    if PSUTIL_AVAILABLE:
+        process = psutil.Process()
+        mem_info = process.memory_info()
+        memory_data = {
             "rss": round(mem_info.rss / 1024 / 1024, 2),
             "vms": round(mem_info.vms / 1024 / 1024, 2),
-        },
+        }
+    else:
+        memory_data = {"rss": 0, "vms": 0, "note": "psutil not available"}
+    
+    return {
+        "memory_mb": memory_data,
+        "psutil_available": PSUTIL_AVAILABLE,
         "request_stats": {
             "total_requests": _request_count,
             "total_memory_increase_mb": round(_total_memory_increase, 2),
