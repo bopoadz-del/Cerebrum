@@ -247,7 +247,7 @@ export function ChatInterfaceV2({
           <ChatInputV2
             value={input}
             onChange={setInput}
-            onSend={sendMessage}
+            onSend={() => sendMessage(input, attachments)}
             onAttachFile={handleAttachFile}
             onInternetSearch={handleInternetSearch}
             attachments={attachments}
