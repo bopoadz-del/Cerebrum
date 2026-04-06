@@ -201,18 +201,19 @@ if IOT_AVAILABLE:
 if SAFETY_AVAILABLE:
     api_v1_router.include_router(safety.router)  # prefix="/safety" already in router
 
+# Include STATELESS agent endpoints FIRST (memory leak fix) - takes precedence
+if STATELESS_AGENT_AVAILABLE:
+    api_v1_router.include_router(stateless_agent_router, prefix="/agent/v2", tags=["agent-stateless"])
+    logger.info("Stateless agent router mounted at /api/v1/agent/v2")
+
 # Include agent endpoints
 if AGENT_AVAILABLE:
     api_v1_router.include_router(agent_router, prefix="/agent", tags=["agent"])
 
-# Include enhanced agent endpoints
-if ENHANCED_AGENT_AVAILABLE:
-    api_v1_router.include_router(enhanced_agent_router, prefix="/agent/v2", tags=["agent-enhanced"])
-
-# Include STATELESS agent endpoints (memory leak fix) - overrides /agent/v2/execute
-if STATELESS_AGENT_AVAILABLE:
-    api_v1_router.include_router(stateless_agent_router, prefix="/agent/v2", tags=["agent-stateless"])
-    logger.info("Stateless agent router mounted at /api/v1/agent/v2")
+# Include enhanced agent endpoints (DISABLED - causes memory leaks)
+# if ENHANCED_AGENT_AVAILABLE:
+#     api_v1_router.include_router(enhanced_agent_router, prefix="/agent/v2", tags=["agent-enhanced"])
+# NOTE: Enhanced agent disabled due to memory indexing causing OOM crashes
 
 # Include self-modification endpoints
 if SELF_MOD_AVAILABLE:
