@@ -65,7 +65,7 @@ jobs:
 
     - name: Build Debug APK
       working-directory: ./frontend/android
-      run: ./gradlew assembleDebug
+      run: ./gradlew assembleDebug --stacktrace --info
 
     - name: Upload Debug APK as artifact
       uses: actions/upload-artifact@v4
