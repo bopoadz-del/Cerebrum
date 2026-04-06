@@ -48,6 +48,11 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
 
+    - name: Accept Android SDK Licenses
+      run: |
+        yes | sdkmanager --licenses || true
+        sdkmanager "platforms;android-35" "build-tools;35.0.0" || true
+
     - name: Generate debug keystore (if not exists)
       working-directory: ./frontend/android/app
       run: |
