@@ -110,13 +110,15 @@ jobs:
 
     - name: Rename APK with version
       if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+      working-directory: ./frontend/android
       run: |
         VERSION=$(date +'%Y%m%d-%H%M%S')
         COMMIT_SHA=${{ github.sha }}
         SHORT_SHA=${COMMIT_SHA::7}
-        mkdir -p ./frontend/android/app/build/outputs/apk/debug/renamed
-        cp ./frontend/android/app/build/outputs/apk/debug/app-debug.apk \
-           ./frontend/android/app/build/outputs/apk/debug/renamed/cerebrum-${VERSION}-${SHORT_SHA}-debug.apk
+        mkdir -p ./app/build/outputs/apk/debug/renamed
+        ls -la ./app/build/outputs/apk/debug/  # Debug: list files
+        cp ./app/build/outputs/apk/debug/app-debug.apk \
+           ./app/build/outputs/apk/debug/renamed/cerebrum-${VERSION}-${SHORT_SHA}-debug.apk
 
     - name: Upload Renamed APK
       if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
