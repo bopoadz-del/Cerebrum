@@ -103,6 +103,15 @@ except Exception as e:
     ENHANCED_AGENT_AVAILABLE = False
     logger.warning(f"Enhanced agent endpoints not available: {e}")
 
+# Import STATELESS agent endpoints (memory leak fix)
+try:
+    from app.agent.stateless_endpoints import router as stateless_agent_router
+    STATELESS_AGENT_AVAILABLE = True
+    logger.info("STATELESS agent endpoints loaded - memory leak fix active")
+except Exception as e:
+    STATELESS_AGENT_AVAILABLE = False
+    logger.warning(f"Stateless agent endpoints not available: {e}")
+
 
 # Import self-modification endpoints
 try:
@@ -199,6 +208,11 @@ if AGENT_AVAILABLE:
 # Include enhanced agent endpoints
 if ENHANCED_AGENT_AVAILABLE:
     api_v1_router.include_router(enhanced_agent_router, prefix="/agent/v2", tags=["agent-enhanced"])
+
+# Include STATELESS agent endpoints (memory leak fix) - overrides /agent/v2/execute
+if STATELESS_AGENT_AVAILABLE:
+    api_v1_router.include_router(stateless_agent_router, prefix="/agent/v2", tags=["agent-stateless"])
+    logger.info("Stateless agent router mounted at /api/v1/agent/v2")
 
 # Include self-modification endpoints
 if SELF_MOD_AVAILABLE:
