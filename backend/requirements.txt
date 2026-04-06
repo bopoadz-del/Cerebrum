@@ -46,6 +46,9 @@ google-api-python-client==2.108.0
 # Sentry
 sentry-sdk[fastapi]==1.38.0
 
+# PDF Processing
+pymupdf==1.23.8
+
 # Utilities
 python-dotenv==1.0.0
 typer==0.9.0
