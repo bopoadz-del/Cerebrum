@@ -141,11 +141,117 @@ I can help with construction costs, formulas, and document analysis. Try:
 Is there a specific construction calculation or document you'd like help with?"""
 
 
+def calculate_concrete_volume(message: str) -> str:
+    """Calculate concrete volume from dimensions in message."""
+    import re
+    
+    # Look for dimension patterns like "10m x 8m x 0.5m" or "10 x 8 x 0.5"
+    # Support various units: m, meters, ft, feet, ' (feet), " (inches)
+    patterns = [
+        # Metric: 10m x 8m x 0.5m or 10 m x 8 m x 0.5 m
+        r'(\d+\.?\d*)\s*m?\s*[x×]\s*(\d+\.?\d*)\s*m?\s*[x×]\s*(\d+\.?\d*)\s*m?',
+        # Imperial: 10ft x 8ft x 0.5ft or 10' x 8' x 6"
+        r'(\d+\.?\d*)\s*(?:ft|feet|\')\s*[x×]\s*(\d+\.?\d*)\s*(?:ft|feet|\')\s*[x×]\s*(\d+\.?\d*)\s*(?:ft|feet|\'|in|inches|\")?',
+    ]
+    
+    for pattern in patterns:
+        match = re.search(pattern, message.lower())
+        if match:
+            try:
+                length = float(match.group(1))
+                width = float(match.group(2))
+                depth = float(match.group(3))
+                
+                # Determine unit from message context
+                is_metric = any(unit in message.lower() for unit in ['m ', 'meter', 'mtr', 'metre'])
+                is_imperial = any(unit in message.lower() for unit in ["'", 'ft', 'feet', 'inch'])
+                
+                # Default to metric if no unit specified but values are small
+                if not is_metric and not is_imperial:
+                    is_metric = length < 100 and width < 100 and depth < 10
+                
+                if is_metric:
+                    # Metric calculation (meters)
+                    volume_m3 = length * width * depth
+                    volume_ft3 = volume_m3 * 35.3147
+                    volume_yd3 = volume_ft3 / 27
+                    
+                    # Estimate concrete cost
+                    cost_low = volume_yd3 * 120
+                    cost_high = volume_yd3 * 150
+                    
+                    return f"""📐 **Concrete Volume Calculation**
+
+**Dimensions:**
+• Length: {length} m
+• Width: {width} m  
+• Depth: {depth} m
+
+**Volume:**
+• **{volume_m3:.2f} cubic meters** (m³)
+• {volume_ft3:.2f} cubic feet
+• {volume_yd3:.2f} cubic yards
+
+**Estimated Cost:**
+• ${cost_low:,.0f} - ${cost_high:,.0f} (@ $120-150/yd³)
+
+**Formula Used:**
+```
+Volume = Length × Width × Depth
+Volume = {length} × {width} × {depth} = {volume_m3:.2f} m³
+```
+
+*Note: Cost estimate is for ready-mix concrete only. Does not include labor, forms, or reinforcement.*"""
+                else:
+                    # Imperial calculation (feet)
+                    volume_ft3 = length * width * depth
+                    volume_yd3 = volume_ft3 / 27
+                    volume_m3 = volume_ft3 / 35.3147
+                    
+                    # Estimate concrete cost
+                    cost_low = volume_yd3 * 120
+                    cost_high = volume_yd3 * 150
+                    
+                    return f"""📐 **Concrete Volume Calculation**
+
+**Dimensions:**
+• Length: {length} ft
+• Width: {width} ft
+• Depth: {depth} ft
+
+**Volume:**
+• **{volume_yd3:.2f} cubic yards** (yd³)
+• {volume_ft3:.2f} cubic feet
+• {volume_m3:.2f} cubic meters
+
+**Estimated Cost:**
+• ${cost_low:,.0f} - ${cost_high:,.0f} (@ $120-150/yd³)
+
+**Formula Used:**
+```
+Volume = Length × Width × Depth
+Volume = {length} × {width} × {depth} = {volume_ft3:.2f} ft³ = {volume_yd3:.2f} yd³
+```
+
+*Note: Cost estimate is for ready-mix concrete only. Does not include labor, forms, or reinforcement.*"""
+            except (ValueError, IndexError):
+                pass
+    
+    return None
+
+
 async def handle_economics_query(message: str) -> str:
     """Handle economics/cost queries using direct API calls."""
     message_lower = message.lower()
     
     try:
+        # Check for concrete volume calculation
+        if any(word in message_lower for word in ['volume', 'calculate', 'calculation', 'cubic', 'm3', 'yd3']):
+            if 'concrete' in message_lower or 'foundation' in message_lower or 'slab' in message_lower:
+                volume_result = calculate_concrete_volume(message)
+                if volume_result:
+                    return volume_result
+        
         # Check for building cost estimate
         if any(word in message_lower for word in ['warehouse', 'office', 'building', 'estimate', 'cost']):
             # Extract building type
