@@ -642,6 +642,141 @@ async def health_check() -> Dict[str, Any]:
     }
 
 
+# Public File Upload Endpoint (No authentication required)
+@router.post("/upload/public")
+async def upload_public_file(
+    request: Request,
+    file: UploadFile = File(...),
+) -> Dict[str, Any]:
+    """Upload a file for public/anonymous users.
+    
+    Extracts text via OCR and returns the extracted content.
+    No authentication required.
+    """
+    import uuid
+    import time
+    
+    logger.info(
+        "Public file upload started",
+        filename=file.filename,
+        content_type=file.content_type,
+        client_host=request.client.host if request.client else None,
+    )
+    
+    try:
+        # Validate file size (max 50MB)
+        max_size = 50 * 1024 * 1024  # 50MB
+        file_content = await file.read()
+        if len(file_content) > max_size:
+            raise HTTPException(status_code=413, detail="File too large (max 50MB)")
+        
+        # Generate unique file ID
+        file_id = f"public_{uuid.uuid4().hex}"
+        file_ext = os.path.splitext(file.filename)[1].lower()
+        safe_filename = f"{file_id}{file_ext}"
+        file_path = os.path.join(UPLOAD_DIR, safe_filename)
+        
+        # Save file
+        with open(file_path, "wb") as f:
+            f.write(file_content)
+        
+        logger.info("File saved", file_id=file_id, file_path=file_path)
+        
+        # Extract text based on file type
+        extracted_text = ""
+        can_extract_text = False
+        
+        # PDF files
+        if file_ext == '.pdf' or file.content_type == 'application/pdf':
+            try:
+                from app.pipelines.ocr import TesseractOCR
+                ocr = TesseractOCR()
+                result = await ocr.process_pdf(file_content)
+                extracted_text = result.text
+                can_extract_text = True
+                logger.info("PDF OCR completed", word_count=result.word_count)
+            except Exception as e:
+                logger.warning(f"PDF OCR failed: {e}")
+                extracted_text = f"[PDF processing failed: {str(e)}]"
+        
+        # Image files
+        elif file_ext in ['.png', '.jpg', '.jpeg', '.tiff', '.webp'] or \
+             (file.content_type and file.content_type.startswith('image/')):
+            try:
+                from app.pipelines.ocr import TesseractOCR
+                ocr = TesseractOCR()
+                result = await ocr.process_image(file_content, preprocess=True)
+                extracted_text = result.text
+                can_extract_text = True
+                logger.info("Image OCR completed", word_count=result.word_count)
+            except Exception as e:
+                logger.warning(f"Image OCR failed: {e}")
+                extracted_text = f"[Image OCR failed: {str(e)}]"
+        
+        # Text files
+        elif file_ext in ['.txt', '.md'] or (file.content_type and file.content_type.startswith('text/')):
+            try:
+                extracted_text = file_content.decode('utf-8')
+                can_extract_text = True
+                logger.info("Text file read", char_count=len(extracted_text))
+            except Exception as e:
+                logger.warning(f"Text decode failed: {e}")
+                extracted_text = f"[Text decode failed: {str(e)}]"
+        
+        # Classify document type
+        doc_type = "unknown"
+        if can_extract_text and extracted_text:
+            try:
+                from app.pipelines.document_classification import classify_document
+                classification = await classify_document(extracted_text)
+                doc_type = classification.document_type
+                logger.info("Document classified", doc_type=doc_type)
+            except Exception as e:
+                logger.warning(f"Classification failed: {e}")
+        
+        # Clean up uploaded file
+        try:
+            os.remove(file_path)
+            logger.info("Cleaned up uploaded file", file_path=file_path)
+        except Exception as e:
+            logger.warning(f"Failed to clean up file: {e}")
+        
+        return {
+            "success": True,
+            "file_id": file_id,
+            "filename": file.filename,
+            "size": len(file_content),
+            "mime_type": file.content_type or "application/octet-stream",
+            "document_type": doc_type,
+            "text": extracted_text[:10000] if extracted_text else "",  # Limit text size
+            "text_length": len(extracted_text) if extracted_text else 0,
+            "can_extract_text": can_extract_text,
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Public file upload failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+
+# CORS preflight for public upload
+@router.options("/upload/public")
+async def upload_public_preflight(request: Request):
+    """Handle CORS preflight requests for public upload."""
+    origin = request.headers.get("origin", "*")
+    return JSONResponse(
+        content={"message": "Preflight OK"},
+        headers={
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Authorization, Content-Type, X-Request-ID",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Max-Age": "86400",
+        }
+    )
+
+
 # Google Drive Integration Endpoints
 
 class DriveFileProcessResponse(BaseModel):

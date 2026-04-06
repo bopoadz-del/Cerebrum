@@ -264,7 +264,7 @@ export function uploadFileWithProgress(
 }
 
 /**
- * Process PDF/Image file via batch/process endpoint with progress tracking
+ * Process PDF/Image file via public upload endpoint with progress tracking
  */
 export function processDocument(
   file: File,
@@ -290,10 +290,9 @@ export function processDocument(
 
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('operations', 'ocr,classification,ner');
 
     uploadFileWithProgress(
-      `${API_BASE_URL}/api/v1/documents/batch/process`,
+      `${API_BASE_URL}/api/v1/documents/upload/public`,
       formData,
       (progress) => {
         onProgress?.('uploading', progress.percentage);
@@ -301,17 +300,14 @@ export function processDocument(
       (responseText) => {
         try {
           const data = JSON.parse(responseText);
-          const text = data.results?.ocr?.text || '';
-          const entities = data.results?.ner?.entities?.map((e: { text: string }) => e.text) || [];
+          const text = data.text || '';
 
           resolve({
-            success: true,
+            success: data.success && data.can_extract_text,
             text,
             metadata: {
-              type: data.results?.classification?.document_type || file.type.split('/')[0].toUpperCase(),
-              wordCount: data.results?.ocr?.word_count || 0,
-              confidence: data.results?.ocr?.confidence,
-              entities,
+              type: data.document_type || file.type.split('/')[0].toUpperCase(),
+              wordCount: data.text_length || 0,
               fileName: file.name,
             },
           });
