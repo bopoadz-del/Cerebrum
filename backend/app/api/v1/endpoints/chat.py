@@ -11,6 +11,7 @@ import re
 
 from app.core.logging import get_logger
 from app.services.local_llm import is_local_llm_available, get_local_llm
+from app.services.document_analyzer import document_analyzer
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -576,3 +577,144 @@ async def local_llm_status():
             pass
     
     return status
+
+
+@router.post("/analyze-document")
+async def analyze_document(request: dict):
+    """
+    Analyze uploaded documents: contracts, floor plans, schedules.
+    
+    Request body:
+    - text: Extracted text from the document
+    - filename: Original filename
+    - doc_type: 'contract', 'floor_plan', 'schedule', or 'auto'
+    """
+    try:
+        text = request.get("text", "")
+        filename = request.get("filename", "")
+        doc_type = request.get("doc_type", "auto")
+        
+        if not text:
+            return {
+                "success": False,
+                "error": "No document text provided"
+            }
+        
+        # Auto-detect document type if not specified
+        if doc_type == "auto":
+            filename_lower = filename.lower()
+            if any(word in filename_lower for word in ["contract", "agreement"]):
+                doc_type = "contract"
+            elif any(word in filename_lower for word in ["floor", "plan", "drawing"]):
+                doc_type = "floor_plan"
+            elif any(word in filename_lower for word in ["schedule", "primavera", "p6", "gantt"]):
+                doc_type = "schedule"
+            else:
+                # Try to detect from content
+                text_lower = text.lower()
+                if "activity id" in text_lower or "duration" in text_lower:
+                    doc_type = "schedule"
+                elif "square feet" in text_lower or "dimension" in text_lower:
+                    doc_type = "floor_plan"
+                elif "contractor" in text_lower or "agreement" in text_lower:
+                    doc_type = "contract"
+                else:
+                    doc_type = "general"
+        
+        # Analyze based on document type
+        if doc_type == "contract":
+            analysis = document_analyzer.analyze_contract(text, filename)
+            return {
+                "success": True,
+                "doc_type": "contract",
+                "analysis": {
+                    "contract_type": analysis.contract_type,
+                    "parties": analysis.parties,
+                    "total_value": analysis.total_value,
+                    "start_date": analysis.start_date,
+                    "end_date": analysis.end_date,
+                    "key_clauses": [
+                        {
+                            "section": c.section,
+                            "title": c.title,
+                            "content": c.content,
+                            "risk_level": c.risk_level,
+                            "key_points": c.key_points
+                        } for c in analysis.key_clauses
+                    ],
+                    "risks": analysis.risks,
+                    "recommendations": analysis.recommendations,
+                    "payment_terms": analysis.payment_terms,
+                    "termination_clause": analysis.termination_clause
+                }
+            }
+        
+        elif doc_type == "floor_plan":
+            analysis = document_analyzer.analyze_floor_plan(text, filename)
+            return {
+                "success": True,
+                "doc_type": "floor_plan",
+                "analysis": {
+                    "project_name": analysis.project_name,
+                    "total_area_sqft": analysis.total_area_sqft,
+                    "items": [
+                        {
+                            "category": item.category,
+                            "description": item.description,
+                            "quantity": item.quantity,
+                            "unit": item.unit,
+                            "area_sqft": item.area_sqft,
+                            "notes": item.notes
+                        } for item in analysis.items
+                    ],
+                    "summary_by_category": analysis.summary_by_category
+                }
+            }
+        
+        elif doc_type == "schedule":
+            analysis = document_analyzer.analyze_schedule(text, filename)
+            return {
+                "success": True,
+                "doc_type": "schedule",
+                "analysis": {
+                    "project_name": analysis.project_name,
+                    "total_duration": analysis.total_duration,
+                    "start_date": analysis.start_date,
+                    "end_date": analysis.end_date,
+                    "critical_path": analysis.critical_path,
+                    "activities": [
+                        {
+                            "id": a.id,
+                            "name": a.name,
+                            "duration": a.duration,
+                            "start_date": a.start_date,
+                            "end_date": a.end_date,
+                            "predecessors": a.predecessors,
+                            "successors": a.successors,
+                            "critical": a.critical,
+                            "percent_complete": a.percent_complete
+                        } for a in analysis.activities
+                    ],
+                    "milestones": analysis.milestones,
+                    "risks": analysis.risks,
+                    "recommendations": analysis.recommendations
+                }
+            }
+        
+        else:
+            return {
+                "success": True,
+                "doc_type": "general",
+                "analysis": {
+                    "text_preview": text[:1000],
+                    "word_count": len(text.split()),
+                    "note": "Document type not recognized. Supported types: contract, floor_plan, schedule"
+                }
+            }
+    
+    except Exception as e:
+        logger.error(f"Document analysis error: {e}")
+        return {
+            "success": False,
+            "error": f"Analysis failed: {str(e)}"
+        }

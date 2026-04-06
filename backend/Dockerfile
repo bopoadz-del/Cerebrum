@@ -8,9 +8,9 @@ ENV OLLAMA_MODELS=/root/.ollama/models
 
 WORKDIR /app
 
-# System dependencies + Tesseract OCR + PostgreSQL client
+# System dependencies + Tesseract OCR + PostgreSQL client + zstd for Ollama
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl ca-certificates \
+    curl ca-certificates zstd \
     tesseract-ocr tesseract-ocr-eng \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*
