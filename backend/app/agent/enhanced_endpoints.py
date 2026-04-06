@@ -56,20 +56,17 @@ class EnhancedTaskResponse(BaseModel):
 
 
 async def ensure_agent_initialized():
-    """Ensure agent is initialized with proper error handling."""
+    """Ensure agent is initialized with proper error handling.
+    
+    MEMORY OPTIMIZATION: Skip memory index building to prevent OOM.
+    Uses rule-based fallback instead of full agent with memory indexing.
+    """
     global _agent_init_error
     
-    try:
-        agent = get_enhanced_agent()
-        # Check if initialized by checking if reader has index
-        if hasattr(agent, '_reader_initialized') and not agent._reader_initialized:
-            logger.info("Agent not initialized, initializing now...")
-            await agent.initialize()
-        return agent, None
-    except Exception as e:
-        logger.error(f"Agent initialization failed: {e}")
-        _agent_init_error = str(e)
-        return None, e
+    # MEMORY OPTIMIZATION: Skip agent initialization entirely to avoid OOM
+    # The agent's memory indexing loads all .md files into memory causing 4GB limit to be exceeded
+    # Instead, we use rule-based processing which is lightweight and fast
+    return None, Exception("Agent memory indexing disabled for memory optimization")
 
 
 def handle_construction_task(task: str) -> Dict[str, Any]:
