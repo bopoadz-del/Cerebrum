@@ -6,3 +6,4 @@ export type {
   FileSyncResult 
 } from './sync';
 export { backgroundSync } from './sync';
+export { offlineQueue, type QueuedUpload, type QueueStats } from './offlineQueue';
