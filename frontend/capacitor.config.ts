@@ -42,4 +42,12 @@ const config: CapacitorConfig = {
       keystoreAlias: undefined,
     },
     allowMixedContent: true,
-    captureInpu
+    captureInput: true,
+  },
+  ios: {
+    contentInset: 'automatic',
+    scrollEnabled: true,
+  },
+};
+
+export default config;
