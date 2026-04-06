@@ -48,6 +48,9 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
 
+    - name: Set ANDROID_HOME
+      run: echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+
     - name: Accept Android SDK Licenses
       run: |
         yes | sdkmanager --licenses || true
@@ -84,18 +87,17 @@ jobs:
     - name: Build Debug APK
       working-directory: ./frontend/android
       run: |
-        echo "=== Environment Check ==="
+        echo "=== Environment ==="
         echo "JAVA_HOME: $JAVA_HOME"
         java -version
-        echo "=== Android SDK Check ==="
-        sdkmanager --list_installed | head -20
-        echo "=== Gradle Properties ==="
-        cat gradle.properties
-        echo "=== Running Gradle Build ==="
-        ./gradlew assembleDebug --no-daemon --console=plain --stacktrace 2>&1 || {
+        echo "ANDROID_HOME: $ANDROID_HOME"
+        echo "=== Gradle Version ==="
+        ./gradlew --version
+        echo "=== Starting Build ==="
+        ./gradlew assembleDebug --no-daemon --console=plain 2>&1 | tee build.log || {
           echo "=== BUILD FAILED ==="
-          echo "=== Disk Space ==="
-          df -h
+          echo "=== Last 50 lines of log ==="
+          tail -50 build.log
           exit 1
         }
 
