@@ -203,6 +203,15 @@ ${result.text}`);
         console.log('[useChat] Including file_keys:', fileKeys);
       }
       
+      // Include extracted_texts if we have any (helps backend when disk not shared)
+      const extractedTextsList = processedAttachments
+        .map(att => att.extractedText)
+        .filter((text): text is string => !!text);
+      if (extractedTextsList.length > 0) {
+        requestBody.extracted_texts = extractedTextsList;
+        console.log('[useChat] Including extracted_texts:', extractedTextsList.length);
+      }
+      
       const response = await fetch(`${apiUrl}/chat/completions`, {
         method: 'POST',
         headers: {

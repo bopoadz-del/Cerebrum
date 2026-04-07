@@ -45,6 +45,7 @@ class ChatCompletionRequest(BaseModel):
     stream: bool = False
     conversation_id: Optional[str] = None
     file_keys: Optional[List[str]] = Field(default=None, description="File keys of uploaded attachments")
+    extracted_texts: Optional[List[str]] = Field(default=None, description="Extracted text from uploaded files")
 
 
 class ChatCompletionChoice(BaseModel):
@@ -505,8 +506,18 @@ async def chat_completions(request: ChatCompletionRequest):
         if request.file_keys:
             logger.info(f"Processing {len(request.file_keys)} file keys: {request.file_keys}")
             file_parts = []
-            for file_key in request.file_keys:
-                # Try to find and read the file
+            
+            # Use provided extracted_texts if available (avoids disk read issues)
+            extracted_texts = request.extracted_texts or []
+            
+            for i, file_key in enumerate(request.file_keys):
+                # First try using provided extracted text
+                if i < len(extracted_texts) and extracted_texts[i]:
+                    file_parts.append(f"[File: {file_key}]\n{extracted_texts[i][:5000]}")
+                    logger.info(f"Using provided extracted text for {file_key}")
+                    continue
+                
+                # Fall back to reading from disk (for backwards compatibility)
                 file_path = None
                 for ext in ['.pdf', '.txt', '.md', '.doc', '.docx', '.png', '.jpg', '.jpeg', '.webp', '']:
                     test_path = os.path.join(UPLOAD_DIR, f"{file_key}{ext}")
