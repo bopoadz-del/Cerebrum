@@ -1,0 +1,147 @@
+{
+  "timestamp": "2026-04-02T01:05:53.141999",
+  "app_name": "Cerebrum Mobile App",
+  "urls": {
+    "frontend": "https://cerebrum-frontend.onrender.com",
+    "api": "https://cerebrum-api.onrender.com"
+  },
+  "executive_summary": {
+    "overall_status": "NEEDS_OPTIMIZATION",
+    "score": 72,
+    "critical_issues": 2,
+    "recommendations": 8
+  },
+  "metrics": {
+    "load_times": {
+      "first_byte": 0.0281341552734375,
+      "p95_response": 0.035689592361450195,
+      "mobile_load": {
+        "iphone": 0.039980411529541016,
+        "android": 0.022270917892456055
+      },
+      "network_simulation": {
+        "3g": 0.7115292072296142,
+        "4g": 0.3122645378112793
+      }
+    },
+    "api_performance": {
+      "health_check_avg": 0.2421675443649292,
+      "chat_api_avg": 0.28023109436035154,
+      "concurrent_50": {
+        "total_time": 0.6949794292449951,
+        "avg_response": 0.4707098579406738,
+        "success_count": 50,
+        "success_rate": 100.0,
+        "status_200_count": 50
+      }
+    },
+    "runtime": {
+      "memory_trend": "stable",
+      "response_consistency": "stable"
+    },
+    "bundle_analysis": {
+      "html_size_kb": 0.5771484375,
+      "scripts": [
+        "./assets/index-7QlI96_C.js"
+      ],
+      "stylesheets": []
+    }
+  },
+  "findings": {
+    "critical": [
+      {
+        "issue": "Missing Cache Headers on Dynamic Content",
+        "impact": "HIGH",
+        "description": "HTML responses have max-age=0, causing reload on every visit",
+        "recommendation": "Implement proper cache headers for static assets; use hash-based filenames"
+      },
+      {
+        "issue": "WebSocket Connection Failures",
+        "impact": "HIGH",
+        "description": "All WebSocket endpoints return 403 - real-time features may be broken",
+        "recommendation": "Review WebSocket authentication and CORS configuration"
+      }
+    ],
+    "warnings": [
+      {
+        "issue": "No Image Optimization Detected",
+        "impact": "MEDIUM",
+        "description": "Cannot verify image optimization without browser analysis",
+        "recommendation": "Implement WebP format with fallbacks; use lazy loading"
+      },
+      {
+        "issue": "Missing Lazy Loading Indicators",
+        "impact": "MEDIUM",
+        "description": "Bundle analysis shows single entry point - likely no code splitting",
+        "recommendation": "Implement route-based code splitting with React.lazy()"
+      },
+      {
+        "issue": "3G Network Performance",
+        "impact": "MEDIUM",
+        "description": "3G simulated load time is 0.71s - may be slow for complex pages",
+        "recommendation": "Optimize critical rendering path; reduce blocking resources"
+      }
+    ],
+    "recommendations": [
+      {
+        "category": "Caching",
+        "priority": "HIGH",
+        "actions": [
+          "Set Cache-Control: public, max-age=31536000 for static assets",
+          "Use content hashing in filenames (e.g., index.[hash].js)",
+          "Implement service worker for offline support"
+        ]
+      },
+      {
+        "category": "Code Splitting",
+        "priority": "HIGH",
+        "actions": [
+          "Implement React.lazy() for route components",
+          "Split vendor libraries into separate chunks",
+          "Use dynamic imports for heavy features (PDF viewer, charts)"
+        ]
+      },
+      {
+        "category": "Image Optimization",
+        "priority": "MEDIUM",
+        "actions": [
+          "Convert images to WebP format",
+          "Implement responsive images with srcset",
+          "Add loading=\"lazy\" to below-fold images"
+        ]
+      },
+      {
+        "category": "API Performance",
+        "priority": "MEDIUM",
+        "actions": [
+          "Add response compression (gzip/brotli)",
+          "Implement request batching for chat messages",
+          "Add Redis caching for frequently accessed data"
+        ]
+      },
+      {
+        "category": "Mobile Optimization",
+        "priority": "MEDIUM",
+        "actions": [
+          "Optimize for low-end devices (reduce JS bundle)",
+          "Implement network-aware loading",
+          "Add connection type detection (save-data header)"
+        ]
+      }
+    ]
+  },
+  "benchmarks": {
+    "good": {
+      "load_time": "< 1s",
+      "api_response": "< 200ms",
+      "tti": "< 3s",
+      "lighthouse_score": "> 90"
+    },
+    "current": {
+      "load_time": "0.028s (excellent)",
+      "api_response": "0.24s (acceptable)",
+      "tti": "unknown (needs browser test)",
+      "lighthouse_score": "unknown (needs browser test)"
+    }
+  }
+}

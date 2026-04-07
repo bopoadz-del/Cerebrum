@@ -1,0 +1,124 @@
+CEREBRUM: WHAT IT IS
+
+Cerebrum is an artificial intelligence operating system that runs entirely inside a construction company's server room—no internet required, no cloud subscriptions, no data leaks to external companies like Google or OpenAI.
+
+The Hardware
+
+It runs on two specialized computers made by NVIDIA:
+
+The Brain (1,000 box the size of a hardcover book)
+- Sits in the site office, plugged into the company's internal network
+- 16GB RAM, 1,000 CUDA cores (graphics processors)
+- Runs the database, document reading AI, and reasoning engine
+- Processes documents, stores 10 years of project data, and trains custom AI models
+
+The Eyes (250 boxes, one per construction zone)
+- Mounted on cranes, excavation pits, and site entrances
+- Each has a camera and 4GB RAM
+- Runs safety detection 24/7: hardhats, safety vests, restricted zones
+- Works without internet—if the network goes down, they store events locally and sync when it returns
+
+What It Actually Does
+
+Document Intelligence
+Workers drop PDFs, photos, and scans into a folder on the computer. The system:
+- Reads them (even handwritten notes and blurry photos)
+- Understands what they are (invoice vs. safety report vs. blueprint)
+- Extracts the important information (vendor names, dollar amounts, dates, project codes)
+- Stores everything in a searchable database
+
+Semantic Search
+Instead of searching filenames, you ask questions:
+- "Find all concrete invoices over 10,000 from last month"
+- "Show me safety incidents near Crane Zone A"
+- "What did we decide about the foundation specs in March?"
+
+The system understands meaning, not just keywords. It finds documents even if they don't contain the exact words you typed.
+
+Safety Monitoring
+The cameras watch for:
+- Workers without hardhats or vests
+- People entering dangerous zones
+- Equipment operating outside safe parameters
+
+When it detects something, it logs the event with a photo, timestamp, and exact location. No human has to watch 40 camera feeds simultaneously.
+
+Self-Coding AI
+When the system encounters a document format it has never seen before—a weird invoice layout from a new subcontractor—it writes its own computer code to parse it. It tests the code in a secure sandbox, then uses it to process that document type forever. No software engineer required.
+
+Autonomous Agent
+You can give it tasks in plain English:
+- "Analyze last week's safety reports and tell me if accident rates are trending up"
+- "Compare this month's invoices against the budget and flag anomalies"
+- "Generate a summary of all RFIs pending longer than 5 days"
+
+The agent breaks the task into steps, uses the tools available (document search, calculator, code generator), executes them, and explains how it reached the conclusion.
+
+The Architecture (14 Layers)
+
+The platform is built in 14 independent layers—like floors in a building:
+
+1. Governance - Who can see what, audit trails, security rules
+2. Documents - Reading and understanding files
+3. Spatial - Connecting documents to physical locations (BIM models)
+4. ML Lab - Training and testing AI models
+5. Sandbox - Safe place to run generated code
+6. Hardware - Managing different devices (Orin vs. Nano)
+7. Workflows - Routing documents to the right people
+8. Gateway - How external systems connect (if internet is available)
+9. Self-Coding - Writing parsers for new document types
+10. Events - Real-time triggers and alerts
+11. Warehouse - Long-term data storage
+12. Identity - Login and permissions
+13. Monitoring - Watching how the system performs
+14. Healing - Fixing itself when things break
+
+Each layer operates independently. If one breaks, the others continue working.
+
+Security & Privacy
+
+- Air-gapped: The system works entirely offline. No internet needed for daily operations.
+- Encrypted: Documents are encrypted at rest using hardware-accelerated AES-256.
+- One-way data flow: Internal data can be summarized and sent outward, but external systems cannot reach into the internal database.
+- Local only: Raw documents never leave the building. They are not stored on Google Drive, Amazon servers, or any cloud service.
+
+The AI Models
+
+Training Phase (happens once, in the cloud)
+- Uses Tinker ML (a training service) to customize a Llama 3.2 model
+- Teaches it to read construction documents specifically
+- Downloads the trained model to the Orin box
+- Training requires internet; inference does not
+
+Inference Phase (happens constantly, locally)
+- The trained model runs on the Orin box
+- Reads documents, answers questions, generates code
+- Uses ZVec (a vector database made by Alibaba) to remember facts and search semantically
+- Operates entirely offline
+
+Integration Capabilities
+
+- BIM/IFC: Can connect to 3D building models to link documents to physical coordinates
+- Drones: Can process aerial footage to track construction progress
+- Mobile: Field workers can take photos that automatically appear in the system with GPS coordinates
+- Existing Software: Can export data to Procore, BIM 360, or Excel when needed
+
+Who Built It
+
+A civil engineer with 20 years of experience building skyscrapers, metro systems, and resorts across the Middle East, Asia, and Australia. The platform was built by someone who has poured concrete at 2 AM, negotiated with subcontractors, and managed 2 billion construction programs—not by Silicon Valley software developers who have never visited a job site.
+
+The Difference
+
+Most construction software forces you to:
+- Upload sensitive documents to cloud servers (security risk)
+- Pay monthly subscriptions forever
+- Have perfect internet (impossible on construction sites)
+- Hire engineers to customize the software
+
+Cerebrum:
+- Stays on your hardware (data sovereignty)
+- Works offline (construction sites are disconnected)
+- Adapts itself to your documents (no customization needed)
+- Costs 1,250 in hardware per site, then free forever
+
+It is not an app. It is an operating system for construction intelligence.

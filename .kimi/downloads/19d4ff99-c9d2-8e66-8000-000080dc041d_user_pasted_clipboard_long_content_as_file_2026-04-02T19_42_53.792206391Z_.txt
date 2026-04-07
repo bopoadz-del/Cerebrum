@@ -1,0 +1,50 @@
+2026-04-02T19:42:53.792206391Z          ^^^^^^^^^^^^^^^^
+2026-04-02T19:42:53.792210102Z   File "/usr/local/lib/python3.11/site-packages/click/core.py", line 1269, in invoke
+2026-04-02T19:42:53.792450387Z     return ctx.invoke(self.callback, **ctx.params)
+2026-04-02T19:42:53.792481528Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-02T19:42:53.792486649Z   File "/usr/local/lib/python3.11/site-packages/click/core.py", line 824, in invoke
+2026-04-02T19:42:53.792646209Z     return callback(*args, **kwargs)
+2026-04-02T19:42:53.792699322Z            ^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-02T19:42:53.792712673Z   File "/usr/local/lib/python3.11/site-packages/uvicorn/main.py", line 416, in main
+2026-04-02T19:42:53.792816789Z     run(
+2026-04-02T19:42:53.79282065Z   File "/usr/local/lib/python3.11/site-packages/uvicorn/main.py", line 587, in run
+2026-04-02T19:42:53.792922036Z     server.run()
+2026-04-02T19:42:53.792924746Z   File "/usr/local/lib/python3.11/site-packages/uvicorn/server.py", line 61, in run
+2026-04-02T19:42:53.79298446Z     return asyncio.run(self.serve(sockets=sockets))
+2026-04-02T19:42:53.793062875Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-02T19:42:53.793070875Z   File "/usr/local/lib/python3.11/asyncio/runners.py", line 190, in run
+2026-04-02T19:42:53.79315447Z     return runner.run(main)
+2026-04-02T19:42:53.793175172Z            ^^^^^^^^^^^^^^^^
+2026-04-02T19:42:53.793182102Z   File "/usr/local/lib/python3.11/asyncio/runners.py", line 118, in run
+2026-04-02T19:42:53.793294249Z     return self._loop.run_until_complete(task)
+2026-04-02T19:42:53.793340662Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-02T19:42:53.793345732Z   File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
+2026-04-02T19:42:53.79346222Z   File "/usr/local/lib/python3.11/site-packages/uvicorn/server.py", line 68, in serve
+2026-04-02T19:42:53.793510323Z     config.load()
+2026-04-02T19:42:53.793513293Z   File "/usr/local/lib/python3.11/site-packages/uvicorn/config.py", line 467, in load
+2026-04-02T19:42:53.79363528Z     self.loaded_app = import_from_string(self.app)
+2026-04-02T19:42:53.793689364Z                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-02T19:42:53.793695454Z   File "/usr/local/lib/python3.11/site-packages/uvicorn/importer.py", line 21, in import_from_string
+2026-04-02T19:42:53.793781349Z     module = importlib.import_module(module_str)
+2026-04-02T19:42:53.793834543Z              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-02T19:42:53.793853954Z   File "/usr/local/lib/python3.11/importlib/__init__.py", line 126, in import_module
+2026-04-02T19:42:53.793930979Z     return _bootstrap._gcd_import(name[level:], package, level)
+2026-04-02T19:42:53.794002823Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-02T19:42:53.794009523Z   File "<frozen importlib._bootstrap>", line 1204, in _gcd_import
+2026-04-02T19:42:53.794013864Z   File "<frozen importlib._bootstrap>", line 1176, in _find_and_load
+2026-04-02T19:42:53.794015944Z   File "<frozen importlib._bootstrap>", line 1147, in _find_and_load_unlocked
+2026-04-02T19:42:53.794020054Z   File "<frozen importlib._bootstrap>", line 690, in _load_unlocked
+2026-04-02T19:42:53.794024224Z   File "<frozen importlib._bootstrap_external>", line 940, in exec_module
+2026-04-02T19:42:53.794028375Z   File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
+2026-04-02T19:42:53.794030555Z   File "/app/app/main.py", line 27, in <module>
+2026-04-02T19:42:53.79411361Z     from app.api.v1.api import api_v1_router
+2026-04-02T19:42:53.79411641Z   File "/app/app/api/v1/api.py", line 12, in <module>
+2026-04-02T19:42:53.794173674Z     from app.api.v1.endpoints import auth, admin, dejavu, formulas, sessions, connectors, chat
+2026-04-02T19:42:53.794176514Z   File "/app/app/api/v1/endpoints/__init__.py", line 4, in <module>
+2026-04-02T19:42:53.794261819Z     from . import auth, admin, documents, safety
+2026-04-02T19:42:53.79427422Z   File "/app/app/api/v1/endpoints/documents.py", line 15, in <module>
+2026-04-02T19:42:53.794343724Z     from app.api.deps import get_current_user, User, get_db
+2026-04-02T19:42:53.794355745Z   File "/app/app/api/deps.py", line 46, in <module>
+2026-04-02T19:42:53.794413189Z     db: Session = Depends(get_db)
+2026-04-02T19:42:53.794424519Z         ^^^^^^^
+2026-04-02T19:42:53.794474292Z NameError: name 'Session' is not defined
