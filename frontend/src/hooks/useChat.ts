@@ -9,6 +9,7 @@ const API_PREFIX = API_BASE_URL.endsWith('/api/v1') ? API_BASE_URL : `${API_BASE
 interface FileAttachment extends Attachment {
   file?: File;
   extractedText?: string;
+  file_key?: string; // Server-side file identifier
 }
 
 interface UseChatOptions {
@@ -101,25 +102,71 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
     }
   };
 
+  // Upload file to get file_key
+  const uploadFile = async (attachment: FileAttachment): Promise<string | null> => {
+    if (!attachment.file) return null;
+
+    console.log('[useChat] Uploading file:', attachment.name);
+
+    const formData = new FormData();
+    formData.append('file', attachment.file);
+
+    try {
+      const response = await fetch(`${API_PREFIX}/documents/upload/chat`, {
+        method: 'POST',
+        headers: {
+          ...(localStorage.getItem('cerebrum_auth_token_v1') 
+            ? { 'Authorization': `Bearer ${localStorage.getItem('cerebrum_auth_token_v1')}` } 
+            : {}),
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        console.error('[useChat] Upload failed:', response.status);
+        return null;
+      }
+
+      const data = await response.json();
+      console.log('[useChat] Upload success, file_id:', data.file_id);
+      return data.file_id;
+    } catch (error) {
+      console.error('[useChat] Upload error:', error);
+      return null;
+    }
+  };
+
   const sendMessage = useCallback(async (content: string, messageAttachments?: Attachment[]) => {
     if (!content.trim() && (!messageAttachments || messageAttachments.length === 0)) return;
     
     setIsLoading(true);
     
-    // Process all attachments with OCR/transcription
+    // Process all attachments - upload files and extract text
     const processedAttachments: FileAttachment[] = [];
     const extractedTexts: string[] = [];
+    const fileKeys: string[] = [];
     
     if (messageAttachments && messageAttachments.length > 0) {
       for (const att of messageAttachments) {
         const fileAtt = att as FileAttachment;
         if (fileAtt.file) {
+          // Upload file to get file_key
+          console.log('[useChat] Processing attachment:', fileAtt.name);
+          const fileKey = await uploadFile(fileAtt);
+          
+          if (fileKey) {
+            fileKeys.push(fileKey);
+            console.log('[useChat] Got file_key:', fileKey);
+          }
+          
+          // Also extract text via OCR/transcription
           const result = await processFile(fileAtt);
           if (result) {
-            processedAttachments.push({ ...fileAtt, extractedText: result.text });
-            extractedTexts.push(`[File: ${fileAtt.name}]\n${result.text}`);
+            processedAttachments.push({ ...fileAtt, extractedText: result.text, file_key: fileKey || undefined });
+            extractedTexts.push(`[File: ${fileAtt.name}]
+${result.text}`);
           } else {
-            processedAttachments.push(fileAtt);
+            processedAttachments.push({ ...fileAtt, file_key: fileKey || undefined });
           }
         }
       }
@@ -142,21 +189,31 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
     
     setMessages(prev => [...prev, userMessage]);
     
+    console.log('[useChat] Sending message with', fileKeys.length, 'file keys');
+    
     try {
       abortControllerRef.current = new AbortController();
+      
+      const requestBody: any = {
+        model: 'cerebrum-default',
+        messages: [
+          ...messages.map(m => ({ role: m.role, content: m.content })),
+          { role: 'user', content: fullContent },
+        ],
+      };
+      
+      // Include file_keys if we have any
+      if (fileKeys.length > 0) {
+        requestBody.file_keys = fileKeys;
+        console.log('[useChat] Including file_keys:', fileKeys);
+      }
       
       const response = await fetch(`${apiUrl}/chat/completions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          model: 'cerebrum-default',
-          messages: [
-            ...messages.map(m => ({ role: m.role, content: m.content })),
-            { role: 'user', content: fullContent },
-          ],
-        }),
+        body: JSON.stringify(requestBody),
         signal: abortControllerRef.current.signal,
       });
       

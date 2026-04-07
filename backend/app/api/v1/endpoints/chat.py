@@ -3,6 +3,7 @@ Chat Completions API Endpoint - LOCAL LLM VERSION
 OpenAI-compatible chat completions with local inference
 """
 
+import os
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from typing import List, Optional, Literal, Dict, Any
@@ -15,6 +16,9 @@ from app.services.document_analyzer import document_analyzer
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/chat", tags=["chat"])
+
+# File storage path (same as documents.py)
+UPLOAD_DIR = os.getenv("UPLOAD_DIR", "/tmp/document_uploads")
 
 # Economics query keywords
 ECONOMICS_KEYWORDS = [
@@ -39,6 +43,7 @@ class ChatCompletionRequest(BaseModel):
     max_tokens: Optional[int] = Field(default=2048, ge=1, le=4096)
     stream: bool = False
     conversation_id: Optional[str] = None
+    file_keys: Optional[List[str]] = Field(default=None, description="File keys of uploaded attachments")
 
 
 class ChatCompletionChoice(BaseModel):
@@ -458,14 +463,64 @@ async def chat_completions(request: ChatCompletionRequest):
         
         last_message = user_messages[-1].content
         
+        # Process file_keys if provided
+        file_context = ""
+        if request.file_keys:
+            logger.info(f"Processing {len(request.file_keys)} file keys: {request.file_keys}")
+            file_parts = []
+            for file_key in request.file_keys:
+                # Try to find and read the file
+                file_path = None
+                for ext in ['.pdf', '.txt', '.md', '.doc', '.docx', '.png', '.jpg', '.jpeg', '.webp', '']:
+                    test_path = os.path.join(UPLOAD_DIR, f"{file_key}{ext}")
+                    if os.path.exists(test_path):
+                        file_path = test_path
+                        break
+                
+                if file_path:
+                    try:
+                        # Extract text based on file type
+                        if file_path.endswith('.pdf'):
+                            from app.pipelines.ocr import TesseractOCR
+                            ocr = TesseractOCR()
+                            with open(file_path, 'rb') as f:
+                                result = await ocr.process_pdf(f.read())
+                            file_parts.append(f"[File: {file_key}]\n{result.text[:5000]}")
+                        elif file_path.endswith(('.png', '.jpg', '.jpeg', '.webp')):
+                            from app.pipelines.ocr import TesseractOCR
+                            ocr = TesseractOCR()
+                            with open(file_path, 'rb') as f:
+                                result = await ocr.process_image(f.read())
+                            file_parts.append(f"[File: {file_key}]\n{result.text[:5000]}")
+                        elif file_path.endswith(('.txt', '.md')):
+                            with open(file_path, 'r', encoding='utf-8') as f:
+                                content = f.read()
+                            file_parts.append(f"[File: {file_key}]\n{content[:5000]}")
+                        else:
+                            file_parts.append(f"[File: {file_key}]\n[File uploaded successfully]")
+                    except Exception as e:
+                        logger.warning(f"Failed to extract text from {file_key}: {e}")
+                        file_parts.append(f"[File: {file_key}]\n[File content available]")
+                else:
+                    logger.warning(f"File not found for key: {file_key}")
+            
+            if file_parts:
+                file_context = "\n\n---\n\n" + "\n\n---\n\n".join(file_parts)
+                logger.info(f"Added file context with {len(file_parts)} files")
+        
         # Build conversation context
         conversation_history = []
         for msg in request.messages[:-1]:
             conversation_history.append(f"{msg.role}: {msg.content}")
         context_text = "\n".join(conversation_history[-5:])  # Last 5 messages
         
+        # Append file context to the last message if available
+        full_message = last_message
+        if file_context:
+            full_message += file_context
+        
         # Generate response (simplified, no agent)
-        response_text = await generate_simple_response(last_message, context_text)
+        response_text = await generate_simple_response(full_message, context_text)
         
         # Calculate token counts
         prompt_tokens = len(" ".join([m.content for m in request.messages]).split())

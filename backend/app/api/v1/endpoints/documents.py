@@ -103,23 +103,56 @@ async def perform_ocr(
     try:
         # Read file
         content = await file.read()
+        logger.info(f"OCR request: {file.filename}, size={len(content)} bytes, user={current_user.id}")
         
         # Validate file type
         if not (file.filename.endswith(('.png', '.jpg', '.jpeg', '.pdf', '.tiff', '.webp'))):
-            raise HTTPException(status_code=400, detail="Unsupported file type")
+            raise HTTPException(status_code=400, detail="Unsupported file type. Supported: PNG, JPG, JPEG, PDF, TIFF, WEBP")
+        
+        # Validate file not empty
+        if len(content) == 0:
+            raise HTTPException(status_code=400, detail="Empty file uploaded")
         
         # Perform OCR - handle PDFs differently from images
-        from app.pipelines.ocr import TesseractOCR, OCRLanguage, OCRMode
+        from app.pipelines.ocr import TesseractOCR, OCRLanguage, OCRMode, PDF2IMAGE_AVAILABLE, TESSERACT_AVAILABLE
+        
+        # Check OCR dependencies
+        if not TESSERACT_AVAILABLE:
+            logger.error("Tesseract OCR not available")
+            raise HTTPException(status_code=503, detail="OCR service not available: Tesseract not installed")
         
         ocr = TesseractOCR()
         lang = OCRLanguage(language) if language in [l.value for l in OCRLanguage] else OCRLanguage.ENGLISH
         proc_mode = OCRMode(mode) if mode in [m.value for m in OCRMode] else OCRMode.STANDARD
         
         if file.filename.lower().endswith('.pdf'):
-            result = await ocr.process_pdf(content, lang, proc_mode)
+            if not PDF2IMAGE_AVAILABLE:
+                logger.error("pdf2image not available for PDF processing")
+                raise HTTPException(status_code=503, detail="PDF OCR not available: pdf2image library missing")
+            
+            logger.info(f"Processing PDF: {file.filename}")
+            try:
+                result = await ocr.process_pdf(content, lang, proc_mode)
+            except ValueError as e:
+                # PDF validation errors
+                logger.error(f"PDF validation error: {e}")
+                raise HTTPException(status_code=400, detail=f"Invalid PDF: {str(e)}")
+            except RuntimeError as e:
+                # Processing errors
+                logger.error(f"PDF processing error: {e}")
+                raise HTTPException(status_code=500, detail=f"PDF processing failed: {str(e)}")
         else:
-            result = await ocr.process_image(content, lang, proc_mode, preprocess)
+            logger.info(f"Processing image: {file.filename}")
+            try:
+                result = await ocr.process_image(content, lang, proc_mode, preprocess)
+            except ValueError as e:
+                logger.error(f"Image validation error: {e}")
+                raise HTTPException(status_code=400, detail=f"Invalid image: {str(e)}")
+            except RuntimeError as e:
+                logger.error(f"Image OCR error: {e}")
+                raise HTTPException(status_code=500, detail=f"OCR failed: {str(e)}")
         
+        logger.info(f"OCR successful: {result.word_count} words, {result.confidence:.1f}% confidence")
         return OCRResponse(
             text=result.text,
             confidence=result.confidence,
@@ -134,8 +167,8 @@ async def perform_ocr(
         logger.error(f"OCR library missing: {e}")
         raise HTTPException(status_code=503, detail=f"OCR service not available: {str(e)}")
     except Exception as e:
-        logger.error(f"OCR failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Unexpected OCR error: {type(e).__name__}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"OCR processing failed: {str(e)}")
 
 
 # Classification Endpoints
@@ -670,6 +703,9 @@ async def upload_public_file(
         if len(file_content) > max_size:
             raise HTTPException(status_code=413, detail="File too large (max 50MB)")
         
+        if len(file_content) == 0:
+            raise HTTPException(status_code=400, detail="Empty file")
+        
         # Generate unique file ID
         file_id = f"public_{uuid.uuid4().hex}"
         file_ext = os.path.splitext(file.filename)[1].lower()
@@ -680,23 +716,41 @@ async def upload_public_file(
         with open(file_path, "wb") as f:
             f.write(file_content)
         
-        logger.info("File saved", file_id=file_id, file_path=file_path)
+        logger.info("File saved", file_id=file_id, file_path=file_path, size=len(file_content))
         
         # Extract text based on file type
         extracted_text = ""
         can_extract_text = False
+        ocr_error = None
         
         # PDF files
         if file_ext == '.pdf' or file.content_type == 'application/pdf':
             try:
-                from app.pipelines.ocr import TesseractOCR
-                ocr = TesseractOCR()
-                result = await ocr.process_pdf(file_content)
-                extracted_text = result.text
-                can_extract_text = True
-                logger.info("PDF OCR completed", word_count=result.word_count)
+                from app.pipelines.ocr import TesseractOCR, PDF2IMAGE_AVAILABLE
+                
+                if not PDF2IMAGE_AVAILABLE:
+                    logger.warning("pdf2image not available for PDF processing")
+                    ocr_error = "PDF processing not available (pdf2image missing)"
+                else:
+                    ocr = TesseractOCR()
+                    logger.info(f"Starting PDF OCR for {file.filename}")
+                    result = await ocr.process_pdf(file_content)
+                    extracted_text = result.text
+                    can_extract_text = True
+                    logger.info("PDF OCR completed", word_count=result.word_count, pages=result.page_count)
+            except ValueError as e:
+                # PDF validation error
+                logger.error(f"PDF validation error: {e}")
+                ocr_error = f"Invalid PDF: {str(e)}"
+                extracted_text = f"[PDF processing failed: {str(e)}]"
+            except RuntimeError as e:
+                # OCR processing error
+                logger.error(f"PDF OCR runtime error: {e}")
+                ocr_error = str(e)
+                extracted_text = f"[PDF processing failed: {str(e)}]"
             except Exception as e:
-                logger.warning(f"PDF OCR failed: {e}")
+                logger.error(f"PDF OCR failed: {type(e).__name__}: {e}")
+                ocr_error = str(e)
                 extracted_text = f"[PDF processing failed: {str(e)}]"
         
         # Image files
@@ -705,12 +759,22 @@ async def upload_public_file(
             try:
                 from app.pipelines.ocr import TesseractOCR
                 ocr = TesseractOCR()
+                logger.info(f"Starting image OCR for {file.filename}")
                 result = await ocr.process_image(file_content, preprocess=True)
                 extracted_text = result.text
                 can_extract_text = True
                 logger.info("Image OCR completed", word_count=result.word_count)
+            except ValueError as e:
+                logger.error(f"Image validation error: {e}")
+                ocr_error = f"Invalid image: {str(e)}"
+                extracted_text = f"[Image OCR failed: {str(e)}]"
+            except RuntimeError as e:
+                logger.error(f"Image OCR runtime error: {e}")
+                ocr_error = str(e)
+                extracted_text = f"[Image OCR failed: {str(e)}]"
             except Exception as e:
-                logger.warning(f"Image OCR failed: {e}")
+                logger.error(f"Image OCR failed: {type(e).__name__}: {e}")
+                ocr_error = str(e)
                 extracted_text = f"[Image OCR failed: {str(e)}]"
         
         # Text files
@@ -721,6 +785,7 @@ async def upload_public_file(
                 logger.info("Text file read", char_count=len(extracted_text))
             except Exception as e:
                 logger.warning(f"Text decode failed: {e}")
+                ocr_error = f"Text decode failed: {str(e)}"
                 extracted_text = f"[Text decode failed: {str(e)}]"
         
         # Classify document type
@@ -741,7 +806,7 @@ async def upload_public_file(
         except Exception as e:
             logger.warning(f"Failed to clean up file: {e}")
         
-        return {
+        response = {
             "success": True,
             "file_id": file_id,
             "filename": file.filename,
@@ -753,10 +818,15 @@ async def upload_public_file(
             "can_extract_text": can_extract_text,
         }
         
+        if ocr_error:
+            response["error"] = ocr_error
+            
+        return response
+        
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Public file upload failed: {e}", exc_info=True)
+        logger.error(f"Public file upload failed: {type(e).__name__}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
 

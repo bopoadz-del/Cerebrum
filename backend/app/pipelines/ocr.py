@@ -39,6 +39,12 @@ try:
 except ImportError:
     EASYOCR_AVAILABLE = False
 
+try:
+    import PyPDF2
+    PYPDF2_AVAILABLE = True
+except ImportError:
+    PYPDF2_AVAILABLE = False
+
 from app.core.logging import get_logger
 from app.core.config import settings
 
@@ -178,22 +184,37 @@ class TesseractOCR:
         
         try:
             # Load image
-            image = Image.open(io.BytesIO(image_data))
+            logger.debug(f"Loading image ({len(image_data)} bytes)")
+            try:
+                image = Image.open(io.BytesIO(image_data))
+                logger.debug(f"Image loaded: {image.format}, {image.size}, {image.mode}")
+            except Exception as e:
+                logger.error(f"Failed to load image: {type(e).__name__}: {e}")
+                raise ValueError(f"Invalid image file: {str(e)}")
             
             # Preprocess if requested
             if preprocess:
-                image = await self._preprocess_image(image)
+                logger.debug("Preprocessing image...")
+                try:
+                    image = await self._preprocess_image(image)
+                except Exception as e:
+                    logger.warning(f"Image preprocessing failed, continuing with original: {e}")
             
             # Get OCR config
             config = self.CONFIGS.get(mode, self.CONFIGS[OCRMode.STANDARD])
+            logger.debug(f"OCR config: {config}, language: {language.value}")
             
             # Perform OCR with detailed output
-            data = pytesseract.image_to_data(
-                image,
-                lang=language.value,
-                config=config,
-                output_type=pytesseract.Output.DICT
-            )
+            try:
+                data = pytesseract.image_to_data(
+                    image,
+                    lang=language.value,
+                    config=config,
+                    output_type=pytesseract.Output.DICT
+                )
+            except Exception as e:
+                logger.error(f"Tesseract OCR failed: {type(e).__name__}: {e}")
+                raise RuntimeError(f"Tesseract OCR error: {str(e)}")
             
             # Parse results
             blocks = []
@@ -229,6 +250,7 @@ class TesseractOCR:
             full_text = self._reconstruct_text(blocks)
             
             processing_time = time.time() - start_time
+            logger.info(f"Image OCR completed: {len(full_text.split())} words, {avg_confidence:.1f}% confidence, {processing_time:.2f}s")
             
             return OCRResult(
                 text=full_text,
@@ -240,7 +262,7 @@ class TesseractOCR:
             )
             
         except Exception as e:
-            logger.error(f"OCR processing failed: {e}")
+            logger.error(f"Image OCR processing failed: {type(e).__name__}: {e}")
             raise
     
     def _validate_pdf(self, pdf_data: bytes) -> Tuple[bool, str]:
@@ -302,11 +324,12 @@ class TesseractOCR:
             OCRResult with combined text from all pages
         """
         if not PDF2IMAGE_AVAILABLE:
-            raise ImportError("pdf2image is required for PDF OCR")
+            raise ImportError("pdf2image is required for PDF OCR. Install with: pip install pdf2image")
         
         # Validate PDF first
         is_valid, error_msg = self._validate_pdf(pdf_data)
         if not is_valid:
+            logger.error(f"PDF validation failed: {error_msg}")
             raise ValueError(f"PDF validation failed: {error_msg}")
         
         import time
@@ -314,7 +337,13 @@ class TesseractOCR:
         
         try:
             # Convert PDF to images
-            images = pdf2image.convert_from_bytes(pdf_data, dpi=dpi)
+            logger.info(f"Converting PDF to images (dpi={dpi}, size={len(pdf_data)} bytes)")
+            try:
+                images = pdf2image.convert_from_bytes(pdf_data, dpi=dpi)
+                logger.info(f"PDF converted to {len(images)} images")
+            except Exception as e:
+                logger.error(f"pdf2image conversion failed: {type(e).__name__}: {e}")
+                raise RuntimeError(f"PDF to image conversion failed: {str(e)}")
             
             all_blocks = []
             all_texts = []
@@ -324,23 +353,29 @@ class TesseractOCR:
             for page_num, image in enumerate(images):
                 logger.info(f"Processing page {page_num + 1}/{len(images)}")
                 
-                # Convert PIL to bytes
-                img_buffer = io.BytesIO()
-                image.save(img_buffer, format='PNG')
-                img_data = img_buffer.getvalue()
-                
-                # Process page
-                result = await self.process_image(img_data, language, mode)
-                
-                all_blocks.extend(result.blocks)
-                all_texts.append(result.text)
-                all_confidences.append(result.confidence)
+                try:
+                    # Convert PIL to bytes
+                    img_buffer = io.BytesIO()
+                    image.save(img_buffer, format='PNG')
+                    img_data = img_buffer.getvalue()
+                    
+                    # Process page
+                    result = await self.process_image(img_data, language, mode)
+                    
+                    all_blocks.extend(result.blocks)
+                    all_texts.append(result.text)
+                    all_confidences.append(result.confidence)
+                    logger.debug(f"Page {page_num + 1} processed: {result.word_count} words, {result.confidence:.1f}% confidence")
+                except Exception as e:
+                    logger.error(f"Failed to process page {page_num + 1}: {type(e).__name__}: {e}")
+                    raise RuntimeError(f"OCR failed on page {page_num + 1}: {str(e)}")
             
             # Combine results
             full_text = '\n\n'.join(all_texts)
             avg_confidence = sum(all_confidences) / len(all_confidences) if all_confidences else 0
             
             processing_time = time.time() - start_time
+            logger.info(f"PDF OCR completed: {len(images)} pages, {len(full_text.split())} words, {processing_time:.2f}s")
             
             return OCRResult(
                 text=full_text,
@@ -353,7 +388,7 @@ class TesseractOCR:
             )
             
         except Exception as e:
-            logger.error(f"PDF OCR processing failed: {e}")
+            logger.error(f"PDF OCR processing failed: {type(e).__name__}: {e}")
             raise
     
     async def _preprocess_image(self, image: Image.Image, deskew: bool = True) -> Image.Image:

@@ -38,6 +38,7 @@ class EnhancedTaskRequest(BaseModel):
     context: Optional[Dict[str, Any]] = Field(default=None)
     use_memory: bool = Field(default=False, description="Search relevant memories (DISABLED)")
     target_layer: Optional[str] = Field(default=None, description="Force specific layer")
+    conversation_history: Optional[List[Dict[str, Any]]] = Field(default=None, description="Previous conversation messages for context")
     attachments: Optional[List[Dict[str, Any]]] = Field(default=None, description="File attachments")
 
 
@@ -61,7 +62,7 @@ def get_memory_mb() -> float:
     return 0.0
 
 
-def handle_concrete_calculation(task: str) -> Dict[str, Any]:
+def handle_concrete_calculation(task: str, is_follow_up: bool = False, original_task: str = "") -> Dict[str, Any]:
     """Handle concrete volume calculation."""
     import re
     
@@ -76,6 +77,9 @@ def handle_concrete_calculation(task: str) -> Dict[str, Any]:
         volume_yd3 = volume_m3 * 1.308
         cost_low = volume_yd3 * 120
         cost_high = volume_yd3 * 150
+        
+        # Use original task if this is a follow-up
+        display_task = original_task if is_follow_up else task
         
         message = f"""📐 **Concrete Volume Calculation**
 
@@ -368,9 +372,70 @@ def handle_building_estimate(task: str) -> Dict[str, Any]:
     }
 
 
-def handle_construction_task(task: str) -> Dict[str, Any]:
+def extract_context_from_history(task: str, conversation_history: Optional[List[Dict[str, Any]]]) -> Dict[str, Any]:
+    """Extract relevant context from conversation history to answer follow-up questions."""
+    if not conversation_history or len(conversation_history) < 2:
+        return {}
+    
+    context = {}
+    task_lower = task.lower()
+    
+    # Look for references to previous calculations
+    reference_patterns = [
+        r'(?:that|the|this|those|these)\s+(\d+m?\s*x\s*\d+m?)\s+foundation',
+        r'(?:that|the|this|those|these)\s+(\d+m?\s*x\s*\d+m?)\s+slab',
+        r'(?:that|the|this|those|these)\s+(\d+m?\s*x\s*\d+m?)\s+area',
+        r'(?:that|the|this|those|these)\s+dimensions?',
+        r'(?:that|the|this|those|these)\s+calculation',
+        r'(?:it|that|this)\s+is?\s+(\d+m?\s*x\s*\d+m?)',
+        r'what\s+about\s+(\d+m?\s*x\s*\d+m?)',
+    ]
+    
+    # Check if task contains reference patterns (indicating a follow-up question)
+    is_follow_up = any(re.search(pattern, task_lower) for pattern in reference_patterns)
+    is_follow_up = is_follow_up or any(word in task_lower for word in [
+        'that foundation', 'that slab', 'those dimensions', 'the dimensions', 
+        'the calculation', 'previous', 'earlier', 'we calculated', 'we discussed',
+        'what about', 'how about', 'and for', 'also', 'too'
+    ])
+    
+    if not is_follow_up:
+        return context
+    
+    # Search through conversation history for dimensions and calculations
+    dimension_pattern = r'(\d+\.?\d*)\s*m?\s*[x×]\s*(\d+\.?\d*)\s*m?\s*(?:[x×]\s*(\d+\.?\d*)\s*m?)?'
+    
+    for msg in reversed(conversation_history):
+        content = msg.get('content', '')
+        role = msg.get('role', '')
+        content_lower = content.lower()
+        
+        # Look for concrete/steel calculations in assistant responses
+        if role == 'assistant':
+            # Extract dimensions from calculation results
+            dim_match = re.search(dimension_pattern, content)
+            if dim_match:
+                if 'length' in content_lower and 'width' in content_lower:
+                    context['has_previous_calculation'] = True
+                    context['assistant_calculation_content'] = content
+                    # Try to extract all dimensions
+                    all_dims = re.findall(r'(\d+\.?\d*)\s*m', content_lower)
+                    if len(all_dims) >= 2:
+                        context['previous_length'] = all_dims[0]
+                        context['previous_width'] = all_dims[1]
+                        if len(all_dims) >= 3:
+                            context['previous_depth'] = all_dims[2]
+                    break
+    
+    return context
+
+
+def handle_construction_task(task: str, conversation_history: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
     """Handle construction-specific tasks without full agent."""
     task_lower = task.lower().strip()
+    
+    # Extract context from conversation history
+    history_context = extract_context_from_history(task, conversation_history)
     
     # Remove leading slash from commands
     if task_lower.startswith('/'):
@@ -398,6 +463,14 @@ def handle_construction_task(task: str) -> Dict[str, Any]:
     
     # Concrete volume calculation (needs dimensions)
     if "concrete" in task_lower:
+        # Check if this is a follow-up and we have previous dimensions
+        if history_context.get('has_previous_calculation') and not re.search(r'\d+\.?\d*\s*m?\s*[x×]\s*\d+\.?\d*', task_lower):
+            # Use previous dimensions
+            prev_length = history_context.get('previous_length', '10')
+            prev_width = history_context.get('previous_width', '8')
+            prev_depth = history_context.get('previous_depth', '0.3')
+            task_with_context = f"Calculate concrete for {prev_length}m x {prev_width}m x {prev_depth}m"
+            return handle_concrete_calculation(task_with_context, is_follow_up=True, original_task=task)
         return handle_concrete_calculation(task)
     
     # Cost estimates
@@ -457,8 +530,8 @@ async def execute_stateless(request: EnhancedTaskRequest):
     
     try:
         # STATELESS: No agent instance created
-        # Direct rule-based processing
-        result = handle_construction_task(request.task)
+        # Direct rule-based processing with conversation history for context
+        result = handle_construction_task(request.task, request.conversation_history)
         
         # Add execution time
         result["execution_time_ms"] = (time.time() - start_time) * 1000
@@ -467,7 +540,7 @@ async def execute_stateless(request: EnhancedTaskRequest):
         
     except Exception as e:
         logger.error(f"Execution failed: {e}")
-        result = handle_construction_task(request.task)
+        result = handle_construction_task(request.task, request.conversation_history)
         result["execution_time_ms"] = (time.time() - start_time) * 1000
         return EnhancedTaskResponse(**result)
     
@@ -533,11 +606,11 @@ async def get_enhanced_status():
     return {
         "initialized": True,
         "mode": "stateless",
-        "message": "Agent running in stateless mode (memory-optimized)",
+        "message": "Agent running in stateless mode with conversation history support",
         "features": {
             "memory_indexing": False,
             "ml_embeddings": False,
-            "conversation_history": False,
+            "conversation_history": True,
         },
         "available_layers": [
             "coding", "registry", "validation", "hotswap", "healing",
