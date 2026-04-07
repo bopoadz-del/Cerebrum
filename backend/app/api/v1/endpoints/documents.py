@@ -759,21 +759,26 @@ async def upload_public_file(
                     logger.error(f"Image OCR failed: {type(e).__name__}: {e}")
                     ocr_error = str(e)
                     extracted_text = f"[Image OCR failed: {str(e)}]"
+            
+            # Text files
+            elif file_ext in ['.txt', '.md'] or (file.content_type and file.content_type.startswith('text/')):
+                try:
+                    extracted_text = file_content.decode('utf-8')
+                    can_extract_text = True
+                    logger.info("Text file read", char_count=len(extracted_text))
+                except Exception as e:
+                    logger.warning(f"Text decode failed: {e}")
+                    ocr_error = f"Text decode failed: {str(e)}"
+                    extracted_text = f"[Text decode failed: {str(e)}]"
+            
+            else:
+                # Other file types
+                extracted_text = f"[File uploaded: {file.filename}]"
+                
         except Exception as e:
             logger.error(f"OCR import/setup failed: {e}")
             ocr_error = f"OCR not available: {str(e)}"
             extracted_text = "[OCR service unavailable]"
-        
-        # Text files
-        elif file_ext in ['.txt', '.md'] or (file.content_type and file.content_type.startswith('text/')):
-            try:
-                extracted_text = file_content.decode('utf-8')
-                can_extract_text = True
-                logger.info("Text file read", char_count=len(extracted_text))
-            except Exception as e:
-                logger.warning(f"Text decode failed: {e}")
-                ocr_error = f"Text decode failed: {str(e)}"
-                extracted_text = f"[Text decode failed: {str(e)}]"
         
         # Classify document type
         doc_type = "unknown"
