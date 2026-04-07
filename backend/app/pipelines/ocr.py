@@ -408,7 +408,7 @@ class TesseractOCR:
             logger.warning(f"Image preprocessing failed: {e}")
             return image
     
-    async def _deskew_image(self, image: np.ndarray) -> np.ndarray:
+    async def _deskew_image(self, image) -> Any:
         """
         Deskew image using contour detection.
         
@@ -669,7 +669,7 @@ class EnhancedOCR:
         
         return self._easyocr_reader
     
-    async def _deskew_image(self, image: np.ndarray) -> np.ndarray:
+    async def _deskew_image(self, image) -> Any:
         """
         Deskew image using contour detection.
         
@@ -729,7 +729,7 @@ class EnhancedOCR:
             logger.warning(f"Deskew failed: {e}")
             return image
     
-    async def _enhance_contrast(self, image: np.ndarray) -> np.ndarray:
+    async def _enhance_contrast(self, image) -> Any:
         """
         Enhance image contrast using CLAHE.
         
