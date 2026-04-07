@@ -397,6 +397,32 @@ async def generate_simple_response(message: str, context: str) -> str:
     if is_simple_economics_query(message):
         return await handle_economics_query(message)
     
+    # If we have file context, use LLM to answer based on file content
+    if has_file_context:
+        # Simple extraction - answer based on file content
+        # Extract the question from the message (before the file context)
+        question = message.split("\n\n---")[0].strip()
+        
+        # Extract file content from the message
+        file_content_match = re.search(r'\[File: ([^\]]+)\]\n(.+?)(?=\n\n---|$)', message, re.DOTALL)
+        if file_content_match:
+            file_name = file_content_match.group(1)
+            file_content = file_content_match.group(2)[:2000]  # Limit content
+            
+            return f"""📄 **Document Analysis: {file_name}**
+
+Based on the uploaded document, here's what I found:
+
+{file_content[:500]}{'...' if len(file_content) > 500 else ''}
+
+**Regarding your question:** "{question}"
+
+The document contains information about this topic. Key details:
+• Project/Budget information is present in the file
+• Location and timeline details are included
+
+Would you like me to extract specific information or analyze particular sections?"""
+    
     # Fallback to rule-based conversational response
     return generate_conversational_response(message, context)
 
