@@ -1,6 +1,6 @@
 # Simple Dockerfile for workers (doesn't require base image)
 # Use this until ghcr.io/bopoadz-del/cerebrum-ml-base:latest is publicly available
-# Cache-bust: 2026-04-06-01
+# Cache-bust: 2026-04-07-01
 
 FROM python:3.11-slim
 
@@ -17,14 +17,8 @@ RUN apt-get update && apt-get install -y \
     wget \
     gnupg \
     lsb-release \
+    postgresql-client \
     && rm -rf /var/lib/apt/lists/*
-
-# Add PostgreSQL 18 repo for matching pg_dump version
-RUN wget --quiet -O /usr/share/keyrings/postgresql.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc && \
-    echo "deb [signed-by=/usr/share/keyrings/postgresql.asc] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list && \
-    apt-get update && \
-    apt-get install -y postgresql-client-18 && \
-    rm -rf /var/lib/apt/lists/*
 
 # Install all dependencies (including ML)
 COPY requirements-full.txt .
