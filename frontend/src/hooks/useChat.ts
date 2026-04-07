@@ -102,26 +102,7 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
     }
   };
 
-  // Upload file to get file_key
-  // 
-  // STAGE 2 PROPER AUTH FIX (Documented for future implementation):
-  // TODO: When ready to enforce authenticated uploads, replace the current
-  // conditional auth header with mandatory token injection:
-  //
-  // const token = localStorage.getItem('token') || localStorage.getItem('auth_token');
-  // if (!token) {
-  //   throw new Error('Authentication required. Please log in.');
-  // }
-  //
-  // const response = await fetch(`${API_PREFIX}/documents/upload/chat`, {
-  //   method: 'POST',
-  //   headers: {
-  //     'Authorization': `Bearer ${token}`,
-  //   },
-  //   body: formData,
-  // });
-  //
-  // Current implementation: Uses 'cerebrum_auth_token_v1' if available (public endpoint fallback)
+  // Upload file to get file_key (using public endpoint - no auth required)
   const uploadFile = async (attachment: FileAttachment): Promise<string | null> => {
     if (!attachment.file) return null;
 
@@ -131,13 +112,8 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
     formData.append('file', attachment.file);
 
     try {
-      const response = await fetch(`${API_PREFIX}/documents/upload/chat`, {
+      const response = await fetch(`${API_PREFIX}/documents/upload/public`, {
         method: 'POST',
-        headers: {
-          ...(localStorage.getItem('cerebrum_auth_token_v1') 
-            ? { 'Authorization': `Bearer ${localStorage.getItem('cerebrum_auth_token_v1')}` } 
-            : {}),
-        },
         body: formData,
       });
 
