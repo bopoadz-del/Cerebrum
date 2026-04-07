@@ -378,6 +378,7 @@ class Settings(BaseSettings):
             "http://localhost:3000",
             "http://localhost:5173",
             "https://cerebrum-frontend.onrender.com",
+            "https://cerebrum-frontend.onrender.com/",
             "https://cerebrum.ai",
             "https://*.cerebrum.ai",
             "https://*.onrender.com",
