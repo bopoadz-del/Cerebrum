@@ -396,15 +396,13 @@ def extract_context_from_history(task: str, conversation_history: Optional[List[
     is_follow_up = is_follow_up or any(word in task_lower for word in [
         'that foundation', 'that slab', 'those dimensions', 'the dimensions', 
         'the calculation', 'previous', 'earlier', 'we calculated', 'we discussed',
-        'what about', 'how about', 'and for', 'also', 'too'
+        'what about', 'how about', 'and for', 'also', 'too', 'about it'
     ])
     
     if not is_follow_up:
         return context
     
     # Search through conversation history for dimensions and calculations
-    dimension_pattern = r'(\d+\.?\d*)\s*m?\s*[x×]\s*(\d+\.?\d*)\s*m?\s*(?:[x×]\s*(\d+\.?\d*)\s*m?)?'
-    
     for msg in reversed(conversation_history):
         content = msg.get('content', '')
         role = msg.get('role', '')
@@ -412,20 +410,23 @@ def extract_context_from_history(task: str, conversation_history: Optional[List[
         
         # Look for concrete/steel calculations in assistant responses
         if role == 'assistant':
-            # Extract dimensions from calculation results
-            dim_match = re.search(dimension_pattern, content)
-            if dim_match:
-                if 'length' in content_lower and 'width' in content_lower:
-                    context['has_previous_calculation'] = True
-                    context['assistant_calculation_content'] = content
-                    # Try to extract all dimensions
-                    all_dims = re.findall(r'(\d+\.?\d*)\s*m', content_lower)
-                    if len(all_dims) >= 2:
-                        context['previous_length'] = all_dims[0]
-                        context['previous_width'] = all_dims[1]
-                        if len(all_dims) >= 3:
-                            context['previous_depth'] = all_dims[2]
-                    break
+            # Check for calculation output markers (Dimensions section with length/width/depth)
+            has_dimensions_section = ('length' in content_lower and 'width' in content_lower) or \
+                                     ('dimensions' in content_lower and 'volume' in content_lower)
+            
+            if has_dimensions_section:
+                context['has_previous_calculation'] = True
+                context['assistant_calculation_content'] = content
+                
+                # Extract dimensions - handle "10 m" format with space
+                # Look for pattern: number followed by optional space and 'm' or 'meters'
+                all_dims = re.findall(r'(\d+\.?\d*)\s*(?:m|meters?)', content_lower)
+                if len(all_dims) >= 2:
+                    context['previous_length'] = all_dims[0]
+                    context['previous_width'] = all_dims[1]
+                    if len(all_dims) >= 3:
+                        context['previous_depth'] = all_dims[2]
+                break
     
     return context
 
