@@ -1,5 +1,15 @@
 import { useState, useCallback, useRef } from 'react';
 import type { Message, Attachment, ChatMode, CodeExecutionResult, WebSearchResult } from '@/types';
+import { processDocument, processAudio, formatFileSize } from '@/lib/fileProcessing';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://cerebrum-api.onrender.com';
+const API_PREFIX = API_BASE_URL.endsWith('/api/v1') ? API_BASE_URL : `${API_BASE_URL}/api/v1`;
+
+// Extended attachment type that includes the actual File object
+interface FileAttachment extends Attachment {
+  file?: File;
+  extractedText?: string;
+}
 
 interface UseChatOptions {
   apiUrl?: string;
@@ -25,27 +35,108 @@ interface UseChatReturn {
 }
 
 export function useChat(options: UseChatOptions = {}): UseChatReturn {
-  const { apiUrl = '/api/v1', initialMessages = [], onError } = options;
+  const { apiUrl = API_PREFIX, initialMessages = [], onError } = options;
   
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [attachments, setAttachments] = useState<FileAttachment[]>([]);
   const [mode, setMode] = useState<ChatMode>('standard');
   
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Process a single file with OCR/transcription
+  const processFile = async (attachment: FileAttachment): Promise<{ text: string; metadata: any } | null> => {
+    if (!attachment.file) return null;
+
+    const file = attachment.file;
+    const isAudio = file.type.startsWith('audio/') || file.type.startsWith('video/');
+    
+    try {
+      let result;
+      if (isAudio) {
+        result = await processAudio(file, (stage, percentage) => {
+          if (stage === 'uploading' && percentage !== undefined) {
+            setAttachments(prev => prev.map(att => 
+              att.id === attachment.id 
+                ? { ...att, progress: percentage, status: 'uploading' }
+                : att
+            ));
+          }
+        });
+      } else {
+        result = await processDocument(file, (stage, percentage) => {
+          if (stage === 'uploading' && percentage !== undefined) {
+            setAttachments(prev => prev.map(att => 
+              att.id === attachment.id 
+                ? { ...att, progress: percentage, status: 'uploading' }
+                : att
+            ));
+          }
+        });
+      }
+
+      if (result.success) {
+        setAttachments(prev => prev.map(att => 
+          att.id === attachment.id 
+            ? { ...att, status: 'complete', progress: 100, extractedText: result.text }
+            : att
+        ));
+        return { text: result.text, metadata: result.metadata };
+      } else {
+        setAttachments(prev => prev.map(att => 
+          att.id === attachment.id 
+            ? { ...att, status: 'error', error: result.error }
+            : att
+        ));
+        return null;
+      }
+    } catch (error) {
+      setAttachments(prev => prev.map(att => 
+        att.id === attachment.id 
+          ? { ...att, status: 'error', error: 'Processing failed' }
+          : att
+      ));
+      return null;
+    }
+  };
 
   const sendMessage = useCallback(async (content: string, messageAttachments?: Attachment[]) => {
     if (!content.trim() && (!messageAttachments || messageAttachments.length === 0)) return;
     
     setIsLoading(true);
     
+    // Process all attachments with OCR/transcription
+    const processedAttachments: FileAttachment[] = [];
+    const extractedTexts: string[] = [];
+    
+    if (messageAttachments && messageAttachments.length > 0) {
+      for (const att of messageAttachments) {
+        const fileAtt = att as FileAttachment;
+        if (fileAtt.file) {
+          const result = await processFile(fileAtt);
+          if (result) {
+            processedAttachments.push({ ...fileAtt, extractedText: result.text });
+            extractedTexts.push(`[File: ${fileAtt.name}]\n${result.text}`);
+          } else {
+            processedAttachments.push(fileAtt);
+          }
+        }
+      }
+    }
+    
+    // Build the full message content including extracted text from files
+    let fullContent = content;
+    if (extractedTexts.length > 0) {
+      fullContent = content + '\n\n---\n\n' + extractedTexts.join('\n\n---\n\n');
+    }
+    
     // Add user message
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
       content,
-      attachments: messageAttachments,
+      attachments: processedAttachments,
       timestamp: new Date().toISOString(),
     };
     
@@ -63,7 +154,7 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
           model: 'cerebrum-default',
           messages: [
             ...messages.map(m => ({ role: m.role, content: m.content })),
-            { role: 'user', content },
+            { role: 'user', content: fullContent },
           ],
         }),
         signal: abortControllerRef.current.signal,
@@ -103,13 +194,14 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
   }, [messages, apiUrl, onError]);
 
   const addAttachment = useCallback((file: File) => {
-    const newAttachment: Attachment = {
+    const newAttachment: FileAttachment = {
       id: Math.random().toString(36).substr(2, 9),
       name: file.name,
       type: file.type,
       size: file.size,
-      status: 'uploading',
+      status: 'pending',
       progress: 0,
+      file: file, // Store the actual File object
     };
     setAttachments(prev => [...prev, newAttachment]);
   }, []);
@@ -120,6 +212,7 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
 
   const clearMessages = useCallback(() => {
     setMessages([]);
+    setAttachments([]);
   }, []);
 
   const executeCode = useCallback(async (code: string): Promise<CodeExecutionResult | null> => {

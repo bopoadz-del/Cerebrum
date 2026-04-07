@@ -186,7 +186,7 @@ SQLITE_CACHE_SIZE = int(os.getenv("SQLITE_CACHE_SIZE", "-32768"))  # Negative = 
 SQLITE_PAGE_SIZE = int(os.getenv("SQLITE_PAGE_SIZE", "4096"))
 SQLITE_TEMP_STORE = os.getenv("SQLITE_TEMP_STORE", "memory")
 
-# Try to import ML libraries
+# Try to import ML libraries (LAZY LOADING - only import when needed)
 try:
     if DISABLE_CHROMADB:
         raise ImportError("ChromaDB disabled via environment variable")
@@ -197,12 +197,24 @@ except ImportError:
     CHROMADB_AVAILABLE = False
     logger.warning("ChromaDB not available")
 
-try:
-    from sentence_transformers import SentenceTransformer
-    SENTENCE_TRANSFORMERS_AVAILABLE = True
-except ImportError:
-    SENTENCE_TRANSFORMERS_AVAILABLE = False
-    logger.warning("sentence-transformers not available, using hash fallback")
+# LAZY LOADING: Don't import sentence_transformers at module level
+# This saves 400MB+ of memory when USE_ML_EMBEDDINGS=false
+SENTENCE_TRANSFORMERS_AVAILABLE = False
+SentenceTransformer = None
+
+def _ensure_sentence_transformers():
+    """Lazy import sentence_transformers only when needed."""
+    global SENTENCE_TRANSFORMERS_AVAILABLE, SentenceTransformer
+    if SentenceTransformer is None:
+        try:
+            from sentence_transformers import SentenceTransformer as ST
+            SentenceTransformer = ST
+            SENTENCE_TRANSFORMERS_AVAILABLE = True
+            logger.info("sentence-transformers loaded (lazy)")
+        except ImportError:
+            SENTENCE_TRANSFORMERS_AVAILABLE = False
+            logger.warning("sentence-transformers not available, using hash fallback")
+    return SENTENCE_TRANSFORMERS_AVAILABLE
 
 
 # =============================================================================
@@ -301,11 +313,18 @@ class EmbeddingModel:
         return True
     
     def _load_model(self):
-        """Load the sentence transformer model."""
+        """Load the sentence transformer model (LAZY LOADING)."""
         if self._lazy_loaded:
             return
         
-        if not SENTENCE_TRANSFORMERS_AVAILABLE:
+        # LAZY LOADING: Check if ML embeddings are enabled BEFORE importing
+        use_ml = os.getenv("USE_ML_EMBEDDINGS", "true").lower() == "true"
+        if not use_ml:
+            logger.info("ML embeddings disabled via USE_ML_EMBEDDINGS - using hash fallback")
+            return
+        
+        # LAZY LOADING: Import sentence_transformers only when needed
+        if not _ensure_sentence_transformers():
             logger.info("Using hash-based embeddings (deterministic, not semantic)")
             return
         
@@ -315,12 +334,6 @@ class EmbeddingModel:
             return
         
         try:
-            # Check if we should use ML embeddings
-            use_ml = os.getenv("USE_ML_EMBEDDINGS", "true").lower() == "true"
-            if not use_ml:
-                logger.info("ML embeddings disabled via USE_ML_EMBEDDINGS")
-                return
-            
             cache_dir = os.getenv("TRANSFORMERS_CACHE", "/app/models")
             
             # Log memory before

@@ -11,6 +11,7 @@ import re
 
 from app.core.logging import get_logger
 from app.services.local_llm import is_local_llm_available, get_local_llm
+from app.services.document_analyzer import document_analyzer
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -141,11 +142,117 @@ I can help with construction costs, formulas, and document analysis. Try:
 Is there a specific construction calculation or document you'd like help with?"""
 
 
+def calculate_concrete_volume(message: str) -> str:
+    """Calculate concrete volume from dimensions in message."""
+    import re
+    
+    # Look for dimension patterns like "10m x 8m x 0.5m" or "10 x 8 x 0.5"
+    # Support various units: m, meters, ft, feet, ' (feet), " (inches)
+    patterns = [
+        # Metric: 10m x 8m x 0.5m or 10 m x 8 m x 0.5 m
+        r'(\d+\.?\d*)\s*m?\s*[x×]\s*(\d+\.?\d*)\s*m?\s*[x×]\s*(\d+\.?\d*)\s*m?',
+        # Imperial: 10ft x 8ft x 0.5ft or 10' x 8' x 6"
+        r'(\d+\.?\d*)\s*(?:ft|feet|\')\s*[x×]\s*(\d+\.?\d*)\s*(?:ft|feet|\')\s*[x×]\s*(\d+\.?\d*)\s*(?:ft|feet|\'|in|inches|\")?',
+    ]
+    
+    for pattern in patterns:
+        match = re.search(pattern, message.lower())
+        if match:
+            try:
+                length = float(match.group(1))
+                width = float(match.group(2))
+                depth = float(match.group(3))
+                
+                # Determine unit from message context
+                is_metric = any(unit in message.lower() for unit in ['m ', 'meter', 'mtr', 'metre'])
+                is_imperial = any(unit in message.lower() for unit in ["'", 'ft', 'feet', 'inch'])
+                
+                # Default to metric if no unit specified but values are small
+                if not is_metric and not is_imperial:
+                    is_metric = length < 100 and width < 100 and depth < 10
+                
+                if is_metric:
+                    # Metric calculation (meters)
+                    volume_m3 = length * width * depth
+                    volume_ft3 = volume_m3 * 35.3147
+                    volume_yd3 = volume_ft3 / 27
+                    
+                    # Estimate concrete cost
+                    cost_low = volume_yd3 * 120
+                    cost_high = volume_yd3 * 150
+                    
+                    return f"""📐 **Concrete Volume Calculation**
+
+**Dimensions:**
+• Length: {length} m
+• Width: {width} m  
+• Depth: {depth} m
+
+**Volume:**
+• **{volume_m3:.2f} cubic meters** (m³)
+• {volume_ft3:.2f} cubic feet
+• {volume_yd3:.2f} cubic yards
+
+**Estimated Cost:**
+• ${cost_low:,.0f} - ${cost_high:,.0f} (@ $120-150/yd³)
+
+**Formula Used:**
+```
+Volume = Length × Width × Depth
+Volume = {length} × {width} × {depth} = {volume_m3:.2f} m³
+```
+
+*Note: Cost estimate is for ready-mix concrete only. Does not include labor, forms, or reinforcement.*"""
+                else:
+                    # Imperial calculation (feet)
+                    volume_ft3 = length * width * depth
+                    volume_yd3 = volume_ft3 / 27
+                    volume_m3 = volume_ft3 / 35.3147
+                    
+                    # Estimate concrete cost
+                    cost_low = volume_yd3 * 120
+                    cost_high = volume_yd3 * 150
+                    
+                    return f"""📐 **Concrete Volume Calculation**
+
+**Dimensions:**
+• Length: {length} ft
+• Width: {width} ft
+• Depth: {depth} ft
+
+**Volume:**
+• **{volume_yd3:.2f} cubic yards** (yd³)
+• {volume_ft3:.2f} cubic feet
+• {volume_m3:.2f} cubic meters
+
+**Estimated Cost:**
+• ${cost_low:,.0f} - ${cost_high:,.0f} (@ $120-150/yd³)
+
+**Formula Used:**
+```
+Volume = Length × Width × Depth
+Volume = {length} × {width} × {depth} = {volume_ft3:.2f} ft³ = {volume_yd3:.2f} yd³
+```
+
+*Note: Cost estimate is for ready-mix concrete only. Does not include labor, forms, or reinforcement.*"""
+            except (ValueError, IndexError):
+                pass
+    
+    return None
+
+
 async def handle_economics_query(message: str) -> str:
     """Handle economics/cost queries using direct API calls."""
     message_lower = message.lower()
     
     try:
+        # Check for concrete volume calculation
+        if any(word in message_lower for word in ['volume', 'calculate', 'calculation', 'cubic', 'm3', 'yd3']):
+            if 'concrete' in message_lower or 'foundation' in message_lower or 'slab' in message_lower:
+                volume_result = calculate_concrete_volume(message)
+                if volume_result:
+                    return volume_result
+        
         # Check for building cost estimate
         if any(word in message_lower for word in ['warehouse', 'office', 'building', 'estimate', 'cost']):
             # Extract building type
@@ -253,7 +360,7 @@ Or switch to 🧠 **Agent Mode** for complex calculations!"""
 
 
 async def generate_simple_response(message: str, context: str) -> str:
-    """Generate a simple response - tries local LLM first, falls back to rules."""
+    """Generate a simple response - uses rule-based logic for construction queries."""
     message_lower = message.lower()
     
     # Check for greetings - use rule-based (fast)
@@ -264,19 +371,17 @@ async def generate_simple_response(message: str, context: str) -> str:
     if any(h in message_lower for h in ['what can you do', 'who are you', 'help']):
         return generate_conversational_response(message, context)
     
+    # Check for concrete volume calculation FIRST (before general economics)
+    if 'concrete' in message_lower and any(word in message_lower for word in ['volume', 'calculate', 'calculation', 'cubic', 'm3', 'yd3', 'foundation', 'slab']):
+        volume_result = calculate_concrete_volume(message)
+        if volume_result:
+            return volume_result
+    
     # Check for simple economics queries - use rule-based (fast, accurate)
     if is_simple_economics_query(message):
         return await handle_economics_query(message)
     
-    # Complex query - try local LLM
-    if is_local_llm_available():
-        try:
-            logger.info(f"Using local LLM for complex query: {message[:50]}...")
-            return await generate_local_llm_response(message, context)
-        except Exception as e:
-            logger.warning(f"Local LLM failed, falling back to rules: {e}")
-    
-    # Fallback to rule-based
+    # Fallback to rule-based conversational response
     return generate_conversational_response(message, context)
 
 
@@ -470,3 +575,144 @@ async def local_llm_status():
             pass
     
     return status
+
+
+@router.post("/analyze-document")
+async def analyze_document(request: dict):
+    """
+    Analyze uploaded documents: contracts, floor plans, schedules.
+    
+    Request body:
+    - text: Extracted text from the document
+    - filename: Original filename
+    - doc_type: 'contract', 'floor_plan', 'schedule', or 'auto'
+    """
+    try:
+        text = request.get("text", "")
+        filename = request.get("filename", "")
+        doc_type = request.get("doc_type", "auto")
+        
+        if not text:
+            return {
+                "success": False,
+                "error": "No document text provided"
+            }
+        
+        # Auto-detect document type if not specified
+        if doc_type == "auto":
+            filename_lower = filename.lower()
+            if any(word in filename_lower for word in ["contract", "agreement"]):
+                doc_type = "contract"
+            elif any(word in filename_lower for word in ["floor", "plan", "drawing"]):
+                doc_type = "floor_plan"
+            elif any(word in filename_lower for word in ["schedule", "primavera", "p6", "gantt"]):
+                doc_type = "schedule"
+            else:
+                # Try to detect from content
+                text_lower = text.lower()
+                if "activity id" in text_lower or "duration" in text_lower:
+                    doc_type = "schedule"
+                elif "square feet" in text_lower or "dimension" in text_lower:
+                    doc_type = "floor_plan"
+                elif "contractor" in text_lower or "agreement" in text_lower:
+                    doc_type = "contract"
+                else:
+                    doc_type = "general"
+        
+        # Analyze based on document type
+        if doc_type == "contract":
+            analysis = document_analyzer.analyze_contract(text, filename)
+            return {
+                "success": True,
+                "doc_type": "contract",
+                "analysis": {
+                    "contract_type": analysis.contract_type,
+                    "parties": analysis.parties,
+                    "total_value": analysis.total_value,
+                    "start_date": analysis.start_date,
+                    "end_date": analysis.end_date,
+                    "key_clauses": [
+                        {
+                            "section": c.section,
+                            "title": c.title,
+                            "content": c.content,
+                            "risk_level": c.risk_level,
+                            "key_points": c.key_points
+                        } for c in analysis.key_clauses
+                    ],
+                    "risks": analysis.risks,
+                    "recommendations": analysis.recommendations,
+                    "payment_terms": analysis.payment_terms,
+                    "termination_clause": analysis.termination_clause
+                }
+            }
+        
+        elif doc_type == "floor_plan":
+            analysis = document_analyzer.analyze_floor_plan(text, filename)
+            return {
+                "success": True,
+                "doc_type": "floor_plan",
+                "analysis": {
+                    "project_name": analysis.project_name,
+                    "total_area_sqft": analysis.total_area_sqft,
+                    "items": [
+                        {
+                            "category": item.category,
+                            "description": item.description,
+                            "quantity": item.quantity,
+                            "unit": item.unit,
+                            "area_sqft": item.area_sqft,
+                            "notes": item.notes
+                        } for item in analysis.items
+                    ],
+                    "summary_by_category": analysis.summary_by_category
+                }
+            }
+        
+        elif doc_type == "schedule":
+            analysis = document_analyzer.analyze_schedule(text, filename)
+            return {
+                "success": True,
+                "doc_type": "schedule",
+                "analysis": {
+                    "project_name": analysis.project_name,
+                    "total_duration": analysis.total_duration,
+                    "start_date": analysis.start_date,
+                    "end_date": analysis.end_date,
+                    "critical_path": analysis.critical_path,
+                    "activities": [
+                        {
+                            "id": a.id,
+                            "name": a.name,
+                            "duration": a.duration,
+                            "start_date": a.start_date,
+                            "end_date": a.end_date,
+                            "predecessors": a.predecessors,
+                            "successors": a.successors,
+                            "critical": a.critical,
+                            "percent_complete": a.percent_complete
+                        } for a in analysis.activities
+                    ],
+                    "milestones": analysis.milestones,
+                    "risks": analysis.risks,
+                    "recommendations": analysis.recommendations
+                }
+            }
+        
+        else:
+            return {
+                "success": True,
+                "doc_type": "general",
+                "analysis": {
+                    "text_preview": text[:1000],
+                    "word_count": len(text.split()),
+                    "note": "Document type not recognized. Supported types: contract, floor_plan, schedule"
+                }
+            }
+    
+    except Exception as e:
+        logger.error(f"Document analysis error: {e}")
+        return {
+            "success": False,
+            "error": f"Analysis failed: {str(e)}"
+        }

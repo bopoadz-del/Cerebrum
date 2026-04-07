@@ -3,8 +3,6 @@ FROM python:3.11-slim-bookworm
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV ENVIRONMENT=production
-ENV OLLAMA_HOST=0.0.0.0:11434
-ENV OLLAMA_MODELS=/root/.ollama/models
 
 WORKDIR /app
 
@@ -24,7 +22,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 RUN chmod +x start.sh
 
-EXPOSE 8000 11434
+EXPOSE 8000
 
 # Render overrides this, but we keep it for reference
 CMD ["./start.sh"]

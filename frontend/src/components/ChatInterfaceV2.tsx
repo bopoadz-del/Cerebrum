@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Bot, Sparkles, Plus, Calendar, Brain, ArrowRight } from 'lucide-react';
 import { ChatMessage } from './ChatMessage';
@@ -32,19 +32,17 @@ export function ChatInterfaceV2({
 }: ChatInterfaceV2Props) {
   const {
     messages,
-    inputValue,
-    setInputValue,
+    input,
+    setInput,
     isLoading,
-    isUploading,
     attachments,
-    messagesEndRef,
-    showAgentSuggestion,
     sendMessage,
     addAttachment,
     removeAttachment,
     clearMessages,
   } = useChat();
 
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const [, setSmartContextEnabled] = useState(false);
   const hasMessages = messages.length > 0;
   const isProjectSelected = projectName && projectName !== 'Select a project';
@@ -56,7 +54,7 @@ export function ChatInterfaceV2({
 
   // Handler for internet search
   const handleInternetSearch = () => {
-    setInputValue('/search ' + inputValue);
+    setInput('/search ' + input);
   };
 
   // Handler for new chat button
@@ -129,42 +127,6 @@ export function ChatInterfaceV2({
         </div>
       </header>
 
-      {/* Agent Mode Suggestion Banner */}
-      {showAgentSuggestion.show && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
-          className="bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-indigo-100 px-4 py-3"
-        >
-          <div className="flex items-center justify-between max-w-2xl mx-auto">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center">
-                <Brain className="w-4 h-4 text-indigo-600" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-indigo-900">
-                  This task needs Agent Mode
-                </p>
-                <p className="text-xs text-indigo-600">
-                  {showAgentSuggestion.reason}
-                </p>
-              </div>
-            </div>
-            {onSwitchToAgent && (
-              <Button
-                size="sm"
-                onClick={onSwitchToAgent}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white"
-              >
-                Switch to Agent
-                <ArrowRight className="w-3 h-3 ml-1" />
-              </Button>
-            )}
-          </div>
-        </motion.div>
-      )}
-
       {/* Chat Content */}
       <div className="flex-1 overflow-y-auto bg-gray-50/50">
         {!hasMessages ? (
@@ -216,7 +178,7 @@ export function ChatInterfaceV2({
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  onClick={() => setInputValue(prompt)}
+                  onClick={() => setInput(prompt)}
                   className={cn(
                     'px-4 py-2 bg-white border border-gray-200 rounded-lg',
                     'text-sm text-gray-700 transition-all duration-200',
@@ -283,15 +245,14 @@ export function ChatInterfaceV2({
       <div className="bg-white">
         <div className="max-w-2xl mx-auto">
           <ChatInputV2
-            value={inputValue}
-            onChange={setInputValue}
-            onSend={sendMessage}
+            value={input}
+            onChange={setInput}
+            onSend={() => sendMessage(input, attachments)}
             onAttachFile={handleAttachFile}
             onInternetSearch={handleInternetSearch}
             attachments={attachments}
             onRemoveAttachment={removeAttachment}
             isLoading={isLoading}
-            isUploading={isUploading}
             placeholder={isProjectSelected ? 'Type /help for commands or ask anything...' : 'Type /help for commands or select a project to attach files...'}
           />
         </div>
