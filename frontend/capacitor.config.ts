@@ -35,6 +35,25 @@ const config: CapacitorConfig = {
       saveToGallery: false,
       resultType: 'uri',
     },
+    CapacitorSQLite: {
+      iosDatabaseLocation: 'Library/CerebrumDatabase',
+      iosIsEncryption: false,
+      iosKeychainPrefix: 'cerebrum',
+      iosBiometric: {
+        biometricAuth: false,
+        biometricTitle: 'Authentication',
+      },
+      androidIsEncryption: false,
+      androidBiometric: {
+        biometricAuth: false,
+        biometricTitle: 'Authentication',
+        biometricSubTitle: 'Log in using your biometric',
+      },
+      electronIsEncryption: false,
+      electronWindowsLocation: 'CerebrumDatabase',
+      electronMacLocation: '/Users/YOUR_NAME/CerebrumDatabase',
+      electronLinuxLocation: '/var/CerebrumDatabase',
+    },
   },
   android: {
     buildOptions: {

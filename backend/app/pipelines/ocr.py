@@ -51,6 +51,56 @@ from app.core.config import settings
 logger = get_logger(__name__)
 
 
+def preprocess_image(image):
+    """
+    Preprocess image before OCR using OpenCV.
+    
+    Args:
+        image: OpenCV image array (BGR format)
+    
+    Returns:
+        Preprocessed grayscale image ready for Tesseract
+    """
+    if not CV2_AVAILABLE:
+        return image
+    
+    try:
+        # Convert to grayscale
+        if len(image.shape) == 3:
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = image
+        
+        # Apply OTSU thresholding
+        _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        
+        # Deskew if needed (simple implementation)
+        # Detect skew angle using Hough transform or contour analysis
+        coords = np.column_stack(np.where(thresh > 0))
+        if len(coords) > 0:
+            angle = cv2.minAreaRect(coords)[-1]
+            if angle < -45:
+                angle = -(90 + angle)
+            else:
+                angle = -angle
+            
+            # Only rotate if angle is significant
+            if abs(angle) > 0.5:
+                (h, w) = thresh.shape[:2]
+                center = (w // 2, h // 2)
+                M = cv2.getRotationMatrix2D(center, angle, 1.0)
+                thresh = cv2.warpAffine(thresh, M, (w, h),
+                                       flags=cv2.INTER_CUBIC,
+                                       borderMode=cv2.BORDER_CONSTANT,
+                                       borderValue=255)
+        
+        return thresh
+        
+    except Exception as e:
+        logger.warning(f"Preprocessing failed: {e}, returning original image")
+        return image
+
+
 class OCREngine(Enum):
     """Available OCR engines."""
     TESSERACT = "tesseract"
@@ -186,17 +236,27 @@ class TesseractOCR:
             # Load image
             logger.debug(f"Loading image ({len(image_data)} bytes)")
             try:
-                image = Image.open(io.BytesIO(image_data))
-                logger.debug(f"Image loaded: {image.format}, {image.size}, {image.mode}")
+                pil_image = Image.open(io.BytesIO(image_data))
+                logger.debug(f"Image loaded: {pil_image.format}, {pil_image.size}, {pil_image.mode}")
             except Exception as e:
                 logger.error(f"Failed to load image: {type(e).__name__}: {e}")
                 raise ValueError(f"Invalid image file: {str(e)}")
             
-            # Preprocess if requested
+            # Preprocess if requested - using new preprocessing function
             if preprocess:
                 logger.debug("Preprocessing image...")
                 try:
-                    image = await self._preprocess_image(image)
+                    # Convert PIL to OpenCV format
+                    img_array = np.array(pil_image)
+                    if len(img_array.shape) == 3:
+                        img_array = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
+                    
+                    # Apply new preprocessing
+                    processed_array = preprocess_image(img_array)
+                    
+                    # Convert back to PIL
+                    pil_image = Image.fromarray(processed_array)
+                    logger.debug("Image preprocessing completed")
                 except Exception as e:
                     logger.warning(f"Image preprocessing failed, continuing with original: {e}")
             
@@ -207,7 +267,7 @@ class TesseractOCR:
             # Perform OCR with detailed output
             try:
                 data = pytesseract.image_to_data(
-                    image,
+                    pil_image,
                     lang=language.value,
                     config=config,
                     output_type=pytesseract.Output.DICT
@@ -249,6 +309,11 @@ class TesseractOCR:
             # Join text with proper spacing
             full_text = self._reconstruct_text(blocks)
             
+            # Check if OCR returned empty result
+            if not full_text.strip():
+                logger.error("OCR returned empty text - image may be unclear or unreadable")
+                raise ValueError("Could not extract text. Please use a clearer image or searchable PDF.")
+            
             processing_time = time.time() - start_time
             logger.info(f"Image OCR completed: {len(full_text.split())} words, {avg_confidence:.1f}% confidence, {processing_time:.2f}s")
             
@@ -261,6 +326,9 @@ class TesseractOCR:
                 word_count=len(full_text.split())
             )
             
+        except ValueError:
+            # Re-raise friendly error messages
+            raise
         except Exception as e:
             logger.error(f"Image OCR processing failed: {type(e).__name__}: {e}")
             raise
@@ -373,6 +441,11 @@ class TesseractOCR:
             # Combine results
             full_text = '\n\n'.join(all_texts)
             avg_confidence = sum(all_confidences) / len(all_confidences) if all_confidences else 0
+            
+            # Check if OCR returned empty result
+            if not full_text.strip():
+                logger.error("PDF OCR returned empty text - pages may be blank or unreadable")
+                raise ValueError("Could not extract text. Please use a clearer image or searchable PDF.")
             
             processing_time = time.time() - start_time
             logger.info(f"PDF OCR completed: {len(images)} pages, {len(full_text.split())} words, {processing_time:.2f}s")
