@@ -13,6 +13,7 @@ import re
 from app.core.logging import get_logger
 from app.services.local_llm import is_local_llm_available, get_local_llm
 from app.services.document_analyzer import document_analyzer
+from app.api.v1.endpoints.intent_router import generate_intent_response, route_intent
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -366,6 +367,13 @@ Or switch to 🧠 **Agent Mode** for complex calculations!"""
 
 async def generate_simple_response(message: str, context: str) -> str:
     """Generate a simple response - uses rule-based logic for construction queries."""
+    
+    # FIRST: Try intent router for natural language calculations
+    intent_response = generate_intent_response(message)
+    if intent_response:
+        logger.info("Intent router handled query", message=message[:50])
+        return intent_response
+    
     message_lower = message.lower()
     
     # Check if message has file context (file upload scenario)

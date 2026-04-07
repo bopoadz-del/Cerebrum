@@ -718,64 +718,51 @@ async def upload_public_file(
         
         logger.info("File saved", file_id=file_id, file_path=file_path, size=len(file_content))
         
-        # Extract text based on file type
+        # Extract text based on file type - WRAPPED IN TRY/EXCEPT TO PREVENT 502
         extracted_text = ""
         can_extract_text = False
         ocr_error = None
         
-        # PDF files
-        if file_ext == '.pdf' or file.content_type == 'application/pdf':
-            try:
-                from app.pipelines.ocr import TesseractOCR, PDF2IMAGE_AVAILABLE
-                
-                if not PDF2IMAGE_AVAILABLE:
-                    logger.warning("pdf2image not available for PDF processing")
-                    ocr_error = "PDF processing not available (pdf2image missing)"
-                else:
+        try:
+            # PDF files
+            if file_ext == '.pdf' or file.content_type == 'application/pdf':
+                try:
+                    from app.pipelines.ocr import TesseractOCR, PDF2IMAGE_AVAILABLE
+                    
+                    if not PDF2IMAGE_AVAILABLE:
+                        logger.warning("pdf2image not available for PDF processing")
+                        ocr_error = "PDF processing not available (pdf2image missing)"
+                    else:
+                        ocr = TesseractOCR()
+                        logger.info(f"Starting PDF OCR for {file.filename}")
+                        result = await ocr.process_pdf(file_content)
+                        extracted_text = result.text
+                        can_extract_text = True
+                        logger.info("PDF OCR completed", word_count=result.word_count, pages=result.page_count)
+                except Exception as e:
+                    logger.error(f"PDF OCR failed: {type(e).__name__}: {e}")
+                    ocr_error = str(e)
+                    extracted_text = f"[PDF processing failed: {str(e)}]"
+            
+            # Image files
+            elif file_ext in ['.png', '.jpg', '.jpeg', '.tiff', '.webp'] or \
+                 (file.content_type and file.content_type.startswith('image/')):
+                try:
+                    from app.pipelines.ocr import TesseractOCR
                     ocr = TesseractOCR()
-                    logger.info(f"Starting PDF OCR for {file.filename}")
-                    result = await ocr.process_pdf(file_content)
+                    logger.info(f"Starting image OCR for {file.filename}")
+                    result = await ocr.process_image(file_content, preprocess=True)
                     extracted_text = result.text
                     can_extract_text = True
-                    logger.info("PDF OCR completed", word_count=result.word_count, pages=result.page_count)
-            except ValueError as e:
-                # PDF validation error
-                logger.error(f"PDF validation error: {e}")
-                ocr_error = f"Invalid PDF: {str(e)}"
-                extracted_text = f"[PDF processing failed: {str(e)}]"
-            except RuntimeError as e:
-                # OCR processing error
-                logger.error(f"PDF OCR runtime error: {e}")
-                ocr_error = str(e)
-                extracted_text = f"[PDF processing failed: {str(e)}]"
-            except Exception as e:
-                logger.error(f"PDF OCR failed: {type(e).__name__}: {e}")
-                ocr_error = str(e)
-                extracted_text = f"[PDF processing failed: {str(e)}]"
-        
-        # Image files
-        elif file_ext in ['.png', '.jpg', '.jpeg', '.tiff', '.webp'] or \
-             (file.content_type and file.content_type.startswith('image/')):
-            try:
-                from app.pipelines.ocr import TesseractOCR
-                ocr = TesseractOCR()
-                logger.info(f"Starting image OCR for {file.filename}")
-                result = await ocr.process_image(file_content, preprocess=True)
-                extracted_text = result.text
-                can_extract_text = True
-                logger.info("Image OCR completed", word_count=result.word_count)
-            except ValueError as e:
-                logger.error(f"Image validation error: {e}")
-                ocr_error = f"Invalid image: {str(e)}"
-                extracted_text = f"[Image OCR failed: {str(e)}]"
-            except RuntimeError as e:
-                logger.error(f"Image OCR runtime error: {e}")
-                ocr_error = str(e)
-                extracted_text = f"[Image OCR failed: {str(e)}]"
-            except Exception as e:
-                logger.error(f"Image OCR failed: {type(e).__name__}: {e}")
-                ocr_error = str(e)
-                extracted_text = f"[Image OCR failed: {str(e)}]"
+                    logger.info("Image OCR completed", word_count=result.word_count)
+                except Exception as e:
+                    logger.error(f"Image OCR failed: {type(e).__name__}: {e}")
+                    ocr_error = str(e)
+                    extracted_text = f"[Image OCR failed: {str(e)}]"
+        except Exception as e:
+            logger.error(f"OCR import/setup failed: {e}")
+            ocr_error = f"OCR not available: {str(e)}"
+            extracted_text = "[OCR service unavailable]"
         
         # Text files
         elif file_ext in ['.txt', '.md'] or (file.content_type and file.content_type.startswith('text/')):
