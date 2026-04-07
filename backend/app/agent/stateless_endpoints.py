@@ -236,6 +236,138 @@ def handle_steel_calculation(task: str) -> Dict[str, Any]:
     }
 
 
+def handle_greeting(task: str) -> Dict[str, Any]:
+    """Handle greeting messages."""
+    return {
+        "success": True,
+        "action": "greeting",
+        "layer": "economics",
+        "data": {},
+        "message": """👋 **Hello! Welcome to Cerebrum AI**
+
+I'm your construction intelligence assistant. I can help you with:
+
+**📐 Calculations:**
+• Concrete volume and cost
+• Steel/rebar quantities
+• Material estimates
+
+**💰 Cost Estimates:**
+• RSMeans cost data
+• Building type estimates
+• Project budgeting
+
+**📊 Formulas & Analysis:**
+• Structural calculations
+• Construction formulas
+• Engineering references
+
+What would you like help with today?""",
+        "related_conversations": [],
+        "suggested_next_actions": ["Calculate concrete", "Estimate building cost", "Get RSMeans data"],
+        "timestamp": datetime.now().isoformat()
+    }
+
+
+def handle_building_estimate(task: str) -> Dict[str, Any]:
+    """Handle building cost estimate requests with proper type detection."""
+    import re
+    
+    task_lower = task.lower()
+    
+    # Building type mapping with variations
+    building_type_map = {
+        # Office types
+        "office-low": ["office-low", "office low", "budget office", "economy office"],
+        "office-high": ["office-high", "office high", "premium office", "class a office"],
+        # Warehouse types
+        "warehouse-light": ["warehouse-light", "light warehouse", "warehouse"],
+        "warehouse-heavy": ["warehouse-heavy", "heavy warehouse", "industrial warehouse"],
+        # Other types
+        "hospital": ["hospital", "medical", "healthcare"],
+        "school": ["school", "education", "classroom"],
+        "retail": ["retail", "store", "shopping"],
+        "apartment": ["apartment", "residential", "housing"],
+        "hotel": ["hotel", "hospitality"],
+    }
+    
+    # Default building type costs (per sq ft)
+    building_costs = {
+        "office-low": 225,
+        "office-high": 350,
+        "warehouse-light": 95,
+        "warehouse-heavy": 135,
+        "hospital": 600,
+        "school": 275,
+        "retail": 200,
+        "apartment": 250,
+        "hotel": 300,
+    }
+    
+    # Detect building type
+    detected_type = None
+    for type_code, keywords in building_type_map.items():
+        if any(keyword in task_lower for keyword in keywords):
+            detected_type = type_code
+            break
+    
+    # If "office" mentioned but no specific type, default to office-low
+    if not detected_type and "office" in task_lower:
+        detected_type = "office-low"
+    
+    # Extract square footage
+    sqft_match = re.search(r'(\d[\d,]*)\s*(?:sq\s*ft|sqft|square\s*feet|sq\.?\s*ft)', task_lower)
+    if sqft_match:
+        size_sf = int(sqft_match.group(1).replace(',', ''))
+    else:
+        # Try to find any number that might be square footage
+        numbers = re.findall(r'\d[\d,]*', task_lower)
+        for num_str in numbers:
+            num = int(num_str.replace(',', ''))
+            if 100 <= num <= 10000000:  # Reasonable range for building size
+                size_sf = num
+                break
+        else:
+            size_sf = 5000  # Default size
+    
+    # Get cost per sq ft
+    cost_per_sf = building_costs.get(detected_type, 200) if detected_type else 200
+    
+    # Calculate estimate
+    total_cost = cost_per_sf * size_sf
+    
+    # Format type name for display
+    type_display = detected_type.replace('-', ' ').title() if detected_type else "Building"
+    
+    message = f"""🏢 **{type_display} Cost Estimate**
+
+**Project Details:**
+• Building Type: {type_display}
+• Size: {size_sf:,} sq ft
+• Cost per sq ft: ${cost_per_sf}/sq ft
+
+**Estimated Total Cost:**
+• **${total_cost:,}** (USD)
+
+*Note: This is a preliminary estimate. Actual costs vary based on location, materials, labor rates, and project complexity.*"""
+    
+    return {
+        "success": True,
+        "action": "building_estimate",
+        "layer": "economics",
+        "data": {
+            "building_type": detected_type or "unknown",
+            "size_sf": size_sf,
+            "cost_per_sf": cost_per_sf,
+            "total_cost": total_cost,
+        },
+        "message": message,
+        "related_conversations": [],
+        "suggested_next_actions": ["Get detailed breakdown", "Adjust size/quality", "Save estimate"],
+        "timestamp": datetime.now().isoformat()
+    }
+
+
 def handle_construction_task(task: str) -> Dict[str, Any]:
     """Handle construction-specific tasks without full agent."""
     task_lower = task.lower().strip()
@@ -243,6 +375,22 @@ def handle_construction_task(task: str) -> Dict[str, Any]:
     # Remove leading slash from commands
     if task_lower.startswith('/'):
         task_lower = task_lower[1:]
+    
+    # GREETING - check first
+    if task_lower in ["hello", "hi", "hey", "greetings", "howdy"]:
+        return handle_greeting(task)
+    
+    # BUILDING ESTIMATE - check before cost_lookup for building-specific queries
+    building_keywords = [
+        "office", "warehouse", "hospital", "school", "retail", 
+        "apartment", "hotel", "building", "estimate", "sq ft", 
+        "square feet", "sqft"
+    ]
+    if any(keyword in task_lower for keyword in building_keywords):
+        # Check if it looks like a building estimate request
+        if any(size_word in task_lower for size_word in ["sq ft", "sqft", "square feet", "square"]) or \
+           any(type_word in task_lower for type_word in ["office", "warehouse", "hospital", "school"]):
+            return handle_building_estimate(task)
     
     # STEEL/REBAR calculation (check BEFORE concrete to avoid conflict)
     if any(word in task_lower for word in ["steel", "rebar", "reinforcement"]):

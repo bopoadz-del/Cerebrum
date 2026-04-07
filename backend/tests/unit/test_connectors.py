@@ -11,7 +11,7 @@ from unittest.mock import patch
 from app.connectors import get_connector, get_connector_status, list_connectors
 from app.stubs import (
     ProcoreStub, AconexStub, PrimaveraStub,
-    SlackStub, OpenAIStub
+    SlackStub, OpenAIStub, LocalDriveStub, SmartphoneStub
 )
 from app.stubs.base import StubResponse, StubError
 
@@ -24,7 +24,8 @@ class TestConnectorFactory:
         connectors = list_connectors()
         assert "procore" in connectors
         assert "aconex" in connectors
-        assert "google_drive" in connectors
+        assert "local_drive" in connectors
+        assert "smartphone" in connectors
         assert "slack" in connectors
     
     def test_get_connector_stub_procore(self):
@@ -212,3 +213,170 @@ class TestStubBaseClass:
         """Test that stubs are always available."""
         stub = ProcoreStub()
         assert stub.is_available() is True
+
+
+class TestLocalDriveStub:
+    """Tests for Local Drive stub."""
+    
+    @pytest.fixture
+    def stub(self):
+        return LocalDriveStub()
+    
+    def test_health_check(self, stub):
+        """Test health check."""
+        health = stub.health_check()
+        assert health["service"] == "local_drive"
+        assert health["healthy"] is True
+        assert health["root_path"] == "/mock/local_drive"
+    
+    def test_get_info(self, stub):
+        """Test get info."""
+        info = stub.get_info()
+        assert info["service"] == "local_drive"
+        assert "list_files" in info["capabilities"]
+        assert "read_file" in info["capabilities"]
+    
+    def test_list_files_root(self, stub):
+        """Test listing root directory."""
+        response = stub.list_files()
+        assert response.success is True
+        assert response.data["count"] == 3
+        assert any(f["name"] == "documents" for f in response.data["files"])
+    
+    def test_list_files_documents(self, stub):
+        """Test listing documents folder."""
+        response = stub.list_files("documents")
+        assert response.success is True
+        assert response.data["count"] == 4
+    
+    def test_list_files_recursive(self, stub):
+        """Test recursive file listing."""
+        response = stub.list_files(".", recursive=True)
+        assert response.success is True
+        assert response.data["count"] == 12  # 3 dirs + 9 files
+    
+    def test_read_file(self, stub):
+        """Test reading file."""
+        response = stub.read_file("documents/meeting_notes.txt")
+        assert response.success is True
+        assert response.data["content_type"] == "text"
+        assert "Meeting Notes" in response.data["content"]
+    
+    def test_read_file_not_found(self, stub):
+        """Test reading non-existent file."""
+        response = stub.read_file("documents/nonexistent.txt")
+        assert response.success is False
+        assert "not found" in response.error.lower()
+    
+    def test_get_file_info(self, stub):
+        """Test getting file info."""
+        response = stub.get_file_info("documents/project_plan.pdf")
+        assert response.success is True
+        assert response.data["name"] == "project_plan.pdf"
+        assert response.data["size"] == 2048000
+    
+    def test_write_file(self, stub):
+        """Test writing file."""
+        response = stub.write_file("documents/new_file.txt", "content")
+        assert response.success is True
+        assert response.data["written"] is True
+    
+    def test_create_directory(self, stub):
+        """Test creating directory."""
+        response = stub.create_directory("new_folder")
+        assert response.success is True
+        assert response.data["created"] is True
+    
+    def test_delete(self, stub):
+        """Test deleting file."""
+        response = stub.delete("documents/old_file.txt")
+        assert response.success is True
+        assert response.data["deleted"] is True
+    
+    def test_search_files(self, stub):
+        """Test searching files."""
+        response = stub.search_files("*.pdf")
+        assert response.success is True
+        assert response.data["count"] > 0
+
+
+class TestSmartphoneStub:
+    """Tests for Smartphone stub."""
+    
+    @pytest.fixture
+    def stub(self):
+        return SmartphoneStub()
+    
+    def test_health_check(self, stub):
+        """Test health check."""
+        health = stub.health_check()
+        assert health["service"] == "smartphone"
+        assert health["healthy"] is True
+        assert health["phone"]["name"] == "Mock Android Phone"
+    
+    def test_get_info(self, stub):
+        """Test get info."""
+        info = stub.get_info()
+        assert info["service"] == "smartphone"
+        assert info["connected"] is True
+        assert "list_photos" in info["capabilities"]
+    
+    def test_is_connected(self, stub):
+        """Test connection status."""
+        assert stub.is_connected() is True
+        assert stub.is_available() is True
+    
+    def test_list_files(self, stub):
+        """Test listing files."""
+        response = stub.list_files()
+        assert response.success is True
+        assert response.data["count"] == 2
+        assert response.data["phone_name"] == "Mock Android Phone"
+    
+    def test_list_files_photos(self, stub):
+        """Test listing photos type."""
+        response = stub.list_files(file_type="photos")
+        assert response.success is True
+        assert response.data["count"] == 3
+    
+    def test_list_photos(self, stub):
+        """Test listing all photos."""
+        response = stub.list_photos()
+        assert response.success is True
+        assert response.data["count"] == 5
+        assert response.data["album"] == "all"
+    
+    def test_list_photos_by_album(self, stub):
+        """Test listing photos by album."""
+        response = stub.list_photos(album="Camera")
+        assert response.success is True
+        assert all(p["album"] == "Camera" for p in response.data["photos"])
+    
+    def test_read_file(self, stub):
+        """Test reading file from phone."""
+        response = stub.read_file("DCIM/Camera/IMG_20240101_120000.jpg")
+        assert response.success is True
+        assert response.data["content_type"] == "base64"
+        assert response.data["mime_type"] == "image/jpeg"
+    
+    def test_write_file(self, stub):
+        """Test writing file to phone."""
+        response = stub.write_file("Documents/new_file.txt", "content", "text")
+        assert response.success is True
+        assert response.data["written"] is True
+    
+    def test_delete_file(self, stub):
+        """Test deleting file from phone."""
+        response = stub.delete_file("DCIM/old_photo.jpg")
+        assert response.success is True
+        assert response.data["deleted"] is True
+    
+    def test_sync_to_phone(self, stub):
+        """Test sync to phone."""
+        response = stub.sync_to_phone("/local/file.txt", "Documents/file.txt")
+        assert response.success is True
+    
+    def test_sync_from_phone(self, stub):
+        """Test sync from phone."""
+        response = stub.sync_from_phone("Documents/file.txt", "/local/file.txt")
+        assert response.success is True

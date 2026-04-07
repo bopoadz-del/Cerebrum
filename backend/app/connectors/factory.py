@@ -190,11 +190,13 @@ def list_connectors() -> list:
 # =============================================================================
 
 def _register_builtin_connectors():
-    """Register all built-in connector stubs."""
+    """Register all built-in connector stubs and production connectors."""
     from app.stubs import (
         ProcoreStub, AconexStub, PrimaveraStub,
-        SlackStub, OpenAIStub
+        SlackStub, OpenAIStub, LocalDriveStub, SmartphoneStub
     )
+    from app.connectors.local_drive import LocalDriveConnector
+    from app.connectors.smartphone import SmartphoneConnector
     
     register_connector(
         "procore",
@@ -223,6 +225,18 @@ def _register_builtin_connectors():
     register_connector(
         "openai",
         stub_factory=OpenAIStub,
+    )
+    # Local Drive Connector - filesystem access
+    register_connector(
+        "local_drive",
+        stub_factory=LocalDriveStub,
+        production_factory=LocalDriveConnector,
+    )
+    # Smartphone Connector - phone storage access
+    register_connector(
+        "smartphone",
+        stub_factory=SmartphoneStub,
+        production_factory=SmartphoneConnector,
     )
 
 
