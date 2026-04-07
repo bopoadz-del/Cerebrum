@@ -243,6 +243,45 @@ class TesseractOCR:
             logger.error(f"OCR processing failed: {e}")
             raise
     
+    def _validate_pdf(self, pdf_data: bytes) -> Tuple[bool, str]:
+        """
+        Validate PDF before processing.
+        
+        Args:
+            pdf_data: Raw PDF bytes
+            
+        Returns:
+            Tuple of (is_valid, error_message)
+        """
+        if not PYPDF2_AVAILABLE:
+            return True, ""  # Skip validation if PyPDF2 not available
+            
+        try:
+            pdf_file = io.BytesIO(pdf_data)
+            reader = PyPDF2.PdfReader(pdf_file)
+            
+            # Check if PDF is encrypted
+            if reader.is_encrypted:
+                return False, "PDF is encrypted/password protected"
+            
+            # Check if PDF has pages
+            if len(reader.pages) == 0:
+                return False, "PDF has no pages"
+            
+            # Check if PDF is corrupted by trying to read first page
+            try:
+                _ = reader.pages[0].extract_text()
+            except Exception as e:
+                logger.warning(f"PDF first page extraction failed: {e}")
+                # Not a hard failure - might still be processable
+            
+            return True, ""
+            
+        except PyPDF2.errors.PdfReadError as e:
+            return False, f"Invalid or corrupted PDF: {str(e)}"
+        except Exception as e:
+            return False, f"PDF validation failed: {str(e)}"
+
     async def process_pdf(
         self,
         pdf_data: bytes,
@@ -264,6 +303,11 @@ class TesseractOCR:
         """
         if not PDF2IMAGE_AVAILABLE:
             raise ImportError("pdf2image is required for PDF OCR")
+        
+        # Validate PDF first
+        is_valid, error_msg = self._validate_pdf(pdf_data)
+        if not is_valid:
+            raise ValueError(f"PDF validation failed: {error_msg}")
         
         import time
         start_time = time.time()

@@ -109,6 +109,13 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
   // Execute task through the agent
   const executeAgentTask = async (task: string, context?: Record<string, unknown>): Promise<AgentResponse | null> => {
     try {
+      // Build conversation history from recent messages (last 10 for context)
+      const recentMessages = messages.slice(-10).map(m => ({
+        role: m.role,
+        content: m.content,
+        timestamp: m.timestamp
+      }));
+
       const response = await fetch(`${apiBaseUrl}/agent/v2/execute`, {
         method: 'POST',
         headers: {
@@ -123,6 +130,7 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
             current_layer: currentLayer,
           },
           use_memory: true,
+          conversation_history: recentMessages,
         }),
       });
 

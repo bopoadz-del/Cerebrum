@@ -33,6 +33,70 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 
+# Synonym dictionary for flexible keyword matching
+SYNONYMS = {
+    # Cost estimation
+    "cost": ["price", "pricing", "budget", "estimate", "expense", "value", "rate", "fee"],
+    "estimate": ["estimation", "quote", "bid", "calculation", "forecast", "projection"],
+    "concrete": ["cement", "rebar", "foundation", "slab", "pouring", "formwork"],
+    "rebar": ["reinforcement", "steel", "bar", "mesh", "reinforcing"],
+    
+    # Safety
+    "safety": ["secure", "protection", "hazard", "risk", "incident", "accident", "ppe", "helmet", "vest"],
+    "helmet": ["hardhat", "hard hat", "head protection"],
+    "vest": ["safety vest", "high vis", "reflective"],
+    
+    # Documents
+    "document": ["file", "pdf", "report", "paper", "doc", "drawing", "blueprint", "spec"],
+    "invoice": ["bill", "receipt", "payment", "charge", "billing"],
+    "blueprint": ["drawing", "plan", "diagram", "schematic", "design"],
+    
+    # Projects
+    "project": ["job", "work", "assignment", "contract", "build", "construction"],
+    "schedule": ["timeline", "program", "plan", "deadline", "milestone", "date"],
+    "delay": ["late", "postpone", "behind", "slip", "overrun"],
+    
+    # BIM/VDC
+    "bim": ["building information modeling", "3d model", "digital twin", "ifc"],
+    "model": ["3d", "cad", "drawing", "geometry", "design"],
+    "quantity": ["amount", "volume", "count", "takeoff", "measurement", "metric"],
+    
+    # General
+    "help": ["assist", "support", "guide", "how to", "what is", "explain"],
+    "find": ["search", "locate", "get", "retrieve", "look for", "seek"],
+    "create": ["make", "generate", "build", "produce", "new"],
+    "update": ["modify", "change", "edit", "revise", "patch"],
+    "delete": ["remove", "clear", "erase", "purge", "destroy"],
+}
+
+
+def expand_keywords(query: str) -> Set[str]:
+    """
+    Expand query keywords with synonyms for better matching.
+    
+    Args:
+        query: Original search query
+        
+    Returns:
+        Set of query words plus synonyms
+    """
+    words = set(query.lower().split())
+    expanded = set(words)
+    
+    for word in words:
+        # Direct synonyms
+        if word in SYNONYMS:
+            expanded.update(SYNONYMS[word])
+        
+        # Reverse lookup (word appears in synonym list)
+        for key, synonyms in SYNONYMS.items():
+            if word in synonyms:
+                expanded.add(key)
+                expanded.update(s for s in synonyms if s != word)
+    
+    return expanded
+
+
 class AgentLayer(Enum):
     """The 14 layers of Cerebrum architecture."""
     CODING = "coding"
@@ -527,16 +591,20 @@ class EnhancedConversationReader:
                        limit: int = 10,
                        context_window: int = 300) -> Dict:
         """
-        Advanced search with relevance scoring.
+        Advanced search with relevance scoring and synonym expansion.
 
         Uses multiple scoring factors:
         - Exact phrase matches (high weight)
-        - Keyword frequency
+        - Keyword frequency (with synonym expansion)
         - Recency boost
         - Tag matches
         """
         query_lower = query.lower()
         query_words = set(query_lower.split())
+        
+        # Expand keywords with synonyms for better matching
+        expanded_words = expand_keywords(query)
+        
         scores = []
 
         for entry_id, entry in self.memory_index.items():
@@ -547,15 +615,23 @@ class EnhancedConversationReader:
             if query_lower in content_lower:
                 score += 10.0
 
-            # Word frequency
+            # Word frequency with original words
             for word in query_words:
                 count = content_lower.count(word)
                 score += count * 1.0
+            
+            # Synonym matches (lower weight)
+            synonym_words = expanded_words - query_words
+            for word in synonym_words:
+                count = content_lower.count(word)
+                score += count * 0.5  # Half weight for synonyms
 
             # Tag match bonus
             for tag in entry.tags:
                 if tag.lower() in query_words:
                     score += 5.0
+                elif tag.lower() in synonym_words:
+                    score += 2.5  # Half weight for synonym tag matches
 
             # Recency boost (newer = higher score)
             try:
@@ -592,6 +668,7 @@ class EnhancedConversationReader:
             },
             "metadata": {
                 "query": query,
+                "expanded_keywords": list(expanded_words)[:20],  # Show expansion
                 "returned": min(len(scores), limit),
             },
         }

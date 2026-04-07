@@ -24,6 +24,7 @@ class EnhancedTaskRequest(BaseModel):
     context: Optional[Dict[str, Any]] = Field(default=None)
     use_memory: bool = Field(default=True, description="Search relevant memories")
     target_layer: Optional[str] = Field(default=None, description="Force specific layer")
+    conversation_history: Optional[List[Dict[str, Any]]] = Field(default=None, description="Previous conversation messages for context")
 
 
 class EnhancedTaskResponse(BaseModel):
