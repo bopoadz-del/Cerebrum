@@ -368,12 +368,15 @@ async def generate_simple_response(message: str, context: str) -> str:
     """Generate a simple response - uses rule-based logic for construction queries."""
     message_lower = message.lower()
     
-    # Check for greetings - use rule-based (fast)
-    if message_lower.strip() in ['hello', 'hi', 'hey', 'greetings'] or len(message_lower.strip()) < 10:
+    # Check if message has file context (file upload scenario)
+    has_file_context = "---" in message and "[File:" in message
+    
+    # Check for greetings - use rule-based (fast) - BUT NOT if file context present
+    if not has_file_context and (message_lower.strip() in ['hello', 'hi', 'hey', 'greetings'] or len(message_lower.strip()) < 10):
         return generate_conversational_response(message, context)
     
-    # Check for help - use rule-based
-    if any(h in message_lower for h in ['what can you do', 'who are you', 'help']):
+    # Check for help - use rule-based (but not if we have file context)
+    if not has_file_context and any(h in message_lower for h in ['what can you do', 'who are you', 'help']):
         return generate_conversational_response(message, context)
     
     # Check for concrete volume calculation FIRST (before general economics)
