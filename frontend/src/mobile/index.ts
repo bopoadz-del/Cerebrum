@@ -7,3 +7,9 @@ export type {
 } from './sync';
 export { backgroundSync } from './sync';
 export { offlineQueue, type QueuedUpload, type QueueStats } from './offlineQueue';
+
+// Mobile UI Components
+export { MobileLayout } from './MobileLayout';
+export { ProjectsTab } from './ProjectsTab';
+export { ChatTab } from './ChatTab';
+export { OutcomesTab } from './OutcomesTab';

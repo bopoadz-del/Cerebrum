@@ -67,7 +67,7 @@ function DesktopLayout() {
 
   if (loading) {
     return (
-      <div className="flex h-screen bg-[#f9f9f9] items-center justify-center">
+      <div className="flex bg-[#f9f9f9] items-center justify-center" style={{ minHeight: '100dvh', height: '100dvh' }}>
         <div className="flex items-center gap-3 text-gray-500">
           <Loader2 className="w-6 h-6 animate-spin" />
         </div>
@@ -76,7 +76,7 @@ function DesktopLayout() {
   }
 
   return (
-    <div className="flex h-screen bg-[#f9f9f9] overflow-hidden">
+    <div className="flex bg-[#f9f9f9] overflow-hidden" style={{ minHeight: '100dvh', height: '100dvh' }}>
       {/* Left Sidebar - Collapsible */}
       <AnimatePresence initial={false}>
         {leftPanelOpen && (
@@ -401,18 +401,20 @@ function AppContent() {
   }, []);
 
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/image" element={<ImagePage />} />
-      <Route
-        path="/*"
-        element={
-          <ProtectedRoute>
-            {isMobile ? <MobileLayout /> : <DesktopLayout />}
-          </ProtectedRoute>
-        }
-      />
-    </Routes>
+    <div style={{ minHeight: '100dvh' }} className="flex flex-col">
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/image" element={<ImagePage />} />
+        <Route
+          path="/*"
+          element={
+            <ProtectedRoute>
+              {isMobile ? <MobileLayout /> : <DesktopLayout />}
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    </div>
   );
 }
 
