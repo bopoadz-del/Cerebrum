@@ -193,10 +193,11 @@ def _register_builtin_connectors():
     """Register all built-in connector stubs and production connectors."""
     from app.stubs import (
         ProcoreStub, AconexStub, PrimaveraStub,
-        SlackStub, OpenAIStub, LocalDriveStub, SmartphoneStub
+        SlackStub, OpenAIStub, LocalDriveStub, SmartphoneStub, R2Stub
     )
     from app.connectors.local_drive import LocalDriveConnector
     from app.connectors.smartphone import SmartphoneConnector
+    from app.connectors.r2 import R2Connector
     
     register_connector(
         "procore",
@@ -237,6 +238,12 @@ def _register_builtin_connectors():
         "smartphone",
         stub_factory=SmartphoneStub,
         production_factory=SmartphoneConnector,
+    )
+    # R2 Connector - Cloudflare R2 object storage
+    register_connector(
+        "r2",
+        stub_factory=R2Stub,
+        production_factory=R2Connector,
     )
 
 

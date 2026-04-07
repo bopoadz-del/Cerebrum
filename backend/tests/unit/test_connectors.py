@@ -11,7 +11,7 @@ from unittest.mock import patch
 from app.connectors import get_connector, get_connector_status, list_connectors
 from app.stubs import (
     ProcoreStub, AconexStub, PrimaveraStub,
-    SlackStub, OpenAIStub, LocalDriveStub, SmartphoneStub
+    SlackStub, OpenAIStub, LocalDriveStub, SmartphoneStub, R2Stub
 )
 from app.stubs.base import StubResponse, StubError
 
@@ -27,6 +27,7 @@ class TestConnectorFactory:
         assert "local_drive" in connectors
         assert "smartphone" in connectors
         assert "slack" in connectors
+        assert "r2" in connectors
     
     def test_get_connector_stub_procore(self):
         """Test getting Procore stub."""
@@ -61,6 +62,12 @@ class TestConnectorFactory:
         with patch.dict(os.environ, {"USE_STUB_CONNECTORS": "true"}):
             connector = get_connector("openai")
             assert isinstance(connector, OpenAIStub)
+    
+    def test_get_connector_stub_r2(self):
+        """Test getting R2 stub."""
+        with patch.dict(os.environ, {"USE_STUB_CONNECTORS": "true"}):
+            connector = get_connector("r2")
+            assert isinstance(connector, R2Stub)
     
     def test_get_connector_status(self):
         """Test getting connector status."""
@@ -380,3 +387,124 @@ class TestSmartphoneStub:
         """Test sync from phone."""
         response = stub.sync_from_phone("Documents/file.txt", "/local/file.txt")
         assert response.success is True
+
+
+class TestR2Stub:
+    """Tests for R2 stub."""
+    
+    @pytest.fixture
+    def stub(self):
+        return R2Stub()
+    
+    def test_health_check(self, stub):
+        """Test health check."""
+        health = stub.health_check()
+        assert health["service"] == "r2"
+        assert health["healthy"] is True
+        assert "my-bucket" in health["buckets"]
+    
+    def test_get_info(self, stub):
+        """Test get info."""
+        info = stub.get_info()
+        assert info["service"] == "r2"
+        assert "upload_file" in info["capabilities"]
+        assert "download_file" in info["capabilities"]
+        assert "list_objects" in info["capabilities"]
+    
+    def test_is_available(self, stub):
+        """Test availability."""
+        assert stub.is_available() is True
+    
+    def test_get_status(self, stub):
+        """Test status."""
+        status = stub.get_status()
+        assert status["service"] == "r2"
+        assert status["mode"] == "stub"
+        assert status["has_credentials"] is True
+    
+    def test_upload_file(self, stub, tmp_path):
+        """Test uploading file."""
+        test_file = tmp_path / "test.txt"
+        test_file.write_text("test content")
+        
+        response = stub.upload_file(str(test_file), bucket="my-bucket", key="uploads/test.txt")
+        assert response.success is True
+        assert response.data["bucket"] == "my-bucket"
+        assert response.data["key"] == "uploads/test.txt"
+    
+    def test_download_file(self, stub, tmp_path):
+        """Test downloading file."""
+        dest = tmp_path / "downloaded.txt"
+        
+        response = stub.download_file("my-bucket", "documents/notes.txt", str(dest))
+        assert response.success is True
+        assert response.data["bucket"] == "my-bucket"
+        assert response.data["key"] == "documents/notes.txt"
+    
+    def test_download_file_not_found(self, stub, tmp_path):
+        """Test downloading non-existent file."""
+        dest = tmp_path / "downloaded.txt"
+        
+        response = stub.download_file("my-bucket", "nonexistent.txt", str(dest))
+        assert response.success is False
+        assert "not found" in response.error.lower()
+    
+    def test_list_objects_all(self, stub):
+        """Test listing all objects."""
+        response = stub.list_objects(bucket="my-bucket")
+        assert response.success is True
+        assert response.data["count"] == 5
+        assert response.data["is_truncated"] is False
+    
+    def test_list_objects_with_prefix(self, stub):
+        """Test listing objects with prefix filter."""
+        response = stub.list_objects(bucket="my-bucket", prefix="documents/")
+        assert response.success is True
+        assert response.data["count"] == 2
+        assert all(obj["key"].startswith("documents/") for obj in response.data["objects"])
+    
+    def test_list_objects_empty_bucket(self, stub):
+        """Test listing objects in empty/non-existent bucket."""
+        response = stub.list_objects(bucket="empty-bucket")
+        assert response.success is True
+        assert response.data["count"] == 0
+    
+    def test_delete_object(self, stub):
+        """Test deleting object."""
+        response = stub.delete_object("my-bucket", "documents/old.txt")
+        assert response.success is True
+        assert response.data["deleted"] is True
+    
+    def test_generate_presigned_url_get(self, stub):
+        """Test generating presigned GET URL."""
+        response = stub.generate_presigned_url("my-bucket", "documents/report.pdf", expiration=3600)
+        assert response.success is True
+        assert "url" in response.data
+        assert response.data["expiration"] == 3600
+        assert response.data["operation"] == "get_object"
+        assert "mock-account-id.r2.cloudflarestorage.com" in response.data["url"]
+    
+    def test_generate_presigned_url_put(self, stub):
+        """Test generating presigned PUT URL."""
+        response = stub.generate_presigned_url("my-bucket", "uploads/new.txt", 
+                                               expiration=7200, operation="put_object")
+        assert response.success is True
+        assert "url" in response.data
+        assert response.data["expiration"] == 7200
+        assert response.data["operation"] == "put_object"
+    
+    def test_object_exists_true(self, stub):
+        """Test checking existing object."""
+        exists = stub.object_exists("my-bucket", "documents/notes.txt")
+        assert exists is True
+    
+    def test_object_exists_false(self, stub):
+        """Test checking non-existent object."""
+        exists = stub.object_exists("my-bucket", "nonexistent.txt")
+        assert exists is False
+    
+    def test_default_bucket(self, stub):
+        """Test using default bucket."""
+        response = stub.list_objects()  # No bucket specified
+        assert response.success is True
+        assert response.data["bucket"] == "my-bucket"  # Uses default

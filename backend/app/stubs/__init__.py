@@ -13,6 +13,7 @@ from .slack import SlackStub
 from .openai import OpenAIStub
 from .local_drive import LocalDriveStub
 from .smartphone import SmartphoneStub
+from .r2 import R2Stub
 
 __all__ = [
     "BaseStub",
@@ -25,6 +26,7 @@ __all__ = [
     "OpenAIStub",
     "LocalDriveStub",
     "SmartphoneStub",
+    "R2Stub",
     "get_stub",
 ]
 
@@ -38,6 +40,7 @@ _STUB_REGISTRY = {
     "openai": OpenAIStub,
     "local_drive": LocalDriveStub,
     "smartphone": SmartphoneStub,
+    "r2": R2Stub,
 }
 
 
