@@ -12,3 +12,6 @@ zilqUxp5
 
 # ZVec vector store data
 data/
+
+# SSH keys for Render/GitHub access
+.ssh-keys/
