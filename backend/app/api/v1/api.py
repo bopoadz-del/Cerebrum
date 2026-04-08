@@ -9,12 +9,65 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Import endpoints with error handling for missing dependencies
-from app.api.v1.endpoints import auth, admin, dejavu, formulas, sessions, connectors
 from app.api.health import router as health_router
 
+# Try to import core endpoints
+try:
+    from app.api.v1.endpoints import auth
+    logger.info("Auth endpoints loaded")
+except Exception as e:
+    logger.error(f"Auth endpoints failed: {e}")
+    auth = None
+
+try:
+    from app.api.v1.endpoints import admin
+    logger.info("Admin endpoints loaded")
+except Exception as e:
+    logger.error(f"Admin endpoints failed: {e}")
+    admin = None
+
+try:
+    from app.api.v1.endpoints import dejavu
+    logger.info("Dejavu endpoints loaded")
+except Exception as e:
+    logger.error(f"Dejavu endpoints failed: {e}")
+    dejavu = None
+
+try:
+    from app.api.v1.endpoints import formulas
+    logger.info("Formulas endpoints loaded")
+except Exception as e:
+    logger.error(f"Formulas endpoints failed: {e}")
+    formulas = None
+
+try:
+    from app.api.v1.endpoints import sessions
+    logger.info("Sessions endpoints loaded")
+except Exception as e:
+    logger.error(f"Sessions endpoints failed: {e}")
+    sessions = None
+
+try:
+    from app.api.v1.endpoints import connectors
+    logger.info("Connectors endpoints loaded")
+except Exception as e:
+    logger.error(f"Connectors endpoints failed: {e}")
+    connectors = None
+
 # Core endpoints - REQUIRED for frontend
-from app.api.v1.endpoints import chat
-from app.agent.enhanced_endpoints import router as agent_router
+try:
+    from app.api.v1.endpoints import chat
+    logger.info("Chat endpoints loaded")
+except Exception as e:
+    logger.error(f"Chat endpoints failed: {e}")
+    chat = None
+
+try:
+    from app.agent.enhanced_endpoints import router as agent_router
+    logger.info("Agent endpoints loaded")
+except Exception as e:
+    logger.error(f"Agent endpoints failed: {e}")
+    agent_router = None
 
 # Try to import optional endpoints
 try:
@@ -136,18 +189,27 @@ api_v1_router = APIRouter()
 
 # Include core endpoints
 api_v1_router.include_router(health_router, tags=["health"])
-api_v1_router.include_router(auth.router, tags=["authentication"])
-api_v1_router.include_router(admin.router, prefix="/admin", tags=["admin"])
-api_v1_router.include_router(dejavu.router, prefix="/dejavu", tags=["dejavu"])
-api_v1_router.include_router(formulas.router, prefix="/formulas", tags=["formulas"])
-api_v1_router.include_router(sessions.router, prefix="/sessions", tags=["sessions"])
-api_v1_router.include_router(connectors.router, tags=["connectors"])
+
+if auth:
+    api_v1_router.include_router(auth.router, tags=["authentication"])
+if admin:
+    api_v1_router.include_router(admin.router, prefix="/admin", tags=["admin"])
+if dejavu:
+    api_v1_router.include_router(dejavu.router, prefix="/dejavu", tags=["dejavu"])
+if formulas:
+    api_v1_router.include_router(formulas.router, prefix="/formulas", tags=["formulas"])
+if sessions:
+    api_v1_router.include_router(sessions.router, prefix="/sessions", tags=["sessions"])
+if connectors:
+    api_v1_router.include_router(connectors.router, tags=["connectors"])
 
 # Chat endpoints (REQUIRED - used by frontend)
-api_v1_router.include_router(chat.router, tags=["chat"])
+if chat:
+    api_v1_router.include_router(chat.router, tags=["chat"])
 
 # Agent endpoints (REQUIRED - used by frontend)
-api_v1_router.include_router(agent_router, prefix="/agent", tags=["agent"])
+if agent_router:
+    api_v1_router.include_router(agent_router, prefix="/agent", tags=["agent"])
 
 # Include optional endpoints conditionally
 if DOCUMENTS_AVAILABLE:
