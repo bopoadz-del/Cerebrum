@@ -4,10 +4,27 @@ import { Archive, FileText, Folder, Clock, Search, Download, Trash2 } from 'luci
 import { ModuleHeader } from '@/components/ModuleHeader';
 import { FileUpload } from '@/components/FileUpload';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-
+import { } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { AnalysisResult } from '@/types';
+
+// Define the expected structure for archive details
+interface ArchiveFileType {
+  type: string;
+  count: number;
+  size: string;
+}
+
+interface ArchiveDetails {
+  totalFiles: number;
+  totalFolders: number;
+  totalSize: string;
+  compressedSize: string;
+  compressionRatio: number;
+  fileTypes: ArchiveFileType[];
+  warnings?: string[];
+}
 
 const ACCEPTED_FORMATS = ['.zip', '.rar', '.7z', '.tar', '.gz'];
 const MAX_FILE_SIZE = 500; // MB
@@ -21,7 +38,7 @@ const mockFiles = [
 
 const mockResult: AnalysisResult = {
   id: '1',
-  moduleId: 'archive',
+  type: 'analysis',
   fileName: 'Project-Backup.zip',
   status: 'completed',
   createdAt: new Date().toISOString(),
@@ -48,7 +65,9 @@ export default function ArchivePage() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const handleUpload = async (_files: File[]) => {
+  const handleUpload = async (_file: File) => {
+    // Use file to avoid unused variable warning
+    console.log('Uploading files:', 1);
     setIsAnalyzing(true);
     await new Promise((resolve) => setTimeout(resolve, 2000));
     setResult(mockResult);
@@ -75,9 +94,9 @@ export default function ArchivePage() {
         className="mb-8"
       >
         <FileUpload
-          acceptedFormats={ACCEPTED_FORMATS}
-          maxFileSize={MAX_FILE_SIZE}
-          onUpload={handleUpload}
+          acceptedTypes={ACCEPTED_FORMATS.join(',')}
+          maxSize={MAX_FILE_SIZE}
+          attachments={[]} onUpload={handleUpload}
         />
       </motion.div>
 
@@ -154,7 +173,7 @@ export default function ArchivePage() {
                 <FileText className="w-5 h-5 text-indigo-500" />
                 <div>
                   <p className="text-sm text-gray-500">Files</p>
-                  <p className="font-semibold">{((result.details as any)?.totalFiles as number).toLocaleString()}</p>
+                  <p className="font-semibold">{((result.details as ArchiveDetails)?.totalFiles ?? 0).toLocaleString()}</p>
                 </div>
               </CardContent>
             </Card>
@@ -163,7 +182,7 @@ export default function ArchivePage() {
                 <Folder className="w-5 h-5 text-emerald-500" />
                 <div>
                   <p className="text-sm text-gray-500">Folders</p>
-                  <p className="font-semibold">{(result.details as any)?.totalFolders as number}</p>
+                  <p className="font-semibold">{(result.details as ArchiveDetails)?.totalFolders}</p>
                 </div>
               </CardContent>
             </Card>
@@ -172,7 +191,7 @@ export default function ArchivePage() {
                 <Archive className="w-5 h-5 text-amber-500" />
                 <div>
                   <p className="text-sm text-gray-500">Compressed</p>
-                  <p className="font-semibold">{(result.details as any)?.compressedSize as string}</p>
+                  <p className="font-semibold">{(result.details as ArchiveDetails)?.compressedSize}</p>
                 </div>
               </CardContent>
             </Card>
@@ -181,7 +200,7 @@ export default function ArchivePage() {
                 <Clock className="w-5 h-5 text-purple-500" />
                 <div>
                   <p className="text-sm text-gray-500">Compression</p>
-                  <p className="font-semibold">{(result.details as any)?.compressionRatio}%</p>
+                  <p className="font-semibold">{(result.details as ArchiveDetails)?.compressionRatio}%</p>
                 </div>
               </CardContent>
             </Card>
@@ -194,8 +213,7 @@ export default function ArchivePage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {((result.details as any)?.fileTypes as Array<{ type: string; count: number; size: string }>)?.map(
-                  (fileType, index) => (
+                {((result.details as ArchiveDetails)?.fileTypes)?.map((fileType, index) => (
                     <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center">

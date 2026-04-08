@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Bot, Sparkles, Calendar, MoreHorizontal, Copy, Share2 } from 'lucide-react';
 import { ChatMessage } from '@/components/ChatMessage';
@@ -24,16 +24,16 @@ const SUGGESTED_PROMPTS = [
 export function MobileChat({ projectName, sessionToken }: MobileChatProps) {
   const {
     messages,
-    inputValue,
-    setInputValue,
+    input,
+    setInput,
     isLoading,
-    isUploading,
     attachments,
-    messagesEndRef,
     sendMessage,
     addAttachment,
     removeAttachment,
   } = useChat();
+  
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const [showActions, setShowActions] = useState(false);
   const [, setSmartContextEnabled] = useState(false);
@@ -146,7 +146,7 @@ export function MobileChat({ projectName, sessionToken }: MobileChatProps) {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  onClick={() => setInputValue(prompt)}
+                  onClick={() => setInput(prompt)}
                   className={cn(
                     'px-3 py-2 bg-white border border-gray-200 rounded-lg',
                     'text-sm text-gray-700'
@@ -194,14 +194,14 @@ export function MobileChat({ projectName, sessionToken }: MobileChatProps) {
       {/* Input Area */}
       <div className="bg-white border-t border-gray-200">
         <ChatInputV2
-          value={inputValue}
-          onChange={setInputValue}
-          onSend={sendMessage}
+          value={input}
+          onChange={setInput}
+          onSend={() => sendMessage(input, attachments)}
           onAttachFile={addAttachment}
           attachments={attachments}
           onRemoveAttachment={removeAttachment}
           isLoading={isLoading}
-          isUploading={isUploading}
+          isUploading={false}
           placeholder="Type a message..."
         />
       </div>

@@ -1,22 +1,11 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, X, Check, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
-// SpeechRecognition type
-interface SpeechRecognitionType {
-  available: () => Promise<{ available: boolean }>;
-  requestPermissions: () => Promise<unknown>;
-  start: (options: {
-    language: string;
-    maxResults: number;
-    prompt: string;
-    partialResults: boolean;
-    popup: boolean;
-  }) => Promise<{ matches?: string[] }>;
-  stop: () => Promise<unknown>;
-}
+// Import Capacitor speech recognition
+import { SpeechRecognition } from '@capacitor-community/speech-recognition';
 
 interface VoiceRecorderProps {
   onTranscript: (text: string) => void;
@@ -45,38 +34,18 @@ export function VoiceRecorder({ onTranscript, onCancel, isOpen, onClose }: Voice
     transcript: '',
     error: null,
   });
-  const [speechRecognition, setSpeechRecognition] = useState<SpeechRecognitionType | null>(null);
   
   const recordingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Initialize speech recognition
-  useEffect(() => {
-    let mounted = true;
-    import('@capacitor-community/speech-recognition')
-      .then(module => {
-        if (mounted) {
-          setSpeechRecognition(module.SpeechRecognition as SpeechRecognitionType);
-        }
-      })
-      .catch(() => {
-        // Module not available
-        if (mounted) {
-          setSpeechRecognition(null);
-        }
-      });
-    return () => { mounted = false; };
-  }, []);
-
   // Check if speech recognition is available
   const checkAvailability = useCallback(async (): Promise<boolean> => {
-    if (!speechRecognition) return false;
     try {
-      const { available } = await speechRecognition.available();
+      const { available } = await SpeechRecognition.available();
       return available;
     } catch {
       return false;
     }
-  }, [speechRecognition]);
+  }, []);
 
   // Start recording
   const startRecording = useCallback(async () => {
@@ -92,7 +61,7 @@ export function VoiceRecorder({ onTranscript, onCancel, isOpen, onClose }: Voice
 
     try {
       // Request permissions - the plugin handles this internally
-      const permissionResult = await speechRecognition!.requestPermissions();
+      const permissionResult = await SpeechRecognition.requestPermissions();
       
       // Check if microphone permission was granted
       const hasPermission = (permissionResult as any).microphone === 'granted' || 
@@ -115,7 +84,7 @@ export function VoiceRecorder({ onTranscript, onCancel, isOpen, onClose }: Voice
       });
 
       // Start listening with partial results
-      await speechRecognition!.start({
+      await SpeechRecognition.start({
         language: 'en-US',
         maxResults: 5,
         prompt: 'Speak now...',
@@ -134,7 +103,7 @@ export function VoiceRecorder({ onTranscript, onCancel, isOpen, onClose }: Voice
         error: err instanceof Error ? err.message : 'Failed to start recording',
       }));
     }
-  }, [speechRecognition, checkAvailability]);
+  }, []);
 
   // Stop recording and get final transcript
   const stopRecording = useCallback(async () => {
@@ -145,17 +114,8 @@ export function VoiceRecorder({ onTranscript, onCancel, isOpen, onClose }: Voice
 
     setState(prev => ({ ...prev, isRecording: false, isProcessing: true }));
 
-    if (!speechRecognition) {
-      setState(prev => ({
-        ...prev,
-        isProcessing: false,
-        error: 'Speech recognition not available',
-      }));
-      return;
-    }
-
     try {
-      const result = await speechRecognition.stop() as unknown as SpeechResult;
+      const result = await SpeechRecognition.stop() as unknown as SpeechResult;
       
       if (result && result.matches && result.matches.length > 0) {
         const finalTranscript = result.matches[0];
@@ -185,7 +145,7 @@ export function VoiceRecorder({ onTranscript, onCancel, isOpen, onClose }: Voice
         error: err instanceof Error ? err.message : 'Failed to process speech',
       }));
     }
-  }, [speechRecognition]);
+  }, []);
 
   // Handle send transcript
   const handleSend = useCallback(() => {
@@ -203,8 +163,8 @@ export function VoiceRecorder({ onTranscript, onCancel, isOpen, onClose }: Voice
 
   // Handle cancel
   const handleCancel = useCallback(() => {
-    if (state.isRecording && speechRecognition) {
-      speechRecognition.stop().catch(() => {});
+    if (state.isRecording) {
+      SpeechRecognition.stop().catch(() => {});
     }
     if (recordingTimeoutRef.current) {
       clearTimeout(recordingTimeoutRef.current);
@@ -217,7 +177,7 @@ export function VoiceRecorder({ onTranscript, onCancel, isOpen, onClose }: Voice
     });
     onCancel?.();
     onClose();
-  }, [state.isRecording, onCancel, onClose, speechRecognition]);
+  }, [state.isRecording, onCancel, onClose]);
 
   // Waveform animation bars
   const WaveformBars = () => (

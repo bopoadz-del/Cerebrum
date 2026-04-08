@@ -1,68 +1,74 @@
-import { useState, useEffect } from 'react';
-import { useProjects } from "@/hooks/useProjects";
-import { AnimatePresence } from 'framer-motion';
-import { Loader2 } from 'lucide-react';
-import { MobileProjectSidebar } from './MobileProjectSidebar';
-import { MobileChat } from './MobileChat';
-import { MobileOutcomes } from './MobileOutcomes';
-import { MobileNav } from './MobileNav';
-import { MobileSettings } from './MobileSettings';
+import { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Plus, 
+  Brain,
+  Loader2,
+  Folder,
+  MessageSquare,
+  FileText
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { useProjects } from '@/hooks/useProjects';
+import { ChatInterfaceV2 } from '@/components/ChatInterfaceV2';
+import { AgentChatInterface } from '@/components/AgentChatInterface';
+import { OutcomesPanel } from '@/components/OutcomesPanel';
+import { ProjectSidebar } from '@/components/ProjectSidebar';
+
+type MobileTab = 'chat' | 'projects' | 'outcomes';
 
 export function MobileLayout() {
-  const [activeTab, setActiveTab] = useState<'projects' | 'chat' | 'outcomes'>('chat');
+  const [activeTab, setActiveTab] = useState<MobileTab>('chat');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
-  const [showSettings, setShowSettings] = useState(false);
-  const [showNewChatModal, setShowNewChatModal] = useState(false);
+  const [agentMode, setAgentMode] = useState(false);
 
-  // Use Drive integration hook (same as desktop)
-  const { 
-    projects, 
-    scanning, 
-    isConnected, 
+  const {
+    projects,
+    scanning,
     loading,
     backendAvailable,
     connectionError,
     indexingStatus,
     scanResults,
-    connectDrive, 
-    disconnectDrive,
-    scanDrive,
     refreshProjects,
-    getProjectFiles
-
-  // Update selected project when projects load
+    getProjectFiles,
   } = useProjects();
+
+  const initialized = useRef(false);
+
+  // Auto-select first project when loaded - use layout effect to avoid re-renders
   useEffect(() => {
+    if (initialized.current) return;
     if (projects.length > 0 && !selectedProjectId) {
-      setSelectedProjectId(projects[0].id);
+      initialized.current = true;
+      // Use setTimeout to move state update outside of render cycle
+      const timeoutId = setTimeout(() => {
+        setSelectedProjectId(projects[0].id);
+      }, 0);
+      return () => clearTimeout(timeoutId);
     }
   }, [projects, selectedProjectId]);
 
-  const selectedProject = projects.find(p => p.id === selectedProjectId);
+  const selectedProject = projects.find((p) => p.id === selectedProjectId);
 
   const handleSelectProject = (projectId: string) => {
     setSelectedProjectId(projectId);
-    // Auto-switch to chat when selecting a project
     setActiveTab('chat');
   };
 
   const handleNewChat = () => {
-    setShowNewChatModal(true);
+    // TODO: Implement new chat modal or navigation
+    console.log('New chat requested');
   };
 
-  const createNewChat = (title: string) => {
-    console.log('Creating new chat:', title);
-    setShowNewChatModal(false);
-  };
-
-  // Show loading state while checking Drive connection
   if (loading) {
     return (
       <div className="flex h-screen bg-white items-center justify-center">
         <div className="flex items-center gap-3 text-gray-500">
           <Loader2 className="w-6 h-6 animate-spin" />
-          <span>Checking OneDrive...</span>
+          <span>Loading...</span>
         </div>
       </div>
     );
@@ -70,124 +76,169 @@ export function MobileLayout() {
 
   return (
     <div className="flex flex-col h-screen bg-white">
+      {/* Header */}
+      <header className="h-14 border-b border-gray-200 flex items-center justify-between px-4 bg-white shrink-0 safe-area-top">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
+            <span className="text-white font-semibold text-sm">C</span>
+          </div>
+          <span className="font-semibold text-gray-900">Cerebrum</span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setAgentMode(!agentMode)}
+            className={cn(
+              'flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors',
+              agentMode
+                ? 'bg-indigo-100 text-indigo-700'
+                : 'bg-gray-100 text-gray-600'
+            )}
+          >
+            <Brain className="w-4 h-4" />
+            {agentMode ? 'Agent' : 'Chat'}
+          </button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleNewChat}
+            className="h-11 w-11"
+          >
+            <Plus className="w-5 h-5" />
+          </Button>
+        </div>
+      </header>
+
       {/* Main Content */}
-      <div className="flex-1 overflow-hidden">
-        {activeTab === 'projects' && (
-          <MobileProjectSidebar
-            projects={projects}
-            selectedProjectId={selectedProjectId}
-            selectedChatId={selectedChatId}
-            onSelectProject={handleSelectProject}
-            onSelectChat={setSelectedChatId}
-            onNewChat={handleNewChat}
-            isDriveConnected={isConnected}
-            isScanning={scanning}
-            isDemoMode={!backendAvailable}
-            connectionError={connectionError}
-            indexingStatus={indexingStatus}
-            scanResults={scanResults}
-            onConnectDrive={connectDrive}
-            onDisconnectDrive={disconnectDrive}
-            onScanDrive={scanDrive}
-            onRefreshProjects={refreshProjects}
-            onOpenSettings={() => setShowSettings(true)}
-            getProjectFiles={getProjectFiles}
-          />
-        )}
-        {activeTab === 'chat' && (
-          <MobileChat
-            projectName={selectedProject?.name || 'Select a project'}
-            chatTitle="New Chat"
-          />
-        )}
-        {activeTab === 'outcomes' && <MobileOutcomes />}
+      <div className="flex-1 overflow-hidden relative">
+        <AnimatePresence mode="wait">
+          {activeTab === 'chat' && (
+            <motion.div
+              key="chat"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="h-full"
+            >
+              {agentMode ? (
+                <AgentChatInterface
+                  projectName={selectedProject?.name}
+                  chatTitle="New Chat"
+                  onNewChat={handleNewChat}
+                />
+              ) : (
+                <ChatInterfaceV2
+                  projectName={selectedProject?.name}
+                  chatTitle="New Chat"
+                  onNewChat={handleNewChat}
+                  onSwitchToAgent={() => setAgentMode(true)}
+                />
+              )}
+            </motion.div>
+          )}
+
+          {activeTab === 'projects' && (
+            <motion.div
+              key="projects"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="h-full overflow-y-auto"
+            >
+              <ProjectSidebar
+                projects={projects}
+                selectedProjectId={selectedProjectId}
+                selectedChatId={selectedChatId}
+                onSelectProject={handleSelectProject}
+                onSelectChat={setSelectedChatId}
+                onNewChat={handleNewChat}
+                isScanning={scanning}
+                isDemoMode={!backendAvailable}
+                connectionError={connectionError}
+                indexingStatus={indexingStatus}
+                scanResults={scanResults}
+                onRefreshProjects={refreshProjects}
+                onOpenSettings={() => {
+                  // TODO: Implement settings
+                  console.log('Settings opened');
+                }}
+                getProjectFiles={getProjectFiles}
+              />
+            </motion.div>
+          )}
+
+          {activeTab === 'outcomes' && (
+            <motion.div
+              key="outcomes"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              className="h-full"
+            >
+              <OutcomesPanel />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Bottom Navigation */}
-      <MobileNav activeTab={activeTab} onTabChange={setActiveTab} />
-
-      {/* Settings Modal */}
-      <AnimatePresence>
-        {showSettings && (
-          <MobileSettings onClose={() => setShowSettings(false)} />
-        )}
-      </AnimatePresence>
-
-      {/* New Chat Modal - Simple version for mobile */}
-      <AnimatePresence>
-        {showNewChatModal && (
-          <NewChatModal 
-            onClose={() => setShowNewChatModal(false)} 
-            onCreate={createNewChat}
+      <nav className="h-16 border-t border-gray-200 bg-white shrink-0 safe-area-bottom">
+        <div className="flex items-center justify-around h-full">
+          <NavButton
+            active={activeTab === 'projects'}
+            onClick={() => setActiveTab('projects')}
+            icon={Folder}
+            label="Projects"
           />
-        )}
-      </AnimatePresence>
+          <NavButton
+            active={activeTab === 'chat'}
+            onClick={() => setActiveTab('chat')}
+            icon={MessageSquare}
+            label="Chat"
+            isMain
+          />
+          <NavButton
+            active={activeTab === 'outcomes'}
+            onClick={() => setActiveTab('outcomes')}
+            icon={FileText}
+            label="Outcomes"
+          />
+        </div>
+      </nav>
     </div>
   );
 }
 
-// Simple New Chat Modal for mobile
-import { motion } from 'framer-motion';
-import { X, MessageSquare } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+interface NavButtonProps {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  isMain?: boolean;
+}
 
-function NewChatModal({ onClose, onCreate }: { onClose: () => void; onCreate: (title: string) => void }) {
-  const [title, setTitle] = useState('');
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (title.trim()) {
-      onCreate(title.trim());
-    }
-  };
-
+function NavButton({ active, onClick, icon: Icon, label, isMain }: NavButtonProps) {
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      onClick={onClose}
+    <button
+      onClick={onClick}
+      className={cn(
+        'flex flex-col items-center justify-center gap-1 flex-1 h-full transition-colors',
+        active ? 'text-indigo-600' : 'text-gray-400 hover:text-gray-600'
+      )}
     >
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.95, opacity: 0 }}
-        onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6"
+      <div
+        className={cn(
+          'flex items-center justify-center rounded-xl transition-all',
+          isMain
+            ? active
+              ? 'w-12 h-12 bg-indigo-600 text-white'
+              : 'w-12 h-12 bg-gray-100 text-gray-600'
+            : 'w-11 h-11'
+        )}
       >
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">New Chat</h2>
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="w-5 h-5" />
-          </Button>
-        </div>
-        
-        <form onSubmit={handleSubmit}>
-          <label className="block text-sm text-gray-600 mb-2">Chat Title</label>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Enter chat title..."
-            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all mb-4"
-            autoFocus
-          />
-          <div className="flex gap-2">
-            <Button type="button" variant="outline" onClick={onClose} className="flex-1">
-              Cancel
-            </Button>
-            <Button 
-              type="submit" 
-              className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white"
-              disabled={!title.trim()}
-            >
-              <MessageSquare className="w-4 h-4 mr-2" />
-              Create
-            </Button>
-          </div>
-        </form>
-      </motion.div>
-    </motion.div>
+        <Icon className={cn('transition-all', isMain ? 'w-6 h-6' : 'w-5 h-5')} />
+      </div>
+      <span className="text-xs font-medium">{label}</span>
+    </button>
   );
 }

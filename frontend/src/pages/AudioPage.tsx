@@ -1,70 +1,139 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Mic, Play, Pause, Volume2, Clock, User, MessageSquare } from 'lucide-react';
+import { Mic, Clock, MessageSquare, AlertCircle, FileAudio, Languages, Loader2 } from 'lucide-react';
 import { ModuleHeader } from '@/components/ModuleHeader';
 import { FileUpload } from '@/components/FileUpload';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import type { AnalysisResult } from '@/types';
+import { toast } from 'sonner';
+import { processAudio, indexToChatWithSession, type ProcessingResult } from '@/lib/fileProcessing';
 
-const ACCEPTED_FORMATS = ['.mp3', '.wav', '.m4a', '.ogg', '.flac'];
+interface TranscriptionSegment {
+  start: number;
+  end: number;
+  text: string;
+}
+
+interface AnalysisResult {
+  id: string;
+  fileName: string;
+  status: 'completed' | 'error';
+  summary: string;
+  indexed?: boolean;
+  processingTime?: number;
+  details: {
+    duration: number;
+    durationFormatted: string;
+    language: string;
+    wordCount: number;
+    transcription: string;
+    segments: TranscriptionSegment[];
+  };
+}
+
+const ACCEPTED_FORMATS = ['.mp3', '.wav', '.m4a', '.ogg', '.flac', '.mp4', '.webm'];
 const MAX_FILE_SIZE = 100; // MB
 
-// Mock analysis result
-const mockResult: AnalysisResult = {
-  id: '1',
-  moduleId: 'audio',
-  fileName: 'Meeting-Recording.mp3',
-  status: 'completed',
-  createdAt: new Date().toISOString(),
-  completedAt: new Date().toISOString(),
-  summary: 'Audio analysis completed. 45 minutes of content processed.',
-  details: {
-    duration: '45:32',
-    speakers: 4,
-    transcription: [
-      { time: '00:00', speaker: 'John', text: 'Welcome everyone to our weekly project review meeting.' },
-      { time: '00:15', speaker: 'Sarah', text: 'Thanks John. I have updates on the development progress.' },
-      { time: '00:45', speaker: 'Mike', text: 'Before we start, I want to raise a concern about the timeline.' },
-    ],
-    sentiment: {
-      overall: 'positive',
-      breakdown: { positive: 65, neutral: 25, negative: 10 },
-    },
-    keyMoments: [
-      { time: '12:30', description: 'Budget discussion' },
-      { time: '28:45', description: 'Timeline concerns raised' },
-      { time: '38:20', description: 'Action items assigned' },
-    ],
-  },
-};
+// Get session ID from localStorage (set by chat interface)
+const getSessionId = () => localStorage.getItem('cerebrum_chat_session_id') || undefined;
 
 export default function AudioPage() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime] = useState(0);
+  const [isIndexing, setIsIndexing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [processingResult, setProcessingResult] = useState<ProcessingResult | null>(null);
 
-  const handleUpload = async (_files: File[]) => {
+  const handleUpload = async (file: File) => {
+    
     setIsAnalyzing(true);
-    await new Promise((resolve) => setTimeout(resolve, 2500));
-    setResult(mockResult);
+    setError(null);
+    setResult(null);
+    setProcessingResult(null);
+
+    // Process the audio
+    const processed = await processAudio(file, (stage) => {
+      console.log(`Audio ${stage}: ${file.name}`);
+    });
+
     setIsAnalyzing(false);
+
+    if (!processed.success) {
+      setError(processed.error || 'Processing failed');
+      toast.error(processed.error || 'Failed to transcribe audio');
+      return;
+    }
+
+    setProcessingResult(processed);
+
+    // Parse segments if available
+    const segments: TranscriptionSegment[] = [];
+    // Note: Full segments would come from API - simplified here
+
+    const analysisResult: AnalysisResult = {
+      id: `audio_${Date.now()}`,
+      fileName: file.name,
+      status: 'completed',
+      summary: `Audio transcribed: ${processed.metadata.wordCount} words in ${processed.metadata.duration}`,
+      details: {
+        duration: 0, // Would come from API
+        durationFormatted: processed.metadata.duration || '00:00',
+        language: 'en',
+        wordCount: processed.metadata.wordCount || 0,
+        transcription: processed.text,
+        segments,
+      },
+    };
+
+    setResult(analysisResult);
+    toast.success(`Transcribed ${file.name} - ${processed.metadata.wordCount} words`);
+
+    // Auto-index to chat with session context
+    if (processed.text) {
+      setIsIndexing(true);
+      const indexed = await indexToChatWithSession(
+        file.name,
+        processed.text,
+        processed.metadata,
+        getSessionId()
+      );
+      setIsIndexing(false);
+      
+      if (indexed.success) {
+        setResult(prev => prev ? { ...prev, indexed: true } : null);
+        const sessionMsg = getSessionId() ? ' linked to current chat session' : '';
+        toast.success(`Indexed to chat${sessionMsg}!`);
+      } else {
+        toast.warning('Transcribed but not indexed to chat');
+      }
+    }
   };
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  const handleManualIndex = async () => {
+    if (!processingResult) return;
+    
+    setIsIndexing(true);
+    const indexed = await indexToChatWithSession(
+      processingResult.metadata.fileName,
+      processingResult.text,
+      processingResult.metadata,
+      getSessionId()
+    );
+    setIsIndexing(false);
+    
+    if (indexed.success) {
+      setResult(prev => prev ? { ...prev, indexed: true } : null);
+      toast.success('Indexed to chat!');
+    } else {
+      toast.error('Failed to index');
+    }
   };
 
   return (
     <div className="p-8">
       <ModuleHeader
         title="Audio Analysis"
-        description="Transcribe audio, identify speakers, and analyze sentiment"
+        description="Transcribe audio, identify speakers, and analyze content"
         icon={Mic}
         iconColor="purple"
       />
@@ -76,21 +145,39 @@ export default function AudioPage() {
         className="mb-8"
       >
         <FileUpload
-          acceptedFormats={ACCEPTED_FORMATS}
-          maxFileSize={MAX_FILE_SIZE}
-          onUpload={handleUpload}
+          acceptedTypes={ACCEPTED_FORMATS.join(',')}
+          maxSize={MAX_FILE_SIZE}
+          attachments={[]} onUpload={handleUpload}
         />
       </motion.div>
 
-      {isAnalyzing && (
+      {(isAnalyzing || isIndexing) && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className="flex items-center justify-center py-12"
         >
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-            <span className="text-gray-600">Transcribing audio...</span>
+            <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
+            <span className="text-gray-600">
+              {isAnalyzing ? 'Transcribing audio...' : 'Indexing to chat...'}
+            </span>
+          </div>
+        </motion.div>
+      )}
+
+      {error && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-4 bg-red-50 border border-red-200 rounded-lg mb-6"
+        >
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-medium text-red-700">Transcription Failed</p>
+              <p className="text-sm text-red-600 mt-1">{error}</p>
+            </div>
           </div>
         </motion.div>
       )}
@@ -101,106 +188,90 @@ export default function AudioPage() {
           animate={{ opacity: 1, y: 0 }}
           className="space-y-6"
         >
-          {/* Audio Player */}
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setIsPlaying(!isPlaying)}
-                  className="w-12 h-12 rounded-full"
-                >
-                  {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
-                </Button>
-                <div className="flex-1">
-                  <Progress value={(currentTime / 2732) * 100} className="h-2" />
-                  <div className="flex justify-between mt-2 text-sm text-gray-500">
-                    <span>{formatTime(currentTime)}</span>
-                    <span>{(result.details as any)?.duration as string}</span>
-                  </div>
-                </div>
-                <Volume2 className="w-5 h-5 text-gray-400" />
-              </div>
-            </CardContent>
-          </Card>
+          {/* Status Banner */}
+          <div className="flex items-center justify-between p-3 bg-emerald-50 border border-emerald-200 rounded-lg"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-emerald-700">
+                ✅ Transcription Complete
+              </span>
+              {result.indexed && (
+                <span className="text-xs text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded">
+                  {getSessionId() ? 'Linked to current chat' : 'Searchable in chat'}
+                </span>
+              )}
+            </div>
+            {!result.indexed && (
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={handleManualIndex}
+                disabled={isIndexing}
+              >
+                {isIndexing ? 'Indexing...' : 'Index to Chat'}
+              </Button>
+            )}
+          </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Card>
               <CardContent className="p-4 flex items-center gap-3">
                 <Clock className="w-5 h-5 text-indigo-500" />
                 <div>
                   <p className="text-sm text-gray-500">Duration</p>
-                  <p className="font-semibold">{(result.details as any)?.duration as string}</p>
+                  <p className="font-semibold">{result.details.durationFormatted}</p>
                 </div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 flex items-center gap-3">
-                <User className="w-5 h-5 text-emerald-500" />
+                <MessageSquare className="w-5 h-5 text-emerald-500" />
                 <div>
-                  <p className="text-sm text-gray-500">Speakers</p>
-                  <p className="font-semibold">{(result.details as any)?.speakers as number}</p>
+                  <p className="text-sm text-gray-500">Words</p>
+                  <p className="font-semibold">{result.details.wordCount.toLocaleString()}</p>
                 </div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 flex items-center gap-3">
-                <MessageSquare className="w-5 h-5 text-amber-500" />
+                <Languages className="w-5 h-5 text-amber-500" />
                 <div>
-                  <p className="text-sm text-gray-500">Sentiment</p>
-                  <Badge className="bg-emerald-100 text-emerald-700">
-                    {((result.details as any)?.sentiment as { overall: string })?.overall}
-                  </Badge>
+                  <p className="text-sm text-gray-500">Language</p>
+                  <p className="font-semibold">{result.details.language.toUpperCase()}</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 flex items-center gap-3">
+                <FileAudio className="w-5 h-5 text-purple-500" />
+                <div>
+                  <p className="text-sm text-gray-500">Status</p>
+                  <p className="font-semibold">Done</p>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Transcription */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Transcription</CardTitle>
+              <CardTitle className="text-base">Full Transcription</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4 max-h-96 overflow-y-auto">
-                {((result.details as any)?.transcription as Array<{ time: string; speaker: string; text: string }>)?.map(
-                  (item, index) => (
-                    <div key={index} className="flex gap-4">
-                      <span className="text-sm text-gray-400 w-12 flex-shrink-0">{item.time}</span>
-                      <div>
-                        <span className="text-sm font-medium text-indigo-600">{item.speaker}</span>
-                        <p className="text-gray-700 mt-0.5">{item.text}</p>
-                      </div>
-                    </div>
-                  )
-                )}
+              <div className="max-h-64 overflow-y-auto bg-gray-50 p-4 rounded-lg">
+                <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+                  {result.details.transcription}
+                </p>
               </div>
             </CardContent>
           </Card>
 
-          {/* Key Moments */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Key Moments</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-2">
-                {((result.details as any)?.keyMoments as Array<{ time: string; description: string }>)?.map(
-                  (moment, index) => (
-                    <button
-                      key={index}
-                      className="flex items-center gap-2 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors"
-                    >
-                      <span className="text-sm font-medium text-indigo-600">{moment.time}</span>
-                      <span className="text-sm text-gray-700">{moment.description}</span>
-                    </button>
-                  )
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          {result.indexed && (
+            <p className="text-sm text-emerald-600 bg-emerald-50 p-3 rounded-lg text-center">
+              💬 This transcription is indexed{getSessionId() && ' to your current chat session'}. 
+              Try asking: "What was said in the audio about {result.fileName.replace(/\\.[^/.]+$/, '')}?"
+            </p>
+          )}
         </motion.div>
       )}
     </div>

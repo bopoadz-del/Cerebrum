@@ -9,6 +9,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { Formula } from '@/types';
 
+interface FormulaParameter {
+  name: string;
+  description: string;
+  unit?: string;
+  default?: number;
+  type?: string;
+  required?: boolean;
+}
+
 interface FormulaCardProps {
   formula: Formula;
   index: number;
@@ -64,10 +73,10 @@ export function FormulaCard({ formula, index }: FormulaCardProps) {
           {/* Parameters Preview */}
           <div className="flex items-center gap-2 text-xs text-gray-500">
             <span className="font-medium">Parameters:</span>
-            <span>{formula.parameters.length}</span>
-            {formula.parameters.length > 0 && (
+            <span>{(formula.parameters || []).length}</span>
+            {(formula.parameters || []).length > 0 && (
               <span className="text-gray-400">
-                ({formula.parameters.map(p => p.name).join(', ')})
+                ({(formula.parameters || []).map((p: FormulaParameter) => p.name).join(', ')})
               </span>
             )}
           </div>
@@ -122,14 +131,14 @@ export function FormulaCard({ formula, index }: FormulaCardProps) {
           >
             <h4 className="text-sm font-medium text-gray-900 mb-3">Parameters</h4>
             <div className="space-y-3">
-              {formula.parameters.map((param) => (
+              {(formula.parameters || []).map((param: FormulaParameter) => (
                 <div key={param.name} className="flex items-start gap-3">
                   <code className="px-2 py-1 bg-white border border-gray-200 rounded text-xs font-mono text-gray-700">
                     {param.name}
                   </code>
                   <div className="flex-1">
-                    <span className="text-xs text-gray-500">{param.type}</span>
-                    {param.required && <span className="text-xs text-red-500 ml-2">required</span>}
+                    <span className="text-xs text-gray-500">{param.type || 'number'}</span>
+                    {(param.required !== false) && <span className="text-xs text-red-500 ml-2">required</span>}
                     {param.description && (
                       <p className="text-xs text-gray-600 mt-1">{param.description}</p>
                     )}
@@ -150,11 +159,11 @@ export function FormulaCard({ formula, index }: FormulaCardProps) {
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-            {formula.parameters.map((param) => (
+            {(formula.parameters || []).map((param: FormulaParameter) => (
               <div key={param.name} className="space-y-2">
                 <Label htmlFor={param.name}>
                   {param.name}
-                  {param.required && <span className="text-red-500 ml-1">*</span>}
+                  {(param.required !== false) && <span className="text-red-500 ml-1">*</span>}
                 </Label>
                 <Input
                   id={param.name}
@@ -167,7 +176,7 @@ export function FormulaCard({ formula, index }: FormulaCardProps) {
                     }))
                   }
                 />
-                <p className="text-xs text-gray-500">Type: {param.type}</p>
+                <p className="text-xs text-gray-500">Type: {param.type || 'number'}</p>
               </div>
             ))}
           </div>

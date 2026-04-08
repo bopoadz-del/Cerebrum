@@ -1,8 +1,19 @@
-import { useRef } from 'react';
+import { useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Paperclip, X, FileText } from 'lucide-react';
+import { 
+  Send, 
+  Paperclip, 
+  X, 
+  AlertCircle, 
+  Check, 
+  Loader2, 
+  Mic,
+  Globe,
+  Code2
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+
 import type { Attachment } from '@/types';
 
 interface ChatInputProps {
@@ -14,6 +25,12 @@ interface ChatInputProps {
   onRemoveAttachment?: (id: string) => void;
   isLoading?: boolean;
   placeholder?: string;
+  onWebSearchToggle?: () => void;
+  isWebSearchEnabled?: boolean;
+  onCodeModeToggle?: () => void;
+  isCodeModeEnabled?: boolean;
+  enableVoice?: boolean;
+  onVoiceStart?: () => void;
 }
 
 export function ChatInput({
@@ -25,9 +42,15 @@ export function ChatInput({
   onRemoveAttachment,
   isLoading = false,
   placeholder = 'Type a message...',
+  onWebSearchToggle,
+  isWebSearchEnabled = false,
+  onCodeModeToggle,
+  isCodeModeEnabled = false,
+  enableVoice = false,
+  onVoiceStart,
 }: ChatInputProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -36,68 +59,185 @@ export function ChatInput({
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && onAttach) {
-      Array.from(files).forEach(onAttach);
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && onAttach) {
+      onAttach(file);
     }
-    e.target.value = '';
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    const files = e.dataTransfer.files;
-    if (files && onAttach) {
-      Array.from(files).forEach(onAttach);
+    setIsDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file && onAttach) {
+      onAttach(file);
     }
-  };
+  }, [onAttach]);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
+    setIsDragOver(true);
   };
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  const handleDragLeave = () => {
+    setIsDragOver(false);
   };
+
+  const fileAttachments = attachments.filter(att => !att.type.startsWith('image/'));
+  const hasAttachments = attachments.length > 0;
 
   return (
     <div
-      className="bg-white border-t border-gray-200 px-4 py-4"
+      className={cn(
+        'bg-white border-t border-gray-200 px-4 py-4 transition-colors duration-200',
+        isDragOver && 'bg-indigo-50/50'
+      )}
       onDrop={handleDrop}
       onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
     >
-      {/* Attachments Preview */}
+      {/* Drag Overlay */}
       <AnimatePresence>
-        {attachments.length > 0 && (
+        {isDragOver && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-indigo-500/10 border-2 border-dashed border-indigo-400 rounded-lg flex items-center justify-center pointer-events-none z-10"
+          >
+            <span className="text-indigo-600 font-medium">Drop file here</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Input Area */}
+      <div className="flex items-end gap-2">
+        <div className="flex-1 relative">
+          <textarea
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={placeholder}
+            disabled={isLoading}
+            className={cn(
+              'w-full min-h-[44px] max-h-[200px] resize-none rounded-xl border border-gray-200',
+              'px-4 py-3 pr-24 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20',
+              'focus:border-indigo-500 transition-all duration-200',
+              isLoading && 'opacity-50 cursor-not-allowed'
+            )}
+            rows={1}
+          />
+          
+          {/* Toolbar */}
+          <div className="absolute right-2 bottom-2 flex items-center gap-1">
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isLoading}
+              className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+              title="Attach file"
+            >
+              <Paperclip className="w-4 h-4" />
+            </button>
+            
+            {enableVoice && (
+              <button
+                onClick={onVoiceStart}
+                disabled={isLoading}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                title="Voice input"
+              >
+                <Mic className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Send Button */}
+        <Button
+          onClick={onSend}
+          disabled={isLoading || (!value.trim() && !hasAttachments)}
+          className="h-11 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl"
+        >
+          {isLoading ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Send className="w-4 h-4" />
+          )}
+        </Button>
+      </div>
+
+      {/* Feature Toggles */}
+      <div className="flex items-center gap-2 mt-2">
+        {onWebSearchToggle && (
+          <button
+            onClick={onWebSearchToggle}
+            className={cn(
+              'flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium transition-all duration-200',
+              isWebSearchEnabled
+                ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            )}
+          >
+            <Globe className="w-3 h-3" />
+            Web Search
+          </button>
+        )}
+        
+        {onCodeModeToggle && (
+          <button
+            onClick={onCodeModeToggle}
+            className={cn(
+              'flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium transition-all duration-200',
+              isCodeModeEnabled
+                ? 'bg-purple-100 text-purple-700 border border-purple-200'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            )}
+          >
+            <Code2 className="w-3 h-3" />
+            Code
+          </button>
+        )}
+      </div>
+
+      {/* File Attachments */}
+      <AnimatePresence>
+        {fileAttachments.length > 0 && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="flex flex-wrap gap-2 mb-3"
+            className="flex flex-wrap gap-2 mt-3"
           >
-            {attachments.map((attachment) => (
+            {fileAttachments.map((attachment) => (
               <motion.div
                 key={attachment.id}
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.8, opacity: 0 }}
-                className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 border border-indigo-100 rounded-lg"
+                className={cn(
+                  'flex items-center gap-2 px-3 py-2 rounded-lg border',
+                  attachment.status === 'error'
+                    ? 'bg-red-50 border-red-200'
+                    : attachment.status === 'complete'
+                    ? 'bg-emerald-50 border-emerald-200'
+                    : 'bg-indigo-50 border-indigo-100'
+                )}
               >
-                <FileText className="w-4 h-4 text-indigo-600" />
-                <span className="text-sm text-indigo-900 max-w-[150px] truncate">
-                  {attachment.name}
-                </span>
-                <span className="text-xs text-indigo-500">{formatFileSize(attachment.size)}</span>
+                {attachment.status === 'error' ? (
+                  <AlertCircle className="w-4 h-4 text-red-600" />
+                ) : attachment.status === 'complete' ? (
+                  <Check className="w-4 h-4 text-emerald-600" />
+                ) : (
+                  <Loader2 className="w-4 h-4 text-indigo-600 animate-spin" />
+                )}
+                <span className="text-sm truncate max-w-[150px]">{attachment.name}</span>
                 {onRemoveAttachment && (
                   <button
                     onClick={() => onRemoveAttachment(attachment.id)}
-                    className="ml-1 p-0.5 hover:bg-indigo-100 rounded transition-colors"
+                    className="p-0.5 rounded hover:bg-black/10"
                   >
-                    <X className="w-3.5 h-3.5 text-indigo-600" />
+                    <X className="w-3 h-3" />
                   </button>
                 )}
               </motion.div>
@@ -106,77 +246,13 @@ export function ChatInput({
         )}
       </AnimatePresence>
 
-      {/* Input Area */}
-      <div className="flex items-end gap-3">
-        {/* Attach Button */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          className="hidden"
-          onChange={handleFileChange}
-        />
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={() => fileInputRef.current?.click()}
-          className="flex-shrink-0 w-10 h-10 rounded-xl text-gray-500 hover:text-gray-700 hover:bg-gray-100"
-        >
-          <Paperclip className="w-5 h-5" />
-        </Button>
-
-        {/* Text Input */}
-        <div className="flex-1 relative">
-          <textarea
-            ref={textareaRef}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={placeholder}
-            rows={1}
-            className={cn(
-              'w-full px-4 py-3 pr-12 bg-gray-100 border-0 rounded-xl resize-none',
-              'text-[15px] text-gray-900 placeholder:text-gray-400',
-              'focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:bg-white',
-              'transition-all duration-200'
-            )}
-            style={{ minHeight: '48px', maxHeight: '200px' }}
-          />
-          {value.length > 0 && (
-            <span className="absolute right-3 bottom-3 text-xs text-gray-400">
-              {value.length}
-            </span>
-          )}
-        </div>
-
-        {/* Send Button */}
-        <Button
-          type="button"
-          onClick={onSend}
-          disabled={isLoading || (!value.trim() && attachments.length === 0)}
-          className={cn(
-            'flex-shrink-0 w-10 h-10 rounded-xl bg-indigo-600 hover:bg-indigo-700',
-            'text-white shadow-md hover:shadow-lg transition-all duration-200',
-            'disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none'
-          )}
-        >
-          {isLoading ? (
-            <div className="flex gap-1">
-              <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-              <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-              <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-            </div>
-          ) : (
-            <Send className="w-5 h-5" />
-          )}
-        </Button>
-      </div>
-
-      {/* Hint */}
-      <p className="mt-2 text-xs text-gray-400 text-center">
-        Press Enter to send, Shift + Enter for new line
-      </p>
+      <input
+        ref={fileInputRef}
+        type="file"
+        onChange={handleFileSelect}
+        className="hidden"
+        accept="*/*"
+      />
     </div>
   );
 }

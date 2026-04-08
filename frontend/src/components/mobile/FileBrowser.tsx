@@ -39,7 +39,7 @@ interface FileItem {
   path: string;
   isDirectory: boolean;
   size: number;
-  modified?: string;
+  modified: string;
   mimeType?: string;
 }
 
@@ -274,7 +274,7 @@ export function FileBrowser({
                     </p>
                     {viewMode === 'list' && !item.isDirectory && (
                       <p className="text-xs text-muted-foreground">
-                        {formatFileSize(item.size)}{item.modified ? ` • ${new Date(item.modified).toLocaleDateString()}` : ''}
+                        {formatFileSize(item.size)} • {new Date(item.modified).toLocaleDateString()}
                       </p>
                     )}
                   </div>

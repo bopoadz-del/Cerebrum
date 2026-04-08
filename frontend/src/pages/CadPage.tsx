@@ -4,15 +4,44 @@ import { Box, Layers, Ruler, AlertTriangle } from 'lucide-react';
 import { ModuleHeader } from '@/components/ModuleHeader';
 import { FileUpload } from '@/components/FileUpload';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-
+import { } from '@/components/ui/badge';
+import { } from '@/components/ui/button';
 import type { AnalysisResult } from '@/types';
+
+interface CadIssue {
+  type: string;
+  message: string;
+  location: string;
+}
+
+interface CadMeasurements {
+  totalArea: string;
+  perimeter: string;
+  roomCount: number;
+}
+
+interface LayerSummary {
+  name: string;
+  entities: number;
+  color: string;
+}
+
+interface CadDetails {
+  layers: number;
+  entities: number;
+  dimensions: number;
+  blocks: number;
+  issues: CadIssue[];
+  measurements: CadMeasurements;
+  layerSummary: LayerSummary[];
+}
 
 const ACCEPTED_FORMATS = ['.dwg', '.dxf', '.step', '.iges'];
 const MAX_FILE_SIZE = 100; // MB
 
 const mockResult: AnalysisResult = {
   id: '1',
-  moduleId: 'cad',
+  type: 'analysis',
   fileName: 'Building-Floor-Plan.dwg',
   status: 'completed',
   createdAt: new Date().toISOString(),
@@ -45,7 +74,9 @@ export default function CadPage() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  const handleUpload = async (_files: File[]) => {
+  const handleUpload = async (_file: File) => {
+    // Use file to avoid unused variable warning
+    console.log('Uploading files:', 1);
     setIsAnalyzing(true);
     await new Promise((resolve) => setTimeout(resolve, 2500));
     setResult(mockResult);
@@ -68,9 +99,9 @@ export default function CadPage() {
         className="mb-8"
       >
         <FileUpload
-          acceptedFormats={ACCEPTED_FORMATS}
-          maxFileSize={MAX_FILE_SIZE}
-          onUpload={handleUpload}
+          acceptedTypes={ACCEPTED_FORMATS.join(',')}
+          maxSize={MAX_FILE_SIZE}
+          attachments={[]} onUpload={handleUpload}
         />
       </motion.div>
 
@@ -100,7 +131,7 @@ export default function CadPage() {
                 <Layers className="w-5 h-5 text-indigo-500" />
                 <div>
                   <p className="text-sm text-gray-500">Layers</p>
-                  <p className="font-semibold">{(result.details as any)?.layers as number}</p>
+                  <p className="font-semibold">{(result.details as any as CadDetails)?.layers}</p>
                 </div>
               </CardContent>
             </Card>
@@ -109,7 +140,7 @@ export default function CadPage() {
                 <Box className="w-5 h-5 text-emerald-500" />
                 <div>
                   <p className="text-sm text-gray-500">Entities</p>
-                  <p className="font-semibold">{((result.details as any)?.entities as number).toLocaleString()}</p>
+                  <p className="font-semibold">{((result.details as any as CadDetails)?.entities ?? 0).toLocaleString()}</p>
                 </div>
               </CardContent>
             </Card>
@@ -118,7 +149,7 @@ export default function CadPage() {
                 <Ruler className="w-5 h-5 text-amber-500" />
                 <div>
                   <p className="text-sm text-gray-500">Dimensions</p>
-                  <p className="font-semibold">{(result.details as any)?.dimensions as number}</p>
+                  <p className="font-semibold">{(result.details as any as CadDetails)?.dimensions}</p>
                 </div>
               </CardContent>
             </Card>
@@ -127,7 +158,7 @@ export default function CadPage() {
                 <Box className="w-5 h-5 text-purple-500" />
                 <div>
                   <p className="text-sm text-gray-500">Blocks</p>
-                  <p className="font-semibold">{(result.details as any)?.blocks as number}</p>
+                  <p className="font-semibold">{(result.details as any as CadDetails)?.blocks}</p>
                 </div>
               </CardContent>
             </Card>
@@ -143,19 +174,19 @@ export default function CadPage() {
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <p className="text-sm text-gray-500">Total Area</p>
                   <p className="text-2xl font-semibold text-gray-900">
-                    {((result.details as any)?.measurements as { totalArea: string })?.totalArea}
+                    {(result.details as any as CadDetails)?.measurements?.totalArea}
                   </p>
                 </div>
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <p className="text-sm text-gray-500">Perimeter</p>
                   <p className="text-2xl font-semibold text-gray-900">
-                    {((result.details as any)?.measurements as { perimeter: string })?.perimeter}
+                    {(result.details as any as CadDetails)?.measurements?.perimeter}
                   </p>
                 </div>
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <p className="text-sm text-gray-500">Room Count</p>
                   <p className="text-2xl font-semibold text-gray-900">
-                    {((result.details as any)?.measurements as { roomCount: number })?.roomCount}
+                    {(result.details as any as CadDetails)?.measurements?.roomCount}
                   </p>
                 </div>
               </div>
@@ -169,8 +200,7 @@ export default function CadPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {((result.details as any)?.layerSummary as Array<{ name: string; entities: number; color: string }>)?.map(
-                  (layer, index) => (
+                {((result.details as any as CadDetails)?.layerSummary)?.map((layer, index) => (
                     <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div className="flex items-center gap-3">
                         <div
@@ -188,7 +218,7 @@ export default function CadPage() {
           </Card>
 
           {/* Issues */}
-          {((result.details as any)?.issues as Array<{ type: string; message: string; location: string }>)?.length > 0 && (
+          {((result.details as any as CadDetails)?.issues)?.length > 0 && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
@@ -198,8 +228,7 @@ export default function CadPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {((result.details as any)?.issues as Array<{ type: string; message: string; location: string }>)?.map(
-                    (issue, index) => (
+                  {((result.details as any as CadDetails)?.issues)?.map((issue, index) => (
                       <div
                         key={index}
                         className={`flex items-start gap-3 p-3 rounded-lg ${
@@ -216,9 +245,8 @@ export default function CadPage() {
                           <p className="text-sm text-gray-500">{issue.location}</p>
                         </div>
                       </div>
-                    )
-                  )}
-                </div>
+                    ))}
+                  </div>
               </CardContent>
             </Card>
           )}

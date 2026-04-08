@@ -18,6 +18,22 @@ import {
 } from 'recharts';
 import type { AnalysisResult } from '@/types';
 
+interface ForecastPrediction {
+  period: string;
+  value: number;
+  confidence: number;
+  change: number;
+}
+
+interface ForecastDetails {
+  forecastPeriod: number;
+  confidence: number;
+  trend: string;
+  growthRate: number;
+  predictions: ForecastPrediction[];
+  insights: string[];
+}
+
 const ACCEPTED_FORMATS = ['.csv', '.json', '.xlsx'];
 const MAX_FILE_SIZE = 50; // MB
 
@@ -36,7 +52,7 @@ const forecastData = [
 
 const mockResult: AnalysisResult = {
   id: '1',
-  moduleId: 'forecast',
+  type: 'analysis',
   fileName: 'sales-data.csv',
   status: 'completed',
   createdAt: new Date().toISOString(),
@@ -65,7 +81,9 @@ export default function ForecastPage() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  const handleUpload = async (_files: File[]) => {
+  const handleUpload = async (_file: File) => {
+    // Use file to avoid unused variable warning
+    console.log('Uploading files:', 1);
     setIsAnalyzing(true);
     await new Promise((resolve) => setTimeout(resolve, 2000));
     setResult(mockResult);
@@ -88,9 +106,9 @@ export default function ForecastPage() {
         className="mb-8"
       >
         <FileUpload
-          acceptedFormats={ACCEPTED_FORMATS}
-          maxFileSize={MAX_FILE_SIZE}
-          onUpload={handleUpload}
+          acceptedTypes={ACCEPTED_FORMATS.join(',')}
+          maxSize={MAX_FILE_SIZE}
+          attachments={[]} onUpload={handleUpload}
         />
       </motion.div>
 
@@ -120,7 +138,7 @@ export default function ForecastPage() {
                 <Calendar className="w-5 h-5 text-indigo-500" />
                 <div>
                   <p className="text-sm text-gray-500">Forecast Period</p>
-                  <p className="font-semibold">{(result.details as any)?.forecastPeriod} months</p>
+                  <p className="font-semibold">{(result.details as ForecastDetails)?.forecastPeriod} months</p>
                 </div>
               </CardContent>
             </Card>
@@ -129,7 +147,7 @@ export default function ForecastPage() {
                 <Target className="w-5 h-5 text-emerald-500" />
                 <div>
                   <p className="text-sm text-gray-500">Accuracy</p>
-                  <p className="font-semibold">{(result.details as any)?.confidence}%</p>
+                  <p className="font-semibold">{(result.details as ForecastDetails)?.confidence}%</p>
                 </div>
               </CardContent>
             </Card>
@@ -139,7 +157,7 @@ export default function ForecastPage() {
                 <div>
                   <p className="text-sm text-gray-500">Trend</p>
                   <Badge className="bg-emerald-100 text-emerald-700 capitalize">
-                    {((result.details as any)?.trend as string)}
+                    {(result.details as ForecastDetails)?.trend}
                   </Badge>
                 </div>
               </CardContent>
@@ -149,7 +167,7 @@ export default function ForecastPage() {
                 <ArrowUpRight className="w-5 h-5 text-purple-500" />
                 <div>
                   <p className="text-sm text-gray-500">Growth Rate</p>
-                  <p className="font-semibold">+{(result.details as any)?.growthRate}%</p>
+                  <p className="font-semibold">+{(result.details as ForecastDetails)?.growthRate}%</p>
                 </div>
               </CardContent>
             </Card>
@@ -237,12 +255,7 @@ export default function ForecastPage() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {((result.details as any)?.predictions as Array<{
-                  period: string;
-                  value: number;
-                  confidence: number;
-                  change: number;
-                }>)?.map((prediction, index) => (
+                {((result.details as ForecastDetails)?.predictions)?.map((prediction, index) => (
                   <div key={index} className="p-4 bg-gray-50 rounded-lg">
                     <p className="text-sm text-gray-500">{prediction.period}</p>
                     <p className="text-2xl font-semibold text-gray-900 mt-1">
@@ -270,7 +283,7 @@ export default function ForecastPage() {
             </CardHeader>
             <CardContent>
               <ul className="space-y-3">
-                {((result.details as any)?.insights as string[])?.map((insight, index) => (
+                {((result.details as ForecastDetails)?.insights)?.map((insight, index) => (
                   <li key={index} className="flex items-start gap-3">
                     <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 mt-0.5">
                       <span className="text-xs font-medium text-emerald-600">{index + 1}</span>

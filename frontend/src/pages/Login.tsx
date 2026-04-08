@@ -65,11 +65,9 @@ export default function Login() {
         setSuccess('Account created successfully!');
         setTimeout(() => navigate('/'), 500);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[Login] ERROR:', err);
-      console.error('[Login] Error message:', err.message);
-      console.error('[Login] Error stack:', err.stack);
-      const errorMsg = err.message || (isLogin ? 'Invalid credentials' : 'Registration failed');
+      const errorMsg = err instanceof Error ? err.message : (isLogin ? 'Invalid credentials' : 'Registration failed');
       console.log('[Login] Setting error message:', errorMsg);
       setError(errorMsg);
     } finally {

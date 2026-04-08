@@ -485,12 +485,24 @@ Just type your request and I'll route it to the appropriate layer!`;
         
         const response = await handleAgentCommand(command, args);
         
+        const reasoning: any = {
+          steps: [
+            { type: 'thought', content: 'Detected agent command', details: `Command: ${command}` },
+            { type: 'tool', content: 'Agent Command Handler', details: `Executed /agent ${command}` },
+            { type: 'decision', content: 'Returned command output', details: 'Direct command execution' },
+          ],
+          toolsConsidered: ['Agent Command Handler'],
+          dataLookedUp: ['Agent commands registry'],
+          whyThisAnswer: `Direct execution of /agent ${command} command.`,
+        };
+        
         const aiMessage: Message = {
           id: uuidv4(),
           role: 'assistant',
           content: response,
           timestamp: new Date().toISOString(),
-        } as Message & { reasoning: any };
+          reasoning,
+        };
         
         // Replace thinking message with actual response
         setMessages((prev) => prev.map(m => m.id === thinkingMessageId ? aiMessage : m));
@@ -509,26 +521,26 @@ Just type your request and I'll route it to the appropriate layer!`;
           
           // Build reasoning steps from agent execution
           const reasoningSteps: ReasoningStep[] = [
-            { step: 'thought', description: 'Analyzing user request...', status: 'completed' },
+            { type: 'thought', content: 'Analyzing user request...', timestamp: new Date().toISOString() },
           ];
           
           // Add web search results first if available
           if (webSearchResult) {
             responseText += webSearchResult + '\n\n---\n\n';
-            reasoningSteps.push({ step: 'tool', description: 'Web Search: Searched for relevant information', status: 'completed' });
+            reasoningSteps.push({ type: 'tool', content: 'Web Search', details: 'Searched for relevant information' });
           }
           
           // Add agent result if available
           if (result) {
             responseText += result.message;
             
-            reasoningSteps.push({ step: 'tool', description: `Agent Layer: ${result.layer}, Action: ${result.action}`, status: 'completed' });
+            reasoningSteps.push({ type: 'tool', content: `Agent Layer: ${result.layer}`, details: `Action: ${result.action}` });
             
             // Add data if present
             if (result.data && Object.keys(result.data).length > 0) {
               const dataPreview = JSON.stringify(result.data, null, 2).substring(0, 500);
               responseText += `\n\n\`\`\`json\n${dataPreview}${dataPreview.length >= 500 ? '...' : ''}\n\`\`\``;
-              reasoningSteps.push({ step: 'data', description: `Retrieved structured data: ${Object.keys(result.data).length} data fields`, status: 'completed' });
+              reasoningSteps.push({ type: 'data', content: 'Retrieved structured data', details: `${Object.keys(result.data).length} data fields` });
             }
             
             // Add suggestions
@@ -537,36 +549,70 @@ Just type your request and I'll route it to the appropriate layer!`;
               responseText += result.suggested_next_actions.map(a => `• ${a}`).join('\n');
             }
             
+            // Use agent's reasoning if provided, otherwise build from result
+            const finalReasoning: any = result.reasoning || {
+              steps: [
+                ...reasoningSteps,
+                { type: 'decision', content: 'Generated response using agent layer', details: `Execution time: ${result.execution_time_ms || 'unknown'}ms` },
+              ],
+              toolsConsidered: ['Agent Execution', `Layer: ${result.layer}`],
+              dataLookedUp: result.related_conversations || ['User query', 'Agent context'],
+              whyThisAnswer: `Response generated using the ${result.layer} layer with action "${result.action}".`,
+            };
+            
             const aiMessage: Message = {
               id: uuidv4(),
               role: 'assistant',
               content: responseText,
               timestamp: new Date().toISOString(),
-            } as Message & { reasoning: any };
+              reasoning: finalReasoning,
+            };
             
             // Replace thinking message with actual response
             setMessages((prev) => prev.map(m => m.id === thinkingMessageId ? aiMessage : m));
           } else if (webSearchResult) {
             responseText += 'I found these web results for your query. Let me know if you need more specific information!';
             
+            const reasoning: any = {
+              steps: [
+                ...reasoningSteps,
+                { type: 'decision', content: 'Returned web search results', details: 'No agent result available' },
+              ],
+              toolsConsidered: ['Web Search'],
+              dataLookedUp: ['Web search results'],
+              whyThisAnswer: 'Response based on web search results only.',
+            };
+            
             const aiMessage: Message = {
               id: uuidv4(),
               role: 'assistant',
               content: responseText,
               timestamp: new Date().toISOString(),
-            } as Message & { reasoning: any };
+              reasoning,
+            };
             
             // Replace thinking message with actual response
             setMessages((prev) => prev.map(m => m.id === thinkingMessageId ? aiMessage : m));
           }
         } else {
           // Fallback to regular chat
+          const reasoning: any = {
+            steps: [
+              { type: 'thought', content: 'Agent system unavailable' },
+              { type: 'decision', content: 'Fell back to local response', details: 'Agent returned no result' },
+            ],
+            toolsConsidered: ['Agent System (unavailable)'],
+            dataLookedUp: [],
+            whyThisAnswer: 'Agent system was unavailable, provided fallback response.',
+          };
+          
           const aiMessage: Message = {
             id: uuidv4(),
             role: 'assistant',
             content: `I understand: "${content}"\n\nThe agent system may be unavailable. Try:\n• Check your connection\n• Use /agent status to verify\n• Try again in a moment`,
             timestamp: new Date().toISOString(),
-          } as Message & { reasoning: any };
+            reasoning,
+          };
           
           // Replace thinking message with fallback response
           setMessages((prev) => prev.map(m => m.id === thinkingMessageId ? aiMessage : m));
@@ -627,7 +673,7 @@ Just type your request and I'll route it to the appropriate layer!`;
         if (processing.success && indexing.success) {
           const finalAttachment: Attachment = {
             ...tempAttachment,
-            status: 'completed',
+            status: 'complete',
             url: indexing.message,
                       };
           setAttachments((prev) =>
@@ -710,7 +756,7 @@ Just type your request and I'll route it to the appropriate layer!`;
         const finalAttachment: Attachment = {
           ...tempAttachment,
           url: data.url,
-          status: 'completed',
+          status: 'complete',
         };
         
         setAttachments((prev) =>

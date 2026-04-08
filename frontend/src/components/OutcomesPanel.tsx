@@ -6,17 +6,13 @@ import {
   ListOrdered,
   ChevronDown,
   ChevronUp,
-  Download,
-  Share2,
   Copy,
   Check,
   CheckCircle,
   Clock,
   AlertCircle,
-  // MoreHorizontal,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 
 type TabType = 'reports' | 'previews' | 'steps';
 
@@ -86,7 +82,6 @@ const statusColors = {
   error: 'text-red-500',
 };
 
-
 export function OutcomesPanel() {
   const [activeTab, setActiveTab] = useState<TabType>('reports');
   const [expandedId, setExpandedId] = useState<string | null>('1');
@@ -108,24 +103,7 @@ export function OutcomesPanel() {
     const hours = Math.floor(minutes / 60);
     if (hours < 24) return `${hours}h ago`;
     const days = Math.floor(hours / 24);
-    if (days < 7) return `${days}d ago`;
-    return new Intl.DateTimeFormat('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: 'numeric',
-    }).format(date);
-  };
-
-  const formatFullDate = (date: Date) => {
-    return new Intl.DateTimeFormat('en-US', {
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: 'numeric',
-      hour12: true,
-    }).format(date);
+    return `${days}d ago`;
   };
 
   const handleCopy = async (content: string, id: string) => {
@@ -134,43 +112,23 @@ export function OutcomesPanel() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const handleShare = async (item: OutcomeItem) => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: item.title,
-          text: item.content || item.title,
-        });
-      } catch (err) {
-        console.log('Share cancelled');
-      }
-    } else if (item.content) {
-      handleCopy(item.content, item.id);
-    }
-  };
-
-  const handleDownload = (item: OutcomeItem) => {
-    // Simulate download
-    console.log('Downloading:', item.title);
-  };
-
   return (
-    <div className="w-[350px] h-screen bg-white border-l border-gray-200 flex flex-col">
+    <div className="h-full flex flex-col bg-white">
       {/* Header Tabs */}
-      <div className="h-14 border-b border-gray-200 flex items-center px-4">
-        <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
+      <div className="h-12 border-b border-gray-100 flex items-center px-3">
+        <div className="flex gap-1 bg-gray-100/70 p-1 rounded-lg w-full">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                'flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all',
+                'flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all flex-1',
                 activeTab === tab.id
                   ? 'bg-white text-gray-900 shadow-sm'
                   : 'text-gray-500 hover:text-gray-700'
               )}
             >
-              <tab.icon className="w-4 h-4" />
+              <tab.icon className="w-3.5 h-3.5" />
               {tab.label}
             </button>
           ))}
@@ -178,22 +136,22 @@ export function OutcomesPanel() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto p-3">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.2 }}
-            className="space-y-3"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="space-y-2"
           >
             {filteredOutcomes.length === 0 ? (
               <div className="text-center py-12">
-                <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
-                  <FileText className="w-6 h-6 text-gray-400" />
+                <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-2">
+                  <FileText className="w-5 h-5 text-gray-400" />
                 </div>
-                <p className="text-sm text-gray-500">No {activeTab} yet</p>
+                <p className="text-sm text-gray-400">No {activeTab} yet</p>
               </div>
             ) : (
               filteredOutcomes.map((outcome) => {
@@ -205,12 +163,12 @@ export function OutcomesPanel() {
                   <motion.div
                     key={outcome.id}
                     layout
-                    className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden"
+                    className="bg-gray-50 rounded-lg border border-gray-100 overflow-hidden"
                   >
                     {/* Header */}
                     <div
                       className={cn(
-                        'flex items-center gap-3 p-3',
+                        'flex items-center gap-2 p-2.5',
                         outcome.expandable && 'cursor-pointer hover:bg-gray-100'
                       )}
                       onClick={() =>
@@ -220,56 +178,42 @@ export function OutcomesPanel() {
                       {StatusIcon && outcome.status && (
                         <StatusIcon
                           className={cn(
-                            'w-5 h-5 flex-shrink-0',
+                            'w-4 h-4 flex-shrink-0',
                             statusColors[outcome.status]
                           )}
                         />
                       )}
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">
+                        <p className="text-sm text-gray-900 truncate">
                           {outcome.title}
                         </p>
-                        <p className="text-xs text-gray-500" title={formatFullDate(outcome.timestamp)}>
+                        <p className="text-xs text-gray-400">
                           {formatTime(outcome.timestamp)}
                         </p>
                       </div>
                       
-                      {/* Actions */}
-                      <div className="flex items-center gap-1">
-                        {outcome.type === 'report' && outcome.status === 'completed' && (
-                          <>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                outcome.content && handleCopy(outcome.content, outcome.id);
-                              }}
-                              className="p-1.5 hover:bg-white rounded-lg transition-colors"
-                              title="Copy"
-                            >
-                              {isCopied ? (
-                                <Check className="w-4 h-4 text-emerald-500" />
-                              ) : (
-                                <Copy className="w-4 h-4 text-gray-400" />
-                              )}
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleShare(outcome);
-                              }}
-                              className="p-1.5 hover:bg-white rounded-lg transition-colors"
-                              title="Share"
-                            >
-                              <Share2 className="w-4 h-4 text-gray-400" />
-                            </button>
-                          </>
+                      <div className="flex items-center gap-0.5">
+                        {outcome.type === 'report' && outcome.status === 'completed' && outcome.content && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCopy(outcome.content!, outcome.id);
+                            }}
+                            className="p-1.5 hover:bg-white rounded-md transition-colors"
+                          >
+                            {isCopied ? (
+                              <Check className="w-3.5 h-3.5 text-emerald-500" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5 text-gray-400" />
+                            )}
+                          </button>
                         )}
                         {outcome.expandable && (
-                          <button className="p-1.5 hover:bg-white rounded-lg transition-colors">
+                          <button className="p-1.5 hover:bg-white rounded-md transition-colors">
                             {isExpanded ? (
-                              <ChevronUp className="w-4 h-4 text-gray-500" />
+                              <ChevronUp className="w-4 h-4 text-gray-400" />
                             ) : (
-                              <ChevronDown className="w-4 h-4 text-gray-500" />
+                              <ChevronDown className="w-4 h-4 text-gray-400" />
                             )}
                           </button>
                         )}
@@ -283,38 +227,13 @@ export function OutcomesPanel() {
                           initial={{ height: 0, opacity: 0 }}
                           animate={{ height: 'auto', opacity: 1 }}
                           exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.2 }}
-                          className="border-t border-gray-200"
+                          transition={{ duration: 0.15 }}
+                          className="border-t border-gray-100"
                         >
                           <div className="p-3">
-                            <p className="text-sm text-gray-700 leading-relaxed">{outcome.content}</p>
-                            
-                            {/* Full Timestamp */}
-                            <p className="text-xs text-gray-400 mt-3">
-                              Generated: {formatFullDate(outcome.timestamp)}
+                            <p className="text-sm text-gray-600 leading-relaxed">
+                              {outcome.content}
                             </p>
-                            
-                            {/* Action Buttons */}
-                            <div className="flex gap-2 mt-3">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleDownload(outcome)}
-                                className="h-8 flex-1"
-                              >
-                                <Download className="w-3.5 h-3.5 mr-1.5" />
-                                Download
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleShare(outcome)}
-                                className="h-8 flex-1"
-                              >
-                                <Share2 className="w-3.5 h-3.5 mr-1.5" />
-                                Share
-                              </Button>
-                            </div>
                           </div>
                         </motion.div>
                       )}

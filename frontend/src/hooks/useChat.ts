@@ -1,552 +1,349 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { v4 as uuidv4 } from 'uuid';
-import type { Message, Attachment } from '@/types';
-import { STORAGE_KEYS } from '@/context/AuthContext';
+import { useState, useCallback, useRef } from 'react';
+import type { Message, Attachment, ChatMode, CodeExecutionResult, WebSearchResult } from '@/types';
+import { processDocument, processAudio } from '@/lib/fileProcessing';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://cerebrum-api.onrender.com';
+const API_PREFIX = API_BASE_URL.endsWith('/api/v1') ? API_BASE_URL : `${API_BASE_URL}/api/v1`;
+
+// Extended attachment type that includes the actual File object
+interface FileAttachment extends Attachment {
+  file?: File;
+  extractedText?: string;
+  file_key?: string; // Server-side file identifier
+}
 
 interface UseChatOptions {
+  apiUrl?: string;
   initialMessages?: Message[];
-  onSendMessage?: (message: string, attachments?: Attachment[]) => Promise<void>;
-  apiBaseUrl?: string;
+  onError?: (error: Error) => void;
 }
 
-// Get auth token from localStorage
-const getAuthToken = () => localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN) || '';
-
-// Command parser
-interface ParsedCommand {
-  isCommand: boolean;
-  command: string;
-  args: string[];
-  raw: string;
+interface UseChatReturn {
+  messages: Message[];
+  input: string;
+  setInput: (value: string) => void;
+  isLoading: boolean;
+  isUploading: boolean;
+  attachments: Attachment[];
+  mode: ChatMode;
+  setMode: (mode: ChatMode) => void;
+  sendMessage: (content: string, attachments?: Attachment[]) => Promise<void>;
+  addAttachment: (file: File) => void;
+  removeAttachment: (id: string) => void;
+  clearMessages: () => void;
+  executeCode: (code: string) => Promise<CodeExecutionResult | null>;
+  searchWeb: (query: string) => Promise<WebSearchResult | null>;
+  analyzeImage: (file: File) => Promise<string | null>;
 }
 
-const parseCommand = (input: string): ParsedCommand => {
-  const trimmed = input.trim();
-  if (!trimmed.startsWith('/')) {
-    return { isCommand: false, command: '', args: [], raw: trimmed };
-  }
+export function useChat(options: UseChatOptions = {}): UseChatReturn {
+  const { apiUrl = API_PREFIX, initialMessages = [], onError } = options;
   
-  const parts = trimmed.slice(1).split(' ');
-  return {
-    isCommand: true,
-    command: parts[0].toLowerCase(),
-    args: parts.slice(1),
-    raw: trimmed,
-  };
-};
-
-export function useChat(options: UseChatOptions = {}) {
-  const { initialMessages = [], onSendMessage, apiBaseUrl = '/api/v1' } = options;
-  
-  const [isUploading, setIsUploading] = useState(false);
-  
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 'welcome',
-      role: 'assistant',
-      content: `👋 Welcome to Cerebrum AI!
-
-I can help you with construction management tasks. Try these commands:
-
-**Integrations:**
-• \`/connect drive\` - Connect OneDrive
-• \`/connect procore\` - Connect Procore
-• \`/connect slack\` - Connect Slack
-
-**Document Processing:**
-• \`/process last invoice\` - Process latest invoice
-• \`/process document <name>\` - Process specific document
-
-**Safety Analysis:**
-• \`/safety check floor 3\` - Analyze floor 3 safety
-• \`/safety report\` - Get safety summary
-
-**Semantic Search (ChromaDB):**
-• \`/search <query>\` - Search across Drive files
-• \`/search safety violations\` - Find safety reports
-• \`/search invoice rebar\` - Find invoices with rebar
-
-**General:**
-• \`/help\` - Show all commands
-• \`/status\` - Check system status`,
-      timestamp: new Date().toISOString(),
-    },
-    ...initialMessages,
-  ]);
-  const [inputValue, setInputValue] = useState('');
+  const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [attachments, setAttachments] = useState<Attachment[]>([]);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [isUploading] = useState(false);
+  const [attachments, setAttachments] = useState<FileAttachment[]>([]);
+  const [mode, setMode] = useState<ChatMode>('standard');
+  
+  const abortControllerRef = useRef<AbortController | null>(null);
 
-  const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, []);
+  // Process a single file with OCR/transcription
+  const processFile = async (attachment: FileAttachment): Promise<{ text: string; metadata: any } | null> => {
+    if (!attachment.file) return null;
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, scrollToBottom]);
-
-  // Command handlers
-  const handleConnectCommand = async (args: string[]): Promise<string> => {
-    const service = args[0]?.toLowerCase();
-    
-    switch (service) {
-      case 'drive':
-        try {
-          const response = await fetch(`${apiBaseUrl}/drive/auth/url`);
-          
-          if (response.status === 404) {
-            return `⚠️ **OneDrive API endpoint not found**\n\nThe backend API is currently deploying or the endpoint is not available yet.\n\nTo connect OneDrive manually:\n1. Go to Google Cloud Console\n2. Create OAuth 2.0 credentials\n3. Set redirect URI: \`${window.location.origin}/api/drive/auth/callback\`\n\n**Client ID:**\n\`382554705937-v3s8kpvl7h0em2aekud73fro8rig0cvu.apps.googleusercontent.com\``;
-          }
-          
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            return `❌ API Error: ${errorData.detail || response.statusText}`;
-          }
-          
-          const data = await response.json();
-          
-          if (data.auth_url) {
-            // Open OAuth in popup
-            const width = 500;
-            const height = 600;
-            const left = window.screenX + (window.outerWidth - width) / 2;
-            const top = window.screenY + (window.outerHeight - height) / 2;
-            
-            window.open(
-              data.auth_url,
-              'google-oauth',
-              `width=${width},height=${height},left=${left},top=${top}`
-            );
-            
-            return '🔐 Opening OneDrive authorization... Please complete the OAuth flow in the popup.';
-          }
-          return '❌ Failed to get authorization URL';
-        } catch (error) {
-          return `❌ Failed to initiate OneDrive connection: ${error instanceof Error ? error.message : 'Unknown error'}`;
-        }
-        
-      case 'procore':
-        return '🔐 Procore OAuth flow would open here. (API endpoint: /integrations/procore/auth)';
-        
-      case 'slack':
-        return '🔐 Slack OAuth flow would open here. (API endpoint: /integrations/slack/auth)';
-        
-      default:
-        return `❓ Unknown service: "${service}". Available: drive, procore, slack`;
-    }
-  };
-
-  const handleProcessCommand = async (args: string[]): Promise<string> => {
-    const target = args.join(' ').toLowerCase();
-    
-    if (target.includes('last invoice') || target.includes('invoice')) {
-      try {
-        const response = await fetch(`${apiBaseUrl}/documents/process-invoice`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ source: 'onedrive', auto_detect: true }),
-        });
-        
-        if (response.status === 404) {
-          return `⚠️ **Document processing API not available**\n\nThe backend endpoint is currently deploying. Showing simulated response:\n\n📄 Invoice processing queued.\n\n• Extracting line items\n• Validating against PO #2847\n• Flagging discrepancies\n\n⏱️ ETA: ~2 minutes`;
-        }
-        
-        if (response.ok) {
-          const data = await response.json();
-          return `📄 Invoice processing started (Task: ${data.task_id?.slice(0, 8) || 'N/A'}...). I'll notify you when complete.`;
-        }
-        return '❌ Failed to start invoice processing';
-      } catch (error) {
-        // Fallback for demo
-        return `📄 Invoice processing queued.\n\nProcessing last invoice from OneDrive...\n• Extracting line items\n• Validating against PO #2847\n• Flagging discrepancies\n\n⏱️ ETA: ~2 minutes`;
-      }
-    }
-    
-    if (target.includes('document')) {
-      const docName = args.slice(1).join(' ');
-      return `📄 Processing document: "${docName}"...\n\nSearching OneDrive for matching documents...`;
-    }
-    
-    return '❓ Usage: /process last invoice | /process document <name>';
-  };
-
-  const handleSafetyCommand = async (args: string[]): Promise<string> => {
-    const subcommand = args[0]?.toLowerCase();
-    
-    if (subcommand === 'check') {
-      const location = args.slice(1).join(' ');
-      try {
-        const response = await fetch(`${apiBaseUrl}/safety/analyze`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ location: location || 'all', type: 'hazard_detection' }),
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          return `🔍 Safety check completed for "${location || 'all areas'}"\n\nFound ${data.hazards_found || 0} potential hazards.\nReport ID: ${data.report_id}`;
-        }
-        
-        // Fallback response
-        return `🔍 **Safety Analysis Report: ${location || 'All Areas'}**\n\n✅ No critical hazards detected\n⚠️ 2 minor observations:\n  • Missing PPE signage at north stairwell\n  • Temporary cable routing near zone B\n\n📋 Full report available in dashboard`;
-      } catch (error) {
-        return `🔍 **Safety Analysis Report: Floor 3**\n\n✅ No critical hazards detected\n⚠️ 2 minor observations:\n  • Missing PPE signage at north stairwell\n  • Temporary cable routing near zone B`;
-      }
-    }
-    
-    if (subcommand === 'report') {
-      return `📊 **Safety Summary (Last 30 Days)**\n\n• Total inspections: 12\n• Hazards identified: 3\n• Resolved: 2\n• Open: 1\n\n**Overall safety score: 94/100**`;
-    }
-    
-    return '❓ Usage: /safety check <location> | /safety report';
-  };
-
-  const handleSearchCommand = async (args: string[]): Promise<string> => {
-    const query = args.join(' ');
-    
-    if (!query) {
-      return '❓ Usage: /search <query>\n\nExamples:\n• /search safety violations\n• /search invoice rebar\n• /search project timeline';
-    }
+    const file = attachment.file;
+    const isAudio = file.type.startsWith('audio/') || file.type.startsWith('video/');
     
     try {
-      // Call ChromaDB semantic search endpoint
-      const response = await fetch(`${apiBaseUrl}/connectors/google-drive/search?query=${encodeURIComponent(query)}&top_k=5`, {
+      let result;
+      if (isAudio) {
+        result = await processAudio(file, (stage, percentage) => {
+          if (stage === 'uploading' && percentage !== undefined) {
+            setAttachments(prev => prev.map(att => 
+              att.id === attachment.id 
+                ? { ...att, progress: percentage, status: 'uploading' }
+                : att
+            ));
+          }
+        });
+      } else {
+        result = await processDocument(file, (stage, percentage) => {
+          if (stage === 'uploading' && percentage !== undefined) {
+            setAttachments(prev => prev.map(att => 
+              att.id === attachment.id 
+                ? { ...att, progress: percentage, status: 'uploading' }
+                : att
+            ));
+          }
+        });
+      }
+
+      if (result.success) {
+        setAttachments(prev => prev.map(att => 
+          att.id === attachment.id 
+            ? { ...att, status: 'complete', progress: 100, extractedText: result.text }
+            : att
+        ));
+        return { text: result.text, metadata: result.metadata };
+      } else {
+        setAttachments(prev => prev.map(att => 
+          att.id === attachment.id 
+            ? { ...att, status: 'error', error: result.error }
+            : att
+        ));
+        return null;
+      }
+    } catch (error) {
+      setAttachments(prev => prev.map(att => 
+        att.id === attachment.id 
+          ? { ...att, status: 'error', error: 'Processing failed' }
+          : att
+      ));
+      return null;
+    }
+  };
+
+  // Upload file to get file_key (using public endpoint - no auth required)
+  const uploadFile = async (attachment: FileAttachment): Promise<string | null> => {
+    if (!attachment.file) return null;
+
+    console.log('[useChat] Uploading file:', attachment.name);
+
+    const formData = new FormData();
+    formData.append('file', attachment.file);
+
+    try {
+      const response = await fetch(`${API_PREFIX}/documents/upload/public`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        body: formData,
       });
+
+      if (!response.ok) {
+        console.error('[useChat] Upload failed:', response.status);
+        return null;
+      }
+
+      const data = await response.json();
+      console.log('[useChat] Upload success, file_id:', data.file_id);
+      return data.file_id;
+    } catch (error) {
+      console.error('[useChat] Upload error:', error);
+      return null;
+    }
+  };
+
+  const sendMessage = useCallback(async (content: string, messageAttachments?: Attachment[]) => {
+    if (!content.trim() && (!messageAttachments || messageAttachments.length === 0)) return;
+    
+    setIsLoading(true);
+    
+    // Process all attachments - upload files and extract text
+    const processedAttachments: FileAttachment[] = [];
+    const extractedTexts: string[] = [];
+    const fileKeys: string[] = [];
+    
+    if (messageAttachments && messageAttachments.length > 0) {
+      for (const att of messageAttachments) {
+        const fileAtt = att as FileAttachment;
+        if (fileAtt.file) {
+          // Upload file to get file_key
+          console.log('[useChat] Processing attachment:', fileAtt.name);
+          const fileKey = await uploadFile(fileAtt);
+          
+          if (fileKey) {
+            fileKeys.push(fileKey);
+            console.log('[useChat] Got file_key:', fileKey);
+          }
+          
+          // Also extract text via OCR/transcription
+          const result = await processFile(fileAtt);
+          if (result) {
+            processedAttachments.push({ ...fileAtt, extractedText: result.text, file_key: fileKey || undefined });
+            extractedTexts.push(`[File: ${fileAtt.name}]
+${result.text}`);
+          } else {
+            processedAttachments.push({ ...fileAtt, file_key: fileKey || undefined });
+          }
+        }
+      }
+    }
+    
+    // Build the full message content including extracted text from files
+    let fullContent = content;
+    if (extractedTexts.length > 0) {
+      fullContent = content + '\n\n---\n\n' + extractedTexts.join('\n\n---\n\n');
+    }
+    
+    // Add user message
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content,
+      attachments: processedAttachments,
+      timestamp: new Date().toISOString(),
+    };
+    
+    setMessages(prev => [...prev, userMessage]);
+    
+    console.log('[useChat] Sending message with', fileKeys.length, 'file keys');
+    
+    try {
+      abortControllerRef.current = new AbortController();
       
-      if (response.status === 404) {
-        // Backend not available - show mock results
-        return `🔍 **Semantic Search Results for "${query}"** (Demo Mode)
-
-📄 **Safety_Report_Q4.pdf** (92% match)
-Safety inspection results for Q4 2024. Critical findings include fall protection violations in Zone B...
-
-📄 **Incident_Log.xlsx** (85% match)  
-Record of safety incidents and corrective actions taken. Monthly summary shows 3 minor incidents...
-
-*Backend not available. Showing simulated results.*`;
+      const requestBody: any = {
+        model: 'cerebrum-default',
+        messages: [
+          ...messages.map(m => ({ role: m.role, content: m.content })),
+          { role: 'user', content: fullContent },
+        ],
+      };
+      
+      // Include file_keys if we have any
+      if (fileKeys.length > 0) {
+        requestBody.file_keys = fileKeys;
+        console.log('[useChat] Including file_keys:', fileKeys);
       }
       
+      // Include extracted_texts if we have any (helps backend when disk not shared)
+      const extractedTextsList = processedAttachments
+        .map(att => att.extractedText)
+        .filter((text): text is string => !!text);
+      if (extractedTextsList.length > 0) {
+        requestBody.extracted_texts = extractedTextsList;
+        console.log('[useChat] Including extracted_texts:', extractedTextsList.length);
+      }
+      
+      const response = await fetch(`${apiUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+        signal: abortControllerRef.current.signal,
+      });
+      
       if (!response.ok) {
-        throw new Error(`Search failed: ${response.statusText}`);
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
       
       const data = await response.json();
       
-      if (!data.results || data.results.length === 0) {
-        return `🔍 No results found for "${query}"\n\nTry different keywords or check if documents are indexed.`;
-      }
-      
-      // Format results
-      const formatted = data.results.map((r: any) => {
-        const name = r.metadata?.name || 'Unknown';
-        const score = Math.round((r.score || 0) * 100);
-        const preview = r.metadata?.content_preview?.substring(0, 100) || 'No preview available';
-        return `📄 **${name}** (${score}% match)\n${preview}...`;
-      }).join('\n\n');
-      
-      return `🔍 **Semantic Search Results for "${query}"**\n\nFound ${data.count} result${data.count !== 1 ? 's' : ''}:\n\n${formatted}`;
-      
-    } catch (error) {
-      // Fallback response
-      return `🔍 **Semantic Search: "${query}"** (Offline Mode)
-
-📄 **Sample_Result_1.pdf** (90% match)
-This is a simulated result showing how ZVec offline semantic search would work. The actual backend service indexes document embeddings locally...
-
-*ZVec offline search - no cloud vector DB needed*`;
-    }
-  };
-
-  const handleHelpCommand = (): string => {
-    return `📚 **Available Commands:**
-
-**Integrations:**
-• \`/connect drive\` - Connect OneDrive
-• \`/connect procore\` - Connect Procore  
-• \`/connect slack\` - Connect Slack
-
-**Documents:**
-• \`/process last invoice\` - Process latest invoice
-• \`/process document <name>\` - Process specific doc
-
-**Safety:**
-• \`/safety check <location>\` - Run safety analysis
-• \`/safety report\` - View safety summary
-
-**Semantic Search (ChromaDB):**
-• \`/search <query>\` - Search across Drive files
-• \`/search safety violations\` - Find safety reports
-• \`/search invoice rebar\` - Find invoices with rebar
-
-**System:**
-• \`/status\` - Check API status
-• \`/help\` - Show this help`;
-  };
-
-  const handleStatusCommand = async (): Promise<string> => {
-    try {
-      const response = await fetch(`${apiBaseUrl}/health/live`);
-      const health = await response.json();
-      
-      return `✅ **System Status: Online**\n\nAPI: 🟢 Healthy\nVersion: ${health.version || '1.0.0'}\nUptime: ${health.uptime_seconds || 'N/A'}s`;
-    } catch (error) {
-      return `⚠️ **System Status: Degraded**\n\nSome services may be unavailable. Please try again later.`;
-    }
-  };
-
-  const executeCommand = async (parsed: ParsedCommand): Promise<string> => {
-    switch (parsed.command) {
-      case 'connect':
-        return handleConnectCommand(parsed.args);
-      case 'process':
-        return handleProcessCommand(parsed.args);
-      case 'safety':
-        return handleSafetyCommand(parsed.args);
-      case 'search':
-        return handleSearchCommand(parsed.args);
-      case 'help':
-        return handleHelpCommand();
-      case 'status':
-        return handleStatusCommand();
-      default:
-        return `❓ Unknown command: "/${parsed.command}". Type /help for available commands.`;
-    }
-  };
-
-  const sendMessage = useCallback(async () => {
-    if (!inputValue.trim() && attachments.length === 0) return;
-    
-    const content = inputValue.trim();
-    const parsed = parseCommand(content);
-    
-    const userMessage: Message = {
-      id: uuidv4(),
-      role: 'user',
-      content: content,
-      timestamp: new Date().toISOString(),
-      attachments: attachments.length > 0 ? [...attachments] : undefined,
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
-    setInputValue('');
-    setAttachments([]);
-    
-    // If it's a command, process it
-    if (parsed.isCommand) {
-      setIsLoading(true);
-      try {
-        const response = await executeCommand(parsed);
-        
-        const aiMessage: Message = {
-          id: uuidv4(),
-          role: 'assistant',
-          content: response,
-          timestamp: new Date().toISOString(),
-        };
-        
-        setMessages((prev) => [...prev, aiMessage]);
-      } catch (error) {
-        const errorMessage: Message = {
-          id: uuidv4(),
-          role: 'assistant',
-          content: `❌ Error: ${error instanceof Error ? error.message : 'Something went wrong'}`,
-          timestamp: new Date().toISOString(),
-        };
-        setMessages((prev) => [...prev, errorMessage]);
-      } finally {
-        setIsLoading(false);
-      }
-    } else {
-      // Regular chat message
-      setIsLoading(true);
-      try {
-        if (onSendMessage) {
-          await onSendMessage(content, userMessage.attachments);
-        } else {
-          // Simulate AI response for non-command messages
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-          
-          const aiMessage: Message = {
-            id: uuidv4(),
-            role: 'assistant',
-            content: `I received: "${content}"\n\nI'm configured to respond to commands. Type **/help** to see what I can do!`,
-            timestamp: new Date().toISOString(),
-          };
-          
-          setMessages((prev) => [...prev, aiMessage]);
-        }
-      } catch (error) {
-        console.error('Error sending message:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-  }, [inputValue, attachments, onSendMessage, apiBaseUrl]);
-
-  const addAttachment = useCallback(async (file: File) => {
-    setIsUploading(true);
-    
-    // DEBUG: Version 1.0.5 - Full file processing
-    console.log('[Chat] ====================================');
-    console.log('[Chat] FILE UPLOAD STARTED - v1.0.5');
-    console.log('[Chat] ====================================');
-    
-    try {
-      // Create temporary attachment
-      const tempAttachment: Attachment = {
-        id: uuidv4(),
-        name: file.name,
-        type: file.type,
-        size: file.size,
-      };
-      setAttachments((prev) => [...prev, tempAttachment]);
-      
-      // Upload file to backend (using connectors endpoint which is more reliable)
-      const formData = new FormData();
-      formData.append('file', file);
-      
-      const token = getAuthToken();
-      
-      // FIX: Use the correct API URL (same as useDrive.ts)
-      const RAW_API_URL = import.meta.env.VITE_API_URL || 'https://cerebrum-api.onrender.com';
-      const API_URL = RAW_API_URL.replace(/\/?$/, '').endsWith('/api/v1') 
-        ? RAW_API_URL 
-        : `${RAW_API_URL.replace(/\/?$/, '')}/api/v1`;
-      const uploadUrl = `${API_URL}/connectors/upload/chat`;
-      
-      console.log('[Chat] Upload starting...');
-      console.log('[Chat] URL:', uploadUrl);
-      console.log('[Chat] File:', file.name, 'Type:', file.type, 'Size:', file.size);
-      console.log('[Chat] Token present:', !!token);
-      
-      const response = await fetch(uploadUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': token ? `Bearer ${token}` : '',
-          // Don't set Content-Type - browser will set it with boundary for FormData
-        },
-        body: formData,
-      });
-      
-      console.log('[Chat] Response status:', response.status, response.statusText);
-      console.log('[Chat] Response headers:', Object.fromEntries(response.headers.entries()));
-      
-      if (!response.ok) {
-        // Remove temp attachment on error
-        setAttachments((prev) => prev.filter((a) => a.id !== tempAttachment.id));
-        
-        let errorMsg = `Upload failed: ${response.status} ${response.statusText}`;
-        
-        // Try to get error details from response
-        let responseText = '';
-        try {
-          responseText = await response.text();
-        } catch (e) {
-          console.error('[Chat] Failed to read error response text:', e);
-        }
-        
-        console.error('[Chat] Upload error response:', response.status, responseText?.substring(0, 500));
-        
-        if (responseText && responseText.trim().length > 0) {
-          try {
-            const errorData = JSON.parse(responseText);
-            errorMsg = errorData.detail || errorData.message || errorMsg;
-          } catch {
-            // Not JSON, use text if available and short
-            if (responseText.length < 200) {
-              errorMsg = `${errorMsg}\n\n${responseText}`;
-            }
-          }
-        } else {
-          errorMsg = `${errorMsg}\n\nThe server returned an empty response. This may indicate:\n• The endpoint is not deployed yet\n• The server is restarting\n• A network connectivity issue`;
-        }
-        
-        // Show error message in chat
-        const errorMessage: Message = {
-          id: uuidv4(),
-          role: 'assistant',
-          content: `❌ **File Upload Failed**\n\n${errorMsg}`,
-          timestamp: new Date().toISOString(),
-        };
-        setMessages((prev) => [...prev, errorMessage]);
-        return;
-      }
-      
-      // Get raw response text first for debugging
-      const responseText = await response.text();
-      console.log('[Chat] Raw response:', responseText);
-      
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error('[Chat] JSON parse error:', parseError);
-        console.error('[Chat] Response was:', responseText);
-        throw new Error(`Invalid JSON response: ${responseText.substring(0, 100)}`);
-      }
-      
-      console.log('[Chat] Upload successful:', data);
-      
-      // Update attachment with server info
-      const finalAttachment: Attachment = {
-        ...tempAttachment,
-        url: data.url,
-      };
-      
-      setAttachments((prev) =>
-        prev.map((a) => (a.id === tempAttachment.id ? finalAttachment : a))
-      );
-      
-      // Show success message with extracted text info
-      const successMsg = data.text_extracted
-        ? `✅ **File uploaded and indexed!**\n\n📄 **${file.name}**\n📊 Size: ${(file.size / 1024).toFixed(1)} KB\n📝 Text extracted: ${data.text_length} characters\n\nThe file is now available in chat and searchable via ChromaDB AI.`
-        : `✅ **File uploaded!**\n\n📄 **${file.name}**\n📊 Size: ${(file.size / 1024).toFixed(1)} KB\n\nThe file is now available in chat.`;
-      
-      const successMessage: Message = {
-        id: uuidv4(),
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: successMsg,
+        content: data.choices[0].message.content,
         timestamp: new Date().toISOString(),
       };
-      setMessages((prev) => [...prev, successMessage]);
       
+      setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
-      console.error('File upload error:', error);
-      
-      const errorMessage: Message = {
-        id: uuidv4(),
-        role: 'assistant',
-        content: `❌ **File Upload Failed**\n\n${error instanceof Error ? error.message : 'Network error. Please try again.'}`,
-        timestamp: new Date().toISOString(),
-      };
-      setMessages((prev) => [...prev, errorMessage]);
+      if (error instanceof Error && error.name !== 'AbortError') {
+        onError?.(error);
+        
+        // Add error message
+        const errorMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: 'Sorry, I encountered an error. Please try again.',
+          timestamp: new Date().toISOString(),
+        };
+        setMessages(prev => [...prev, errorMessage]);
+      }
     } finally {
-      setIsUploading(false);
+      setIsLoading(false);
+      abortControllerRef.current = null;
     }
-  }, [apiBaseUrl]);
+  }, [messages, apiUrl, onError]);
+
+  const addAttachment = useCallback((file: File) => {
+    const newAttachment: FileAttachment = {
+      id: Math.random().toString(36).substr(2, 9),
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      status: 'pending' as const,
+      progress: 0,
+      file: file, // Store the actual File object
+    };
+    setAttachments(prev => [...prev, newAttachment]);
+  }, []);
 
   const removeAttachment = useCallback((id: string) => {
-    setAttachments((prev) => prev.filter((a) => a.id !== id));
+    setAttachments(prev => prev.filter(att => att.id !== id));
   }, []);
 
   const clearMessages = useCallback(() => {
     setMessages([]);
+    setAttachments([]);
   }, []);
+
+  const executeCode = useCallback(async (code: string): Promise<CodeExecutionResult | null> => {
+    try {
+      const response = await fetch(`${apiUrl}/chat/execute-code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      });
+      
+      if (!response.ok) throw new Error('Code execution failed');
+      return await response.json();
+    } catch (error) {
+      onError?.(error as Error);
+      return null;
+    }
+  }, [apiUrl, onError]);
+
+  const searchWeb = useCallback(async (query: string): Promise<WebSearchResult | null> => {
+    try {
+      const response = await fetch(`${apiUrl}/chat/web-search`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
+      });
+      
+      if (!response.ok) throw new Error('Web search failed');
+      return await response.json();
+    } catch (error) {
+      onError?.(error as Error);
+      return null;
+    }
+  }, [apiUrl, onError]);
+
+  const analyzeImage = useCallback(async (file: File): Promise<string | null> => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await fetch(`${apiUrl}/chat/analyze-image`, {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!response.ok) throw new Error('Image analysis failed');
+      const data = await response.json();
+      return data.analysis;
+    } catch (error) {
+      onError?.(error as Error);
+      return null;
+    }
+  }, [apiUrl, onError]);
 
   return {
     messages,
-    inputValue,
-    setInputValue,
+    input,
+    setInput,
     isLoading,
     isUploading,
     attachments,
-    messagesEndRef,
+    mode,
+    setMode,
     sendMessage,
     addAttachment,
     removeAttachment,
     clearMessages,
+    executeCode,
+    searchWeb,
+    analyzeImage,
   };
 }

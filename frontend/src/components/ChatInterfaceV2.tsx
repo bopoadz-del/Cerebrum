@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Bot, Sparkles, Plus, Calendar } from 'lucide-react';
 import { ChatMessage } from './ChatMessage';
@@ -13,52 +13,48 @@ interface ChatInterfaceV2Props {
   chatTitle?: string;
   onNewChat?: () => void;
   sessionToken?: string;
+  onSwitchToAgent?: () => void;
 }
 
 const SUGGESTED_PROMPTS = [
-  'Analyze the Q4 financial data',
-  'Generate a project timeline',
-  'Review the CAD drawings',
-  'Transcribe the meeting recording',
+  '/cost concrete foundation',
+  '/formula beam moment',
+  '/estimate warehouse 100000',
+  '/city Riyadh',
 ];
 
-export function ChatInterfaceV2({ projectName, chatTitle, onNewChat, sessionToken }: ChatInterfaceV2Props) {
+export function ChatInterfaceV2({ 
+  projectName, 
+  chatTitle, 
+  onNewChat, 
+  sessionToken,
+  onSwitchToAgent: _onSwitchToAgent 
+}: ChatInterfaceV2Props) {
   const {
     messages,
-    inputValue,
-    setInputValue,
+    input,
+    setInput,
     isLoading,
-    isUploading,
     attachments,
-    messagesEndRef,
     sendMessage,
     addAttachment,
     removeAttachment,
     clearMessages,
   } = useChat();
 
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const [, setSmartContextEnabled] = useState(false);
   const hasMessages = messages.length > 0;
   const isProjectSelected = projectName && projectName !== 'Select a project';
 
-  // Handler for file attachment - now directly passes file to addAttachment which handles upload
+  // Handler for file attachment
   const handleAttachFile = (file: File) => {
     addAttachment(file);
   };
 
-  // Handler for camera (placeholder - would open camera modal)
-  const handleOpenCamera = () => {
-    alert('Camera feature: Would open camera capture modal');
-  };
-
-  // Handler for voice input (placeholder - would start voice recording)
-  const handleOpenMic = () => {
-    alert('Voice input: Would start voice recording');
-  };
-
-  // Handler for internet search (placeholder)
+  // Handler for internet search
   const handleInternetSearch = () => {
-    setInputValue('/search ' + inputValue);
+    setInput('/search ' + input);
   };
 
   // Handler for new chat button
@@ -148,37 +144,64 @@ export function ChatInterfaceV2({ projectName, chatTitle, onNewChat, sessionToke
 
             {/* Title */}
             <h2 className="text-xl font-semibold text-gray-900 mb-2 text-center">
-              {isProjectSelected
-                ? 'What would you like to analyze?'
-                : 'Welcome to Reasoner'}
+              {'Welcome to Cerebrum AI'}
             </h2>
-            <p className="text-gray-500 text-center mb-8 max-w-md text-sm">
-              {isProjectSelected
-                ? 'Ask questions or request analysis. I have access to all project files.'
-                : 'Select a project from the sidebar to start analyzing your files.'}
+            <p className="text-gray-500 text-center mb-6 max-w-md text-sm">
+              {'Access RSMeans data, construction formulas, and cost estimates instantly. Select a project to analyze your files.'}
             </p>
 
-            {/* Suggested Prompts */}
-            {isProjectSelected && (
-              <div className="flex flex-wrap justify-center gap-2 max-w-lg">
-                {SUGGESTED_PROMPTS.map((prompt, index) => (
-                  <motion.button
-                    key={index}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    onClick={() => setInputValue(prompt)}
-                    className={cn(
-                      'px-4 py-2 bg-white border border-gray-200 rounded-lg',
-                      'text-sm text-gray-700 transition-all duration-200',
-                      'hover:border-indigo-300 hover:shadow-sm'
-                    )}
-                  >
-                    {prompt}
-                  </motion.button>
-                ))}
+            {/* Capabilities Grid */}
+            <div className="grid grid-cols-2 gap-3 max-w-lg mb-6">
+              <div className="bg-white p-3 rounded-lg border border-gray-200">
+                <p className="text-xs font-medium text-indigo-600 mb-1">📊 Cost Data</p>
+                <p className="text-xs text-gray-500">135+ RSMeans items</p>
               </div>
-            )}
+              <div className="bg-white p-3 rounded-lg border border-gray-200">
+                <p className="text-xs font-medium text-indigo-600 mb-1">📐 Formulas</p>
+                <p className="text-xs text-gray-500">20+ calculations</p>
+              </div>
+              <div className="bg-white p-3 rounded-lg border border-gray-200">
+                <p className="text-xs font-medium text-indigo-600 mb-1">🏢 Estimates</p>
+                <p className="text-xs text-gray-500">15 building types</p>
+              </div>
+              <div className="bg-white p-3 rounded-lg border border-gray-200">
+                <p className="text-xs font-medium text-indigo-600 mb-1">📍 Locations</p>
+                <p className="text-xs text-gray-500">30+ city indices</p>
+              </div>
+            </div>
+
+            {/* Suggested Prompts */}
+            <div className="flex flex-wrap justify-center gap-2 max-w-lg">
+              {SUGGESTED_PROMPTS.map((prompt, index) => (
+                <motion.button
+                  key={index}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  onClick={() => setInput(prompt)}
+                  className={cn(
+                    'px-4 py-2 bg-white border border-gray-200 rounded-lg',
+                    'text-sm text-gray-700 transition-all duration-200',
+                    'hover:border-indigo-300 hover:shadow-sm'
+                  )}
+                >
+                  {prompt}
+                </motion.button>
+              ))}
+            </div>
+
+            {/* Agent Mode Hint */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5 }}
+              className="mt-6 text-center"
+            >
+              <p className="text-xs text-gray-400">
+                💡 Need code generation, BIM analysis, or complex workflows?{' '}
+                <span className="text-indigo-600 font-medium">Switch to Agent Mode ↑</span>
+              </p>
+            </motion.div>
           </motion.div>
         ) : (
           /* Chat Messages */
@@ -222,18 +245,15 @@ export function ChatInterfaceV2({ projectName, chatTitle, onNewChat, sessionToke
       <div className="bg-white">
         <div className="max-w-2xl mx-auto">
           <ChatInputV2
-            value={inputValue}
-            onChange={setInputValue}
-            onSend={sendMessage}
+            value={input}
+            onChange={setInput}
+            onSend={() => sendMessage(input, attachments)}
             onAttachFile={handleAttachFile}
-            onOpenCamera={handleOpenCamera}
-            onOpenMic={handleOpenMic}
             onInternetSearch={handleInternetSearch}
             attachments={attachments}
             onRemoveAttachment={removeAttachment}
             isLoading={isLoading}
-            isUploading={isUploading}
-            placeholder={isProjectSelected ? 'Type /help for commands or ask anything...' : 'Select a project first'}
+            placeholder={isProjectSelected ? 'Type /help for commands or ask anything...' : 'Type /help for commands or select a project to attach files...'}
           />
         </div>
       </div>

@@ -1,33 +1,50 @@
 import { useState, useEffect } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, MessageSquare, Loader2 } from 'lucide-react';
+import { 
+  PanelLeft, 
+  PanelRight, 
+  Plus, 
+  MessageSquare, 
+  Loader2, 
+  X,
+  LogOut,
+  Brain,
+  ChevronRight,
+  Folder
+} from 'lucide-react';
 import { ProjectSidebar } from '@/components/ProjectSidebar';
 import { ChatInterfaceV2 } from '@/components/ChatInterfaceV2';
+import { AgentChatInterface } from '@/components/AgentChatInterface';
 import { OutcomesPanel } from '@/components/OutcomesPanel';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
 import Login from '@/pages/Login';
-
+import ImagePage from '@/pages/ImagePage';
 import { useProjects } from "@/hooks/useProjects";
-// Mobile components
 import { MobileLayout } from '@/components/mobile';
+import { cn } from '@/lib/utils';
 
-// Protected Route Component - AUTH DISABLED (sleep mode)
+// Protected Route - AUTH DISABLED
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  // Authentication is temporarily disabled - all routes are public
   return <>{children}</>;
 }
 
+// Kimi-style Layout
 function DesktopLayout() {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>('1');
   const [selectedChatId, setSelectedChatId] = useState<string | null>('c1');
   const [showSettings, setShowSettings] = useState(false);
   const [showNewChatModal, setShowNewChatModal] = useState(false);
+  const [agentMode, setAgentMode] = useState(false);
   
-  const { 
-    projects, 
-    scanning, 
+  // Panel visibility states
+  const [leftPanelOpen, setLeftPanelOpen] = useState(true);
+  const [rightPanelOpen, setRightPanelOpen] = useState(false);
+  
+  const {
+    projects,
+    scanning,
     loading,
     backendAvailable,
     connectionError,
@@ -35,15 +52,9 @@ function DesktopLayout() {
     scanResults,
     refreshProjects,
     getProjectFiles
-
-  // Update selected project to use real data from Drive
   } = useProjects();
+  
   const selectedProject = projects.find(p => p.id === selectedProjectId) || projects[0];
-
-  const selectedChat = {
-    id: 'c1',
-    title: 'Revenue breakdown',
-  };
 
   const handleNewChat = () => {
     setShowNewChatModal(true);
@@ -54,10 +65,9 @@ function DesktopLayout() {
     setShowNewChatModal(false);
   };
 
-  // Show loading state while checking Drive connection
   if (loading) {
     return (
-      <div className="flex h-screen bg-white items-center justify-center">
+      <div className="flex bg-[#f9f9f9] items-center justify-center" style={{ minHeight: '100dvh', height: '100dvh' }}>
         <div className="flex items-center gap-3 text-gray-500">
           <Loader2 className="w-6 h-6 animate-spin" />
         </div>
@@ -66,38 +76,154 @@ function DesktopLayout() {
   }
 
   return (
-    <div className="flex h-screen bg-white overflow-hidden">
-      {/* Left Panel - Project Sidebar */}
-      <ProjectSidebar
-        projects={projects}
-        selectedProjectId={selectedProjectId}
-        selectedChatId={selectedChatId}
-        onSelectProject={setSelectedProjectId}
-        onSelectChat={setSelectedChatId}
-        onNewChat={handleNewChat}
-        isScanning={scanning}
-        isDemoMode={!backendAvailable}
-        connectionError={connectionError}
-        indexingStatus={indexingStatus}
-        scanResults={scanResults}
-        onRefreshProjects={refreshProjects}
-        onOpenSettings={() => setShowSettings(true)}
-        getProjectFiles={getProjectFiles}
-      />
+    <div className="flex bg-[#f9f9f9] overflow-hidden" style={{ minHeight: '100dvh', height: '100dvh' }}>
+      {/* Left Sidebar - Collapsible */}
+      <AnimatePresence initial={false}>
+        {leftPanelOpen && (
+          <motion.div
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: 260, opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: 'easeInOut' }}
+            className="flex-shrink-0 border-r border-gray-200 bg-white flex flex-col"
+          >
+            <ProjectSidebar
+              projects={projects}
+              selectedProjectId={selectedProjectId}
+              selectedChatId={selectedChatId}
+              onSelectProject={setSelectedProjectId}
+              onSelectChat={setSelectedChatId}
+              onNewChat={handleNewChat}
+              isScanning={scanning}
+              isDemoMode={!backendAvailable}
+              connectionError={connectionError}
+              indexingStatus={indexingStatus}
+              scanResults={scanResults}
+              onRefreshProjects={refreshProjects}
+              onOpenSettings={() => setShowSettings(true)}
+              getProjectFiles={getProjectFiles}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Center Panel - Chat */}
-      <div className="flex-1 min-w-0">
-        <ChatInterfaceV2
-          projectName={selectedProject?.name}
-          chatTitle={selectedChat?.title}
-          onNewChat={handleNewChat}
-        />
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Top Navigation Bar */}
+        <header className="h-14 border-b border-gray-200 bg-white flex items-center justify-between px-4 flex-shrink-0">
+          {/* Left controls */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setLeftPanelOpen(!leftPanelOpen)}
+              className={cn(
+                "p-2 rounded-lg transition-colors",
+                leftPanelOpen ? "bg-gray-100 text-gray-700" : "hover:bg-gray-100 text-gray-500"
+              )}
+              title={leftPanelOpen ? "Close sidebar" : "Open sidebar"}
+            >
+              <PanelLeft className="w-5 h-5" />
+            </button>
+            
+            {selectedProject && (
+              <div className="flex items-center gap-2 ml-2">
+                <Folder className="w-4 h-4 text-gray-400" />
+                <span className="text-sm text-gray-600 truncate max-w-[150px]">
+                  {selectedProject.name}
+                </span>
+                <ChevronRight className="w-4 h-4 text-gray-300" />
+                <span className="text-sm font-medium text-gray-900">New Chat</span>
+              </div>
+            )}
+          </div>
+
+          {/* Center - Mode Toggle */}
+          <div className="flex items-center gap-3">
+            <span className={`text-sm ${!agentMode ? 'text-gray-900 font-medium' : 'text-gray-400'}`}>
+              Standard
+            </span>
+            <button
+              onClick={() => setAgentMode(!agentMode)}
+              className={cn(
+                "relative w-11 h-6 rounded-full transition-colors duration-200",
+                agentMode ? 'bg-indigo-600' : 'bg-gray-300'
+              )}
+            >
+              <span
+                className={cn(
+                  "absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-200",
+                  agentMode ? 'translate-x-5' : 'translate-x-0'
+                )}
+              />
+            </button>
+            <span className={cn(
+              "text-sm flex items-center gap-1.5",
+              agentMode ? 'text-gray-900 font-medium' : 'text-gray-400'
+            )}>
+              <Brain className="w-4 h-4" />
+              Agent
+            </span>
+          </div>
+
+          {/* Right controls */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setRightPanelOpen(!rightPanelOpen)}
+              className={cn(
+                "p-2 rounded-lg transition-colors",
+                rightPanelOpen ? "bg-gray-100 text-gray-700" : "hover:bg-gray-100 text-gray-500"
+              )}
+              title={rightPanelOpen ? "Close outcomes" : "Open outcomes"}
+            >
+              <PanelRight className="w-5 h-5" />
+            </button>
+            
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleNewChat}
+              className="ml-2 gap-1.5"
+            >
+              <Plus className="w-4 h-4" />
+              New Chat
+            </Button>
+          </div>
+        </header>
+
+        {/* Chat Area */}
+        <div className="flex-1 overflow-hidden">
+          {agentMode ? (
+            <AgentChatInterface
+              projectName={selectedProject?.name}
+              chatTitle="New Chat"
+              onNewChat={handleNewChat}
+            />
+          ) : (
+            <ChatInterfaceV2
+              projectName={selectedProject?.name}
+              chatTitle="New Chat"
+              onNewChat={handleNewChat}
+              onSwitchToAgent={() => setAgentMode(true)}
+            />
+          )}
+        </div>
       </div>
 
-      {/* Right Panel - Outcomes */}
-      <OutcomesPanel />
+      {/* Right Panel - Outcomes - Collapsible */}
+      <AnimatePresence initial={false}>
+        {rightPanelOpen && (
+          <motion.div
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: 320, opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: 'easeInOut' }}
+            className="flex-shrink-0 border-l border-gray-200 bg-white"
+          >
+            <OutcomesPanel />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* New Chat Modal */}
+      {/* Modals */}
       <AnimatePresence>
         {showNewChatModal && (
           <NewChatModal
@@ -107,7 +233,6 @@ function DesktopLayout() {
         )}
       </AnimatePresence>
 
-      {/* Settings Modal */}
       <AnimatePresence>
         {showSettings && (
           <SettingsModal onClose={() => setShowSettings(false)} />
@@ -117,8 +242,7 @@ function DesktopLayout() {
   );
 }
 
-
-
+// Simplified New Chat Modal
 function NewChatModal({ onClose, onCreate }: { onClose: () => void; onCreate: (title: string) => void }) {
   const [title, setTitle] = useState('');
 
@@ -134,7 +258,7 @@ function NewChatModal({ onClose, onCreate }: { onClose: () => void; onCreate: (t
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
       onClick={onClose}
     >
       <motion.div
@@ -152,7 +276,6 @@ function NewChatModal({ onClose, onCreate }: { onClose: () => void; onCreate: (t
         </div>
         
         <form onSubmit={handleSubmit}>
-          <label className="block text-sm text-gray-600 mb-2">Chat Title</label>
           <input
             type="text"
             value={title}
@@ -171,7 +294,7 @@ function NewChatModal({ onClose, onCreate }: { onClose: () => void; onCreate: (t
               disabled={!title.trim()}
             >
               <MessageSquare className="w-4 h-4 mr-2" />
-              Create Chat
+              Create
             </Button>
           </div>
         </form>
@@ -180,15 +303,22 @@ function NewChatModal({ onClose, onCreate }: { onClose: () => void; onCreate: (t
   );
 }
 
+// Simplified Settings Modal
 function SettingsModal({ onClose }: { onClose: () => void }) {
-  const { user, logout } = useAuth();
+  const { user, logout, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogin = () => {
+    onClose();
+    navigate('/login');
+  };
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
       onClick={onClose}
     >
       <motion.div
@@ -196,77 +326,65 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.95, opacity: 0 }}
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-hidden"
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6"
       >
-        <div className="h-14 border-b border-gray-200 flex items-center justify-between px-4">
-          <h2 className="font-semibold text-gray-900">Settings</h2>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-lg font-semibold text-gray-900">Settings</h2>
           <Button variant="ghost" size="icon" onClick={onClose}>
             <X className="w-5 h-5" />
           </Button>
         </div>
-        <div className="p-6 overflow-y-auto">
-          <div className="space-y-6">
-            {/* Profile Section */}
-            <div>
-              <h3 className="text-sm font-semibold text-gray-900 mb-3">Profile</h3>
-              <div className="space-y-3">
-                <div>
-                  <label className="text-sm text-gray-600">Name</label>
-                  <input
-                    type="text"
-                    defaultValue={user?.full_name || 'John Doe'}
-                    className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm text-gray-600">Email</label>
-                  <input
-                    type="email"
-                    defaultValue={user?.email || 'john@example.com'}
-                    className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm"
-                  />
-                </div>
-              </div>
-            </div>
 
-            {/* Notifications */}
-            <div>
-              <h3 className="text-sm font-semibold text-gray-900 mb-3">Notifications</h3>
-              <div className="space-y-2">
-                {['Email notifications', 'Analysis complete alerts', 'New features'].map((item) => (
-                  <label key={item} className="flex items-center justify-between py-2">
-                    <span className="text-sm text-gray-700">{item}</span>
-                    <input type="checkbox" defaultChecked className="w-4 h-4 rounded border-gray-300" />
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            {/* API Keys */}
-            <div>
-              <h3 className="text-sm font-semibold text-gray-900 mb-3">API Keys</h3>
-              <div className="p-3 bg-gray-50 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <code className="text-sm text-gray-600">sk_live_xxxxxxxxxxxx</code>
-                  <Button variant="outline" size="sm">Copy</Button>
+        <div className="space-y-6">
+          {isAuthenticated ? (
+            <>
+              <div>
+                <h3 className="text-sm font-medium text-gray-900 mb-3">Profile</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs text-gray-500 uppercase tracking-wide">Name</label>
+                    <input
+                      type="text"
+                      defaultValue={user?.full_name || 'John Doe'}
+                      className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 uppercase tracking-wide">Email</label>
+                    <input
+                      type="email"
+                      defaultValue={user?.email || 'john@example.com'}
+                      className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Sign Out */}
-            <div className="pt-4 border-t border-gray-200">
+              <div className="pt-4 border-t border-gray-200">
+                <Button 
+                  variant="destructive" 
+                  className="w-full"
+                  onClick={() => {
+                    logout();
+                    onClose();
+                  }}
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Sign Out
+                </Button>
+              </div>
+            </>
+          ) : (
+            <div className="text-center py-4">
+              <p className="text-gray-600 mb-4">Sign in to access your account and upload files</p>
               <Button 
-                variant="destructive" 
-                className="w-full"
-                onClick={() => {
-                  logout();
-                  onClose();
-                }}
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white"
+                onClick={handleLogin}
               >
-                Sign Out
+                Sign In / Register
               </Button>
             </div>
-          </div>
+          )}
         </div>
       </motion.div>
     </motion.div>
@@ -283,17 +401,20 @@ function AppContent() {
   }, []);
 
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route
-        path="/*"
-        element={
-          <ProtectedRoute>
-            {isMobile ? <MobileLayout /> : <DesktopLayout />}
-          </ProtectedRoute>
-        }
-      />
-    </Routes>
+    <div style={{ minHeight: '100dvh' }} className="flex flex-col">
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/image" element={<ImagePage />} />
+        <Route
+          path="/*"
+          element={
+            <ProtectedRoute>
+              {isMobile ? <MobileLayout /> : <DesktopLayout />}
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    </div>
   );
 }
 

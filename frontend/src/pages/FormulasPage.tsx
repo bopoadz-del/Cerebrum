@@ -12,71 +12,26 @@ const mockFormulas: Formula[] = [
   {
     id: '1',
     name: 'Net Present Value',
-    description: 'Calculate the present value of future cash flows discounted at a given rate.',
+    description: 'Calculate the present value of future cash flows.',
     category: 'Finance',
-    parameters: [
-      { name: 'cashFlows', type: 'array', required: true, description: 'Array of cash flows' },
-      { name: 'discountRate', type: 'number', required: true, description: 'Discount rate as decimal' },
-      { name: 'initialInvestment', type: 'number', required: false, description: 'Initial investment amount', defaultValue: 0 },
+    formula: 'NPV = Σ(Ct / (1+r)^t) - C0',
+    variables: [
+      { name: 'Ct', description: 'Cash flow at time t', unit: '$' },
+      { name: 'r', description: 'Discount rate', unit: '%' },
+      { name: 'C0', description: 'Initial investment', unit: '$' },
     ],
-    documentationUrl: '#',
   },
   {
     id: '2',
-    name: 'Internal Rate of Return',
-    description: 'Calculate the discount rate that makes NPV equal to zero.',
-    category: 'Finance',
-    parameters: [
-      { name: 'cashFlows', type: 'array', required: true, description: 'Array of cash flows' },
+    name: 'Concrete Volume',
+    description: 'Calculate concrete volume for a rectangular slab.',
+    category: 'Construction',
+    formula: 'V = L × W × D',
+    variables: [
+      { name: 'L', description: 'Length', unit: 'ft' },
+      { name: 'W', description: 'Width', unit: 'ft' },
+      { name: 'D', description: 'Depth', unit: 'ft' },
     ],
-    documentationUrl: '#',
-  },
-  {
-    id: '3',
-    name: 'Beam Deflection',
-    description: 'Calculate deflection of a simply supported beam under uniform load.',
-    category: 'Engineering',
-    parameters: [
-      { name: 'load', type: 'number', required: true, description: 'Uniform load (N/m)' },
-      { name: 'length', type: 'number', required: true, description: 'Beam length (m)' },
-      { name: 'elasticity', type: 'number', required: true, description: 'Modulus of elasticity (Pa)' },
-      { name: 'inertia', type: 'number', required: true, description: 'Moment of inertia (m⁴)' },
-    ],
-    documentationUrl: '#',
-  },
-  {
-    id: '4',
-    name: 'Standard Deviation',
-    description: 'Calculate the standard deviation of a dataset.',
-    category: 'Statistics',
-    parameters: [
-      { name: 'data', type: 'array', required: true, description: 'Array of numbers' },
-      { name: 'sample', type: 'boolean', required: false, description: 'Use sample standard deviation', defaultValue: true },
-    ],
-    documentationUrl: '#',
-  },
-  {
-    id: '5',
-    name: 'Linear Regression',
-    description: 'Perform linear regression on a dataset.',
-    category: 'Statistics',
-    parameters: [
-      { name: 'x', type: 'array', required: true, description: 'Independent variable values' },
-      { name: 'y', type: 'array', required: true, description: 'Dependent variable values' },
-    ],
-    documentationUrl: '#',
-  },
-  {
-    id: '6',
-    name: 'Concrete Mix Design',
-    description: 'Calculate concrete mix proportions based on strength requirements.',
-    category: 'Engineering',
-    parameters: [
-      { name: 'targetStrength', type: 'number', required: true, description: 'Target compressive strength (MPa)' },
-      { name: 'slump', type: 'number', required: true, description: 'Slump value (mm)' },
-      { name: 'aggregateSize', type: 'number', required: true, description: 'Maximum aggregate size (mm)' },
-    ],
-    documentationUrl: '#',
   },
 ];
 

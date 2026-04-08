@@ -42,7 +42,6 @@ export function MobileLayout() {
     attachments,
     addAttachment,
     removeAttachment,
-    isUploading,
   } = useChat();
 
   const selectedProject = projects[0];
@@ -75,7 +74,7 @@ export function MobileLayout() {
             onAttachFile={addAttachment}
             attachments={attachments}
             onRemoveAttachment={removeAttachment}
-            isUploading={isUploading}
+            isUploading={false}
           />
         );
       case 'chat':

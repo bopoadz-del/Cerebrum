@@ -9,12 +9,36 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { AnalysisResult } from '@/types';
 
+interface DocumentSection {
+  name: string;
+  page: number;
+}
+
+interface DocumentMetadata {
+  author: string;
+  created: string;
+  modified: string;
+  company: string;
+}
+
+interface DocumentDetails {
+  pages: number;
+  words: number;
+  characters: number;
+  paragraphs: number;
+  headings: number;
+  tables: number;
+  images: number;
+  sections: DocumentSection[];
+  metadata: DocumentMetadata;
+}
+
 const ACCEPTED_FORMATS = ['.doc', '.docx', '.rtf', '.odt'];
 const MAX_FILE_SIZE = 50; // MB
 
 const mockResult: AnalysisResult = {
   id: '1',
-  moduleId: 'document',
+  type: 'analysis',
   fileName: 'Project-Proposal.docx',
   status: 'completed',
   createdAt: new Date().toISOString(),
@@ -49,7 +73,9 @@ export default function DocumentPage() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  const handleUpload = async (_files: File[]) => {
+  const handleUpload = async (_file: File) => {
+    // Use file to avoid unused variable warning
+    console.log('Uploading files:', 1);
     setIsAnalyzing(true);
     await new Promise((resolve) => setTimeout(resolve, 2000));
     setResult(mockResult);
@@ -72,9 +98,9 @@ export default function DocumentPage() {
         className="mb-8"
       >
         <FileUpload
-          acceptedFormats={ACCEPTED_FORMATS}
-          maxFileSize={MAX_FILE_SIZE}
-          onUpload={handleUpload}
+          acceptedTypes={ACCEPTED_FORMATS.join(',')}
+          maxSize={MAX_FILE_SIZE}
+          attachments={[]} onUpload={handleUpload}
         />
       </motion.div>
 
@@ -104,7 +130,7 @@ export default function DocumentPage() {
                 <File className="w-5 h-5 text-indigo-500" />
                 <div>
                   <p className="text-sm text-gray-500">Pages</p>
-                  <p className="font-semibold">{(result.details as any)?.pages as number}</p>
+                  <p className="font-semibold">{(result.details as DocumentDetails)?.pages}</p>
                 </div>
               </CardContent>
             </Card>
@@ -113,7 +139,7 @@ export default function DocumentPage() {
                 <Type className="w-5 h-5 text-emerald-500" />
                 <div>
                   <p className="text-sm text-gray-500">Words</p>
-                  <p className="font-semibold">{((result.details as any)?.words as number).toLocaleString()}</p>
+                  <p className="font-semibold">{((result.details as DocumentDetails)?.words ?? 0).toLocaleString()}</p>
                 </div>
               </CardContent>
             </Card>
@@ -122,7 +148,7 @@ export default function DocumentPage() {
                 <Table className="w-5 h-5 text-amber-500" />
                 <div>
                   <p className="text-sm text-gray-500">Tables</p>
-                  <p className="font-semibold">{(result.details as any)?.tables as number}</p>
+                  <p className="font-semibold">{(result.details as DocumentDetails)?.tables}</p>
                 </div>
               </CardContent>
             </Card>
@@ -131,7 +157,7 @@ export default function DocumentPage() {
                 <ImageIcon className="w-5 h-5 text-purple-500" />
                 <div>
                   <p className="text-sm text-gray-500">Images</p>
-                  <p className="font-semibold">{(result.details as any)?.images as number}</p>
+                  <p className="font-semibold">{(result.details as DocumentDetails)?.images}</p>
                 </div>
               </CardContent>
             </Card>
@@ -152,7 +178,7 @@ export default function DocumentPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
-                    {((result.details as any)?.sections as Array<{ name: string; page: number }>)?.map(
+                    {((result.details as DocumentDetails)?.sections)?.map(
                       (section, index) => (
                         <div
                           key={index}
@@ -182,7 +208,7 @@ export default function DocumentPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 gap-4">
-                    {Object.entries((result.details as any)?.metadata as Record<string, string>).map(
+                    {Object.entries((result.details as DocumentDetails)?.metadata ?? {}).map(
                       ([key, value]) => (
                         <div key={key} className="p-3 bg-gray-50 rounded-lg">
                           <p className="text-sm text-gray-500 capitalize">{key}</p>

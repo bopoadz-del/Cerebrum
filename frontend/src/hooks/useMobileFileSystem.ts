@@ -26,7 +26,7 @@ interface FileEntry {
   path: string;
   isDirectory: boolean;
   size: number;
-  modified?: string;
+  modified: string;
   mimeType?: string;
 }
 
@@ -171,7 +171,7 @@ export function useMobileFileSystem(
         path: `${path === '/' ? '' : path}/${f.name}`,
         isDirectory: f.isDirectory || false,
         size: f.size || 0,
-        modified: (f as any).modified?.toISOString?.() || (f as any).mtime?.toISOString?.() || new Date().toISOString(),
+        modified: 'lastModified' in f && f.lastModified ? new Date(f.lastModified).toISOString() : new Date().toISOString(),
         mimeType: f.isDirectory ? undefined : getMimeType(f.name),
       }));
       
@@ -207,14 +207,14 @@ export function useMobileFileSystem(
   const deleteItem = useCallback(async (path: string, isDirectory: boolean) => {
     if (isDirectory) {
       if (fileSystem.deleteDirectory) {
-        await fileSystem.deleteDirectory(path, folder);
-      } else {
-        await Filesystem.rmdir({
-          directory: Directory.Documents,
-          path,
-          recursive: true
-        });
-      }
+      await fileSystem.deleteDirectory(path, folder);
+    } else {
+      await Filesystem.rmdir({
+        directory: Directory.Documents,
+        path,
+        recursive: true
+      });
+    }
     } else {
       await fileSystem.deleteFile(path, folder);
     }

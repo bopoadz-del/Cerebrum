@@ -1,138 +1,225 @@
-import { motion } from 'framer-motion';
-import { Brain, Sparkles, FileText, Mic, Calendar, TrendingUp } from 'lucide-react';
-import { ChatMessage } from './ChatMessage';
-import { ChatInput } from './ChatInput';
-import { useChat } from '@/hooks/useChat';
+import { useState, useRef, useEffect } from 'react';
+import { Bot, Trash2, Download, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { ChatInput } from './ChatInput';
+import { ChatMessage } from './ChatMessage';
+import { FileUpload } from './FileUpload';
+import { WebSearchIndicator } from './WebSearchIndicator';
+import type { Message, Attachment } from '@/types';
 
-const SUGGESTED_PROMPTS = [
-  { icon: FileText, text: 'Analyze this PDF document' },
-  { icon: Mic, text: 'Transcribe and summarize audio' },
-  { icon: Calendar, text: 'Check schedule for conflicts' },
-  { icon: TrendingUp, text: 'Forecast next quarter trends' },
-];
+interface ChatInterfaceProps {
+  messages: Message[];
+  onSendMessage: (content: string, attachments?: Attachment[]) => void;
+  onFileUpload?: (file: File) => void;
+  onClearChat?: () => void;
+  onExportChat?: () => void;
+  onRegenerate?: (messageIndex: number) => void;
+  onFeedback?: (messageIndex: number, type: 'up' | 'down') => void;
+  isLoading?: boolean;
+  className?: string;
+  enableFileUpload?: boolean;
+  enableWebSearch?: boolean;
+  enableCodeExecution?: boolean;
 
-export function ChatInterface() {
-  const {
-    messages,
-    inputValue,
-    setInputValue,
-    isLoading,
-    attachments,
-    messagesEndRef,
-    sendMessage,
-    addAttachment,
-    removeAttachment,
-  } = useChat();
+}
 
-  const hasMessages = messages.length > 0;
+export function ChatInterface({
+  messages,
+  onSendMessage,
+  onFileUpload,
+  onClearChat,
+  onExportChat,
+  onRegenerate,
+  onFeedback,
+  isLoading = false,
+  className,
+  enableFileUpload = true,
+  enableWebSearch = true,
+  enableCodeExecution = true,
+
+}: ChatInterfaceProps) {
+  const [input, setInput] = useState('');
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [isWebSearchEnabled, setIsWebSearchEnabled] = useState(false);
+  const [isCodeModeEnabled, setIsCodeModeEnabled] = useState(false);
+
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const handleSend = () => {
+    if (!input.trim() && attachments.length === 0) return;
+    
+    onSendMessage(input, attachments.length > 0 ? attachments : undefined);
+    setInput('');
+    setAttachments([]);
+  };
+
+  const handleAttach = (file: File) => {
+    const newAttachment: Attachment = {
+      id: Math.random().toString(36).substr(2, 9),
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      status: 'uploading',
+      progress: 0,
+    };
+    setAttachments(prev => [...prev, newAttachment]);
+    
+    if (onFileUpload) {
+      onFileUpload(file);
+    }
+  };
+
+  const handleClearChat = () => {
+    if (onClearChat) {
+      onClearChat();
+    }
+    setAttachments([]);
+    setInput('');
+  };
+
+  const handleExportChat = () => {
+    if (onExportChat) {
+      onExportChat();
+      return;
+    }
+    // Default export implementation
+    const exportData = {
+      exportedAt: new Date().toISOString(),
+      messages: messages,
+    };
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `cerebrum-chat-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleRegenerate = (index: number) => {
+    if (onRegenerate) {
+      onRegenerate(index);
+    }
+  };
+
+  const handleFeedback = (index: number, type: 'up' | 'down') => {
+    if (onFeedback) {
+      onFeedback(index, type);
+    }
+    // Store feedback in localStorage for now
+    const feedbackKey = `feedback-${messages[index]?.id || index}`;
+    localStorage.setItem(feedbackKey, type);
+  };
+
+  const handleRemoveAttachment = (id: string) => {
+    setAttachments(prev => prev.filter(att => att.id !== id));
+  };
 
   return (
-    <div className="flex flex-col h-full bg-gray-50">
+    <div className={cn('flex flex-col h-full bg-white', className)}>
       {/* Header */}
-      <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
+      <header className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-white">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-            <Sparkles className="w-4 h-4 text-white" />
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+            <Bot className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="font-semibold text-gray-900">AI Assistant</h1>
-            <p className="text-xs text-gray-500">Powered by Reasoner</p>
+            <h1 className="font-semibold text-gray-900">Cerebrum AI</h1>
+            <p className="text-xs text-gray-500">Construction Intelligence</p>
           </div>
         </div>
+        
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-sm text-gray-500">Online</span>
+          {onExportChat && (
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="text-gray-500"
+              onClick={handleExportChat}
+              title="Export chat"
+            >
+              <Download className="w-5 h-5" />
+            </Button>
+          )}
+          {onClearChat && (
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="text-gray-500"
+              onClick={handleClearChat}
+              title="Clear chat"
+            >
+              <Trash2 className="w-5 h-5" />
+            </Button>
+          )}
+          <Button variant="ghost" size="icon" className="text-gray-500">
+            <Settings className="w-5 h-5" />
+          </Button>
         </div>
       </header>
 
-      {/* Chat Content */}
-      <div className="flex-1 overflow-y-auto">
-        {!hasMessages ? (
-          /* Welcome State */
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
-            className="flex flex-col items-center justify-center h-full px-6 py-12"
-          >
-            {/* Logo */}
-            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mb-6 shadow-xl shadow-indigo-500/20">
-              <Brain className="w-10 h-10 text-white" />
+      {/* Messages Area */}
+      <ScrollArea ref={scrollAreaRef} className="flex-1 px-4 py-4">
+        <div className="space-y-4 max-w-3xl mx-auto">
+          {messages.length === 0 && (
+            <div className="text-center py-12 text-gray-400">
+              Start a conversation...
             </div>
+          )}
 
-            {/* Title */}
-            <h2 className="text-2xl font-semibold text-gray-900 mb-2 text-center">
-              What can I help you analyze today?
-            </h2>
-            <p className="text-gray-500 text-center mb-8 max-w-md">
-              Upload files or ask questions. I can analyze schedules, documents, audio, CAD files, and more.
-            </p>
-
-            {/* Suggested Prompts */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg w-full">
-              {SUGGESTED_PROMPTS.map((prompt, index) => (
-                <motion.button
-                  key={index}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 + 0.3 }}
-                  onClick={() => setInputValue(prompt.text)}
-                  className={cn(
-                    'flex items-center gap-3 px-4 py-3 bg-white border border-gray-200 rounded-xl',
-                    'text-left transition-all duration-200',
-                    'hover:border-indigo-300 hover:shadow-md hover:-translate-y-0.5'
-                  )}
-                >
-                  <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
-                    <prompt.icon className="w-4 h-4 text-indigo-600" />
-                  </div>
-                  <span className="text-sm text-gray-700">{prompt.text}</span>
-                </motion.button>
-              ))}
-            </div>
-          </motion.div>
-        ) : (
-          /* Chat Messages */
-          <div className="max-w-3xl mx-auto px-6 py-8">
-            {messages.map((message, index) => (
-              <ChatMessage key={message.id} message={message} index={index} />
-            ))}
-            
-            {/* Loading Indicator */}
-            {isLoading && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex gap-4 mb-6"
-              >
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0">
-                  <Brain className="w-4 h-4 text-white" />
-                </div>
-                <div className="flex items-center gap-1 px-4 py-3 bg-white border border-gray-200 rounded-2xl">
-                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                </div>
-              </motion.div>
-            )}
-            
-            <div ref={messagesEndRef} />
-          </div>
-        )}
-      </div>
+          {messages.map((message, index) => (
+            <ChatMessage
+              key={message.id || index}
+              message={message}
+              isLoading={isLoading && index === messages.length - 1 && message.role === 'assistant'}
+              onRegenerate={() => handleRegenerate(index)}
+              onFeedback={(type) => handleFeedback(index, type)}
+            />
+          ))}
+          
+          {isWebSearchEnabled && (
+            <WebSearchIndicator query={input} isSearching={isLoading} />
+          )}
+          
+          <div ref={messagesEndRef} />
+        </div>
+      </ScrollArea>
 
       {/* Input Area */}
-      <div className="max-w-3xl mx-auto w-full">
+      <div className="border-t border-gray-200">
+        {enableFileUpload && (
+          <FileUpload
+            attachments={attachments}
+            onRemove={handleRemoveAttachment}
+          />
+        )}
+        
         <ChatInput
-          value={inputValue}
-          onChange={setInputValue}
-          onSend={sendMessage}
-          onAttach={addAttachment}
+          value={input}
+          onChange={setInput}
+          onSend={handleSend}
+          onAttach={enableFileUpload ? handleAttach : undefined}
           attachments={attachments}
-          onRemoveAttachment={removeAttachment}
+          onRemoveAttachment={handleRemoveAttachment}
           isLoading={isLoading}
-          placeholder="Type your message or drop files here..."
+          placeholder="Type your message..."
+          onWebSearchToggle={enableWebSearch ? () => setIsWebSearchEnabled(!isWebSearchEnabled) : undefined}
+          isWebSearchEnabled={isWebSearchEnabled}
+          onCodeModeToggle={enableCodeExecution ? () => setIsCodeModeEnabled(!isCodeModeEnabled) : undefined}
+          isCodeModeEnabled={isCodeModeEnabled}
         />
       </div>
     </div>
