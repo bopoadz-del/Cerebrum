@@ -8,7 +8,7 @@ from datetime import datetime
 from enum import Enum
 
 from app.api.deps import get_current_user
-from app.edge.device_registry import EdgeDeviceRegistry, EdgeDevice, DeviceStatus
+from app.edge.device_registry import DeviceRegistry as EdgeDeviceRegistry, EdgeDevice, DeviceStatus
 from app.edge.heartbeat import HeartbeatManager
 from app.edge.deployment import EdgeDeploymentManager, DeploymentStatus, DeploymentType
 from app.edge.hybrid_inference import HybridInferenceOrchestrator, InferenceLocation

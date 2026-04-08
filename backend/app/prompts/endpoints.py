@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_db
+from app.core.deps import get_db
 from app.prompts.ab_testing import ABTestConfig, get_ab_testing_framework
 from app.prompts.dynamic_loading import get_prompt_loader
 from app.prompts.models import (
