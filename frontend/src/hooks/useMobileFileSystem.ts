@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
+import { Filesystem, Directory } from '@capacitor/filesystem';
 import { 
   fileSystem, 
   backgroundSync,
@@ -26,7 +26,7 @@ interface FileEntry {
   path: string;
   isDirectory: boolean;
   size: number;
-  modified: string;
+  modified?: string;
   mimeType?: string;
 }
 
@@ -97,7 +97,7 @@ export function useMobileFileSystem(
     try {
       // Try to get storage info from device
       // This is a best-effort - not all platforms support this
-      const info = await Filesystem.getUri({
+      await Filesystem.getUri({
         directory: Directory.Documents,
         path: ''
       });
@@ -171,7 +171,7 @@ export function useMobileFileSystem(
         path: `${path === '/' ? '' : path}/${f.name}`,
         isDirectory: f.isDirectory || false,
         size: f.size || 0,
-        modified: f.modified?.toISOString() || new Date().toISOString(),
+        modified: (f as any).modified?.toISOString?.() || (f as any).mtime?.toISOString?.() || new Date().toISOString(),
         mimeType: f.isDirectory ? undefined : getMimeType(f.name),
       }));
       
@@ -206,12 +206,15 @@ export function useMobileFileSystem(
 
   const deleteItem = useCallback(async (path: string, isDirectory: boolean) => {
     if (isDirectory) {
-      await fileSystem.deleteDirectory?.(path, folder) || 
-      await Filesystem.rmdir({
-        directory: Directory.Documents,
-        path,
-        recursive: true
-      });
+      if (fileSystem.deleteDirectory) {
+        await fileSystem.deleteDirectory(path, folder);
+      } else {
+        await Filesystem.rmdir({
+          directory: Directory.Documents,
+          path,
+          recursive: true
+        });
+      }
     } else {
       await fileSystem.deleteFile(path, folder);
     }

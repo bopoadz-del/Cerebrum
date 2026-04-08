@@ -2,7 +2,6 @@ import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Folder, 
-  MessageSquare, 
   FileText, 
   Upload, 
   X, 

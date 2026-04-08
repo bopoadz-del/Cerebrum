@@ -4,7 +4,7 @@ import { Archive, FileText, Folder, Clock, Search, Download, Trash2 } from 'luci
 import { ModuleHeader } from '@/components/ModuleHeader';
 import { FileUpload } from '@/components/FileUpload';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { } from '@/components/ui/badge';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { AnalysisResult } from '@/types';
@@ -24,8 +24,8 @@ const mockResult: AnalysisResult = {
   moduleId: 'archive',
   fileName: 'Project-Backup.zip',
   status: 'completed',
-  createdAt: new Date(),
-  completedAt: new Date(),
+  createdAt: new Date().toISOString(),
+  completedAt: new Date().toISOString(),
   summary: 'Archive analysis completed. 312 files found across 15 folders.',
   details: {
     totalFiles: 312,

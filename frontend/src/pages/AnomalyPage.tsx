@@ -6,7 +6,7 @@ import { FileUpload } from '@/components/FileUpload';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { } from '@/components/ui/progress';
+
 import {
   LineChart,
   Line,
@@ -37,8 +37,8 @@ const mockResult: AnalysisResult = {
   moduleId: 'anomaly',
   fileName: 'sensor-data.csv',
   status: 'completed',
-  createdAt: new Date(),
-  completedAt: new Date(),
+  createdAt: new Date().toISOString(),
+  completedAt: new Date().toISOString(),
   summary: 'Anomaly detection completed. 2 anomalies found in 1,247 data points.',
   details: {
     totalPoints: 1247,

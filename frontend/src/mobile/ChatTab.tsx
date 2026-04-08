@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect } from 'react';
+import { useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Send, Bot, Loader2, Sparkles, Calendar, MessageSquare } from 'lucide-react';
+import { Send, Bot, Loader2, Calendar, MessageSquare } from 'lucide-react';
 import { ChatMessage } from '@/components/ChatMessage';
 import { useChat } from '@/hooks/useChat';
 import { cn } from '@/lib/utils';
@@ -20,8 +20,8 @@ const SUGGESTED_PROMPTS = [
 export function ChatTab({ projectName }: ChatTabProps) {
   const {
     messages,
-    input,
-    setInput,
+    inputValue,
+    setInputValue,
     isLoading,
     sendMessage,
     clearMessages,
@@ -43,8 +43,8 @@ export function ChatTab({ projectName }: ChatTabProps) {
   }, [messages]);
 
   const handleSend = () => {
-    if (input.trim()) {
-      sendMessage(input, []);
+    if (inputValue.trim()) {
+      sendMessage();
     }
   };
 
@@ -130,7 +130,7 @@ export function ChatTab({ projectName }: ChatTabProps) {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  onClick={() => setInput(prompt)}
+                  onClick={() => setInputValue(prompt)}
                   className={cn(
                     'px-4 py-3 bg-white border border-gray-200 rounded-xl',
                     'text-sm text-gray-700 font-medium transition-all duration-200',
@@ -178,8 +178,8 @@ export function ChatTab({ projectName }: ChatTabProps) {
           <div className="flex-1 relative">
             <textarea
               ref={textareaRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={isProjectSelected ? 'Type /help for commands...' : 'Type /help or select a project...'}
               rows={1}
@@ -196,7 +196,7 @@ export function ChatTab({ projectName }: ChatTabProps) {
           <Button
             type="button"
             onClick={handleSend}
-            disabled={isLoading || !input.trim()}
+            disabled={isLoading || !inputValue.trim()}
             className={cn(
               'flex-shrink-0 w-14 h-[52px] rounded-2xl bg-indigo-600 hover:bg-indigo-700',
               'text-white shadow-md hover:shadow-lg transition-all duration-200',

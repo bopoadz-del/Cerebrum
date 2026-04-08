@@ -69,7 +69,7 @@ I can help you with construction management tasks. Try these commands:
 **General:**
 • \`/help\` - Show all commands
 • \`/status\` - Check system status`,
-      timestamp: new Date(),
+      timestamp: new Date().toISOString(),
     },
     ...initialMessages,
   ]);
@@ -326,7 +326,7 @@ This is a simulated result showing how ZVec offline semantic search would work. 
       id: uuidv4(),
       role: 'user',
       content: content,
-      timestamp: new Date(),
+      timestamp: new Date().toISOString(),
       attachments: attachments.length > 0 ? [...attachments] : undefined,
     };
 
@@ -344,7 +344,7 @@ This is a simulated result showing how ZVec offline semantic search would work. 
           id: uuidv4(),
           role: 'assistant',
           content: response,
-          timestamp: new Date(),
+          timestamp: new Date().toISOString(),
         };
         
         setMessages((prev) => [...prev, aiMessage]);
@@ -353,7 +353,7 @@ This is a simulated result showing how ZVec offline semantic search would work. 
           id: uuidv4(),
           role: 'assistant',
           content: `❌ Error: ${error instanceof Error ? error.message : 'Something went wrong'}`,
-          timestamp: new Date(),
+          timestamp: new Date().toISOString(),
         };
         setMessages((prev) => [...prev, errorMessage]);
       } finally {
@@ -373,7 +373,7 @@ This is a simulated result showing how ZVec offline semantic search would work. 
             id: uuidv4(),
             role: 'assistant',
             content: `I received: "${content}"\n\nI'm configured to respond to commands. Type **/help** to see what I can do!`,
-            timestamp: new Date(),
+            timestamp: new Date().toISOString(),
           };
           
           setMessages((prev) => [...prev, aiMessage]);
@@ -469,7 +469,7 @@ This is a simulated result showing how ZVec offline semantic search would work. 
           id: uuidv4(),
           role: 'assistant',
           content: `❌ **File Upload Failed**\n\n${errorMsg}`,
-          timestamp: new Date(),
+          timestamp: new Date().toISOString(),
         };
         setMessages((prev) => [...prev, errorMessage]);
         return;
@@ -509,7 +509,7 @@ This is a simulated result showing how ZVec offline semantic search would work. 
         id: uuidv4(),
         role: 'assistant',
         content: successMsg,
-        timestamp: new Date(),
+        timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, successMessage]);
       
@@ -520,7 +520,7 @@ This is a simulated result showing how ZVec offline semantic search would work. 
         id: uuidv4(),
         role: 'assistant',
         content: `❌ **File Upload Failed**\n\n${error instanceof Error ? error.message : 'Network error. Please try again.'}`,
-        timestamp: new Date(),
+        timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {

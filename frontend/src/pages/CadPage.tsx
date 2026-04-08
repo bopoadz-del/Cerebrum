@@ -4,8 +4,7 @@ import { Box, Layers, Ruler, AlertTriangle } from 'lucide-react';
 import { ModuleHeader } from '@/components/ModuleHeader';
 import { FileUpload } from '@/components/FileUpload';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { } from '@/components/ui/badge';
-import { } from '@/components/ui/button';
+
 import type { AnalysisResult } from '@/types';
 
 const ACCEPTED_FORMATS = ['.dwg', '.dxf', '.step', '.iges'];
@@ -16,8 +15,8 @@ const mockResult: AnalysisResult = {
   moduleId: 'cad',
   fileName: 'Building-Floor-Plan.dwg',
   status: 'completed',
-  createdAt: new Date(),
-  completedAt: new Date(),
+  createdAt: new Date().toISOString(),
+  completedAt: new Date().toISOString(),
   summary: 'CAD analysis completed. 15 layers analyzed with 2 issues detected.',
   details: {
     layers: 15,

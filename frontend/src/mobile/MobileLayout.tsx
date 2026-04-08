@@ -5,7 +5,6 @@ import {
   MessageSquare, 
   BarChart3,
   Brain,
-  Menu,
   Settings
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -36,12 +35,7 @@ export function MobileLayout() {
   
   const {
     projects,
-    scanning,
-    loading,
     backendAvailable,
-    indexingStatus,
-    scanResults,
-    refreshProjects,
   } = useProjects();
   
   const {

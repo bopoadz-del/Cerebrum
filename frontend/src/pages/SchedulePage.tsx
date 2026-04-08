@@ -5,7 +5,7 @@ import { ModuleHeader } from '@/components/ModuleHeader';
 import { FileUpload } from '@/components/FileUpload';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { } from '@/lib/utils';
+
 import type { AnalysisResult } from '@/types';
 
 const ACCEPTED_FORMATS = ['.xer', '.mpp', '.xml', '.csv'];
@@ -17,8 +17,8 @@ const mockResult: AnalysisResult = {
   moduleId: 'schedule',
   fileName: 'Project-Schedule.xer',
   status: 'completed',
-  createdAt: new Date(),
-  completedAt: new Date(),
+  createdAt: new Date().toISOString(),
+  completedAt: new Date().toISOString(),
   summary: 'Schedule analysis completed with 3 critical issues found',
   details: {
     criticalPath: ['Task A', 'Task B', 'Task C'],

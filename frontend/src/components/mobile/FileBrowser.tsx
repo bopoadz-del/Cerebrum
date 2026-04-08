@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
   Folder, 
   File, 
@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMobileFileSystem } from '@/hooks/useMobileFileSystem';
-import { offlineQueue, QueueStats } from '@/mobile/offlineQueue';
+import { offlineQueue, type QueueStats } from '@/mobile/offlineQueue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { 
@@ -39,7 +39,7 @@ interface FileItem {
   path: string;
   isDirectory: boolean;
   size: number;
-  modified: string;
+  modified?: string;
   mimeType?: string;
 }
 
@@ -274,7 +274,7 @@ export function FileBrowser({
                     </p>
                     {viewMode === 'list' && !item.isDirectory && (
                       <p className="text-xs text-muted-foreground">
-                        {formatFileSize(item.size)} • {new Date(item.modified).toLocaleDateString()}
+                        {formatFileSize(item.size)}{item.modified ? ` • ${new Date(item.modified).toLocaleDateString()}` : ''}
                       </p>
                     )}
                   </div>

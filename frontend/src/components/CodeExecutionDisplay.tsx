@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Check, X, Copy, CheckCheck, Terminal } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Play, Copy, CheckCheck, Terminal } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 
 interface CodeExecutionDisplayProps {
@@ -24,7 +24,7 @@ export function CodeExecutionDisplay({
   onExecute,
 }: CodeExecutionDisplayProps) {
   const [copied, setCopied] = useState(false);
-  const [showOutput, setShowOutput] = useState(true);
+  const [showOutput] = useState(true);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(code);

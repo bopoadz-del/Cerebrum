@@ -4,7 +4,7 @@ import { FileText, Download, Table, Type, Image as ImageIcon } from 'lucide-reac
 import { ModuleHeader } from '@/components/ModuleHeader';
 import { FileUpload } from '@/components/FileUpload';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { } from '@/components/ui/badge';
+
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { AnalysisResult } from '@/types';
@@ -17,8 +17,8 @@ const mockResult: AnalysisResult = {
   moduleId: 'pdf',
   fileName: 'Q4-Financial-Report.pdf',
   status: 'completed',
-  createdAt: new Date(),
-  completedAt: new Date(),
+  createdAt: new Date().toISOString(),
+  completedAt: new Date().toISOString(),
   summary: 'PDF analysis completed. 24 pages processed with 3 tables and 12 images extracted.',
   details: {
     pages: 24,

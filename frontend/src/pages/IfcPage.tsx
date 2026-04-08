@@ -5,7 +5,7 @@ import { ModuleHeader } from '@/components/ModuleHeader';
 import { FileUpload } from '@/components/FileUpload';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { } from '@/components/ui/button';
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { AnalysisResult } from '@/types';
 
@@ -17,8 +17,8 @@ const mockResult: AnalysisResult = {
   moduleId: 'ifc',
   fileName: 'Building-Model.ifc',
   status: 'completed',
-  createdAt: new Date(),
-  completedAt: new Date(),
+  createdAt: new Date().toISOString(),
+  completedAt: new Date().toISOString(),
   summary: 'IFC model analysis completed. 15,847 entities across 42 types.',
   details: {
     schema: 'IFC4',

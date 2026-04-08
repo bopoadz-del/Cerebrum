@@ -14,15 +14,15 @@ export function ChatMessage({ message, index }: ChatMessageProps) {
   const [copied, setCopied] = useState(false);
   const [showActions, setShowActions] = useState(false);
 
-  const formatTime = (date: Date) => {
+  const formatTime = (date: string | Date) => {
     return new Intl.DateTimeFormat('en-US', {
       hour: 'numeric',
       minute: 'numeric',
       hour12: true,
-    }).format(date);
+    }).format(new Date(date));
   };
 
-  const formatDate = (date: Date) => {
+  const formatDate = (date: string | Date) => {
     const now = new Date();
     const msgDate = new Date(date);
     const isToday = msgDate.toDateString() === now.toDateString();
@@ -95,7 +95,7 @@ export function ChatMessage({ message, index }: ChatMessageProps) {
       {/* Message Content */}
       <div className={cn('flex flex-col max-w-[80%]', isUser ? 'items-end' : 'items-start')}>
         {/* Date Badge (if not today) */}
-        {index === 0 || formatDate(message.timestamp) !== formatDate(new Date(Date.now() - 86400000)) && (
+        {(index === 0 || formatDate(message.timestamp) !== formatDate(new Date(Date.now() - 86400000))) && (
           <div className="mb-2 px-3 py-1 bg-gray-100 rounded-full text-xs text-gray-500">
             {formatDate(message.timestamp)}
           </div>

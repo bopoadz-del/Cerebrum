@@ -18,8 +18,8 @@ const mockResult: AnalysisResult = {
   moduleId: 'audio',
   fileName: 'Meeting-Recording.mp3',
   status: 'completed',
-  createdAt: new Date(),
-  completedAt: new Date(),
+  createdAt: new Date().toISOString(),
+  completedAt: new Date().toISOString(),
   summary: 'Audio analysis completed. 45 minutes of content processed.',
   details: {
     duration: '45:32',

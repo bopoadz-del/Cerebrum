@@ -159,9 +159,9 @@ export default function ImagePage() {
         className="mb-8"
       >
         <FileUpload
-          acceptedTypes={ACCEPTED_FORMATS.join(',')}
-          maxSize={MAX_FILE_SIZE}
-          attachments={[]} onUpload={handleUpload}
+          acceptedFormats={ACCEPTED_FORMATS}
+          maxFileSize={MAX_FILE_SIZE}
+          onUpload={(files) => files[0] && handleUpload(files[0])}
         />
       </motion.div>
 

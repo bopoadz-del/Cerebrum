@@ -1,5 +1,5 @@
 import { Preferences } from '@capacitor/preferences';
-import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
+import { Filesystem, Directory } from '@capacitor/filesystem';
 
 /**
  * Offline Upload Queue

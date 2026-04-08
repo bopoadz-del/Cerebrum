@@ -17,8 +17,8 @@ const mockResult: AnalysisResult = {
   moduleId: 'document',
   fileName: 'Project-Proposal.docx',
   status: 'completed',
-  createdAt: new Date(),
-  completedAt: new Date(),
+  createdAt: new Date().toISOString(),
+  completedAt: new Date().toISOString(),
   summary: 'Document analysis completed. 24 pages with 3,847 words processed.',
   details: {
     pages: 24,

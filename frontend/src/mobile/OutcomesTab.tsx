@@ -12,11 +12,7 @@ import {
   Clock,
   AlertCircle,
   BarChart3,
-  Calendar,
-  TrendingUp,
-  DollarSign,
-  Users,
-  Building2
+  DollarSign
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';

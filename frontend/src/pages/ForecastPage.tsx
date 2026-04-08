@@ -39,8 +39,8 @@ const mockResult: AnalysisResult = {
   moduleId: 'forecast',
   fileName: 'sales-data.csv',
   status: 'completed',
-  createdAt: new Date(),
-  completedAt: new Date(),
+  createdAt: new Date().toISOString(),
+  completedAt: new Date().toISOString(),
   summary: 'Forecast analysis completed. 4-month prediction with 92% accuracy.',
   details: {
     forecastPeriod: 4,

@@ -264,9 +264,6 @@ export function AgentChatInterface({ projectName, chatTitle, onNewChat, sessionT
           isUploading={isUploading}
           attachments={attachments}
           onRemoveAttachment={removeAttachment}
-          webSearchEnabled={webSearchEnabled}
-          codeModeEnabled={codeModeEnabled}
-          imageModeEnabled={imageModeEnabled}
           placeholder="Ask the agent anything... (try: Calculate drywall costs, /agent help)"
         />
       </div>

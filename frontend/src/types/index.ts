@@ -2,7 +2,7 @@ export interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  timestamp: Date;
+  timestamp: string;
   attachments?: Attachment[];
 }
 
@@ -12,6 +12,14 @@ export interface Attachment {
   type: string;
   size: number;
   url?: string;
+  status?: 'uploading' | 'completed' | 'error';
+  error?: string;
+}
+
+export interface ReasoningStep {
+  step: string;
+  description: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'error';
 }
 
 export interface NavItemType {
@@ -53,8 +61,8 @@ export interface AnalysisResult {
   moduleId: string;
   fileName: string;
   status: 'pending' | 'processing' | 'completed' | 'error';
-  createdAt: Date;
-  completedAt?: Date;
+  createdAt: string;
+  completedAt?: string;
   summary?: string;
   details?: unknown;
   error?: string;
