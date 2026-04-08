@@ -58,9 +58,11 @@ except Exception as e:
 try:
     from app.api.v1.endpoints import chat
     logger.info("Chat endpoints loaded")
+    CHAT_AVAILABLE = True
 except Exception as e:
     logger.error(f"Chat import failed: {e}")
-    raise
+    CHAT_AVAILABLE = False
+    chat = None
 
 try:
     from app.agent.enhanced_endpoints import router as agent_router
@@ -195,7 +197,8 @@ api_v1_router.include_router(sessions.router, prefix="/sessions", tags=["session
 api_v1_router.include_router(connectors.router, tags=["connectors"])
 
 # Chat endpoints (REQUIRED - used by frontend)
-api_v1_router.include_router(chat.router, tags=["chat"])
+if CHAT_AVAILABLE and chat:
+    api_v1_router.include_router(chat.router, tags=["chat"])
 
 # Agent endpoints (REQUIRED - used by frontend)
 api_v1_router.include_router(agent_router, prefix="/agent", tags=["agent"])
