@@ -12,9 +12,62 @@ logger = logging.getLogger(__name__)
 from app.api.health import router as health_router
 
 # Core endpoints - REQUIRED for frontend
-from app.api.v1.endpoints import auth, admin, dejavu, formulas, sessions, connectors
-from app.api.v1.endpoints import chat
-from app.agent.enhanced_endpoints import router as agent_router
+# Import one by one to isolate failures
+try:
+    from app.api.v1.endpoints import auth
+    logger.info("Auth endpoints loaded")
+except Exception as e:
+    logger.error(f"Auth import failed: {e}")
+    raise
+
+try:
+    from app.api.v1.endpoints import admin
+    logger.info("Admin endpoints loaded")
+except Exception as e:
+    logger.error(f"Admin import failed: {e}")
+    raise
+
+try:
+    from app.api.v1.endpoints import dejavu
+    logger.info("Dejavu endpoints loaded")
+except Exception as e:
+    logger.error(f"Dejavu import failed: {e}")
+    raise
+
+try:
+    from app.api.v1.endpoints import formulas
+    logger.info("Formulas endpoints loaded")
+except Exception as e:
+    logger.error(f"Formulas import failed: {e}")
+    raise
+
+try:
+    from app.api.v1.endpoints import sessions
+    logger.info("Sessions endpoints loaded")
+except Exception as e:
+    logger.error(f"Sessions import failed: {e}")
+    raise
+
+try:
+    from app.api.v1.endpoints import connectors
+    logger.info("Connectors endpoints loaded")
+except Exception as e:
+    logger.error(f"Connectors import failed: {e}")
+    raise
+
+try:
+    from app.api.v1.endpoints import chat
+    logger.info("Chat endpoints loaded")
+except Exception as e:
+    logger.error(f"Chat import failed: {e}")
+    raise
+
+try:
+    from app.agent.enhanced_endpoints import router as agent_router
+    logger.info("Agent endpoints loaded")
+except Exception as e:
+    logger.error(f"Agent import failed: {e}")
+    raise
 
 # Try to import optional endpoints
 try:
@@ -132,7 +185,7 @@ except Exception as e:
 # Create main router - MUST BE NAMED api_v1_router for main.py
 api_v1_router = APIRouter()
 
-# Include core endpoints (always present)
+# Include core endpoints (always present - we raise on import failure)
 api_v1_router.include_router(health_router, tags=["health"])
 api_v1_router.include_router(auth.router, tags=["authentication"])
 api_v1_router.include_router(admin.router, prefix="/admin", tags=["admin"])
