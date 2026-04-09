@@ -12,48 +12,61 @@ logger = logging.getLogger(__name__)
 from app.api.health import router as health_router
 
 # Core endpoints - REQUIRED for frontend
-# Import one by one to isolate failures
+# Import one by one with graceful fallback
+
 try:
     from app.api.v1.endpoints import auth
     logger.info("Auth endpoints loaded")
+    AUTH_AVAILABLE = True
 except Exception as e:
     logger.error(f"Auth import failed: {e}")
-    raise
+    AUTH_AVAILABLE = False
+    auth = None
 
 try:
     from app.api.v1.endpoints import admin
     logger.info("Admin endpoints loaded")
+    ADMIN_AVAILABLE = True
 except Exception as e:
     logger.error(f"Admin import failed: {e}")
-    raise
+    ADMIN_AVAILABLE = False
+    admin = None
 
 try:
     from app.api.v1.endpoints import dejavu
     logger.info("Dejavu endpoints loaded")
+    DEJAVU_AVAILABLE = True
 except Exception as e:
     logger.error(f"Dejavu import failed: {e}")
-    raise
+    DEJAVU_AVAILABLE = False
+    dejavu = None
 
 try:
     from app.api.v1.endpoints import formulas
     logger.info("Formulas endpoints loaded")
+    FORMULAS_AVAILABLE = True
 except Exception as e:
     logger.error(f"Formulas import failed: {e}")
-    raise
+    FORMULAS_AVAILABLE = False
+    formulas = None
 
 try:
     from app.api.v1.endpoints import sessions
     logger.info("Sessions endpoints loaded")
+    SESSIONS_AVAILABLE = True
 except Exception as e:
     logger.error(f"Sessions import failed: {e}")
-    raise
+    SESSIONS_AVAILABLE = False
+    sessions = None
 
 try:
     from app.api.v1.endpoints import connectors
     logger.info("Connectors endpoints loaded")
+    CONNECTORS_AVAILABLE = True
 except Exception as e:
     logger.error(f"Connectors import failed: {e}")
-    raise
+    CONNECTORS_AVAILABLE = False
+    connectors = None
 
 try:
     from app.api.v1.endpoints import chat
@@ -67,9 +80,11 @@ except Exception as e:
 try:
     from app.agent.enhanced_endpoints import router as agent_router
     logger.info("Agent endpoints loaded")
+    AGENT_AVAILABLE = True
 except Exception as e:
     logger.error(f"Agent import failed: {e}")
-    raise
+    AGENT_AVAILABLE = False
+    agent_router = None
 
 # Try to import optional endpoints
 try:
@@ -187,21 +202,32 @@ except Exception as e:
 # Create main router - MUST BE NAMED api_v1_router for main.py
 api_v1_router = APIRouter()
 
-# Include core endpoints (always present - we raise on import failure)
+# Include core endpoints conditionally
 api_v1_router.include_router(health_router, tags=["health"])
-api_v1_router.include_router(auth.router, tags=["authentication"])
-api_v1_router.include_router(admin.router, prefix="/admin", tags=["admin"])
-api_v1_router.include_router(dejavu.router, prefix="/dejavu", tags=["dejavu"])
-api_v1_router.include_router(formulas.router, prefix="/formulas", tags=["formulas"])
-api_v1_router.include_router(sessions.router, prefix="/sessions", tags=["sessions"])
-api_v1_router.include_router(connectors.router, tags=["connectors"])
 
-# Chat endpoints (REQUIRED - used by frontend)
+if AUTH_AVAILABLE and auth:
+    api_v1_router.include_router(auth.router, tags=["authentication"])
+
+if ADMIN_AVAILABLE and admin:
+    api_v1_router.include_router(admin.router, prefix="/admin", tags=["admin"])
+
+if DEJAVU_AVAILABLE and dejavu:
+    api_v1_router.include_router(dejavu.router, prefix="/dejavu", tags=["dejavu"])
+
+if FORMULAS_AVAILABLE and formulas:
+    api_v1_router.include_router(formulas.router, prefix="/formulas", tags=["formulas"])
+
+if SESSIONS_AVAILABLE and sessions:
+    api_v1_router.include_router(sessions.router, prefix="/sessions", tags=["sessions"])
+
+if CONNECTORS_AVAILABLE and connectors:
+    api_v1_router.include_router(connectors.router, tags=["connectors"])
+
 if CHAT_AVAILABLE and chat:
     api_v1_router.include_router(chat.router, tags=["chat"])
 
-# Agent endpoints (REQUIRED - used by frontend)
-api_v1_router.include_router(agent_router, prefix="/agent", tags=["agent"])
+if AGENT_AVAILABLE and agent_router:
+    api_v1_router.include_router(agent_router, prefix="/agent", tags=["agent"])
 
 # Include optional endpoints conditionally
 if DOCUMENTS_AVAILABLE:
