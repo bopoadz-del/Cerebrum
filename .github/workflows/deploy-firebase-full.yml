@@ -1,0 +1,217 @@
+# Deploy Full Stack to Firebase (Cloud Run + Hosting)
+name: 🚀 Deploy Full Stack to Firebase
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: cerebrum-30d9c
+  REGION: us-central1
+  BACKEND_SERVICE: cerebrum-backend
+
+jobs:
+  # ==========================================
+  # Build & Deploy Backend to Cloud Run
+  # ==========================================
+  deploy-backend:
+    name: 🐍 Deploy Backend to Cloud Run
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    outputs:
+      backend_url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Google Auth
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: Configure Docker
+        run: gcloud auth configure-docker gcr.io --quiet
+
+      - name: Build Backend Image
+        run: |
+          docker build \
+            -t gcr.io/${{ env.PROJECT_ID }}/${{ env.BACKEND_SERVICE }}:${{ github.sha }} \
+            -f backend/Dockerfile.cloudrun \
+            backend/
+
+      - name: Push Backend Image
+        run: |
+          docker push gcr.io/${{ env.PROJECT_ID }}/${{ env.BACKEND_SERVICE }}:${{ github.sha }}
+
+      - name: Deploy to Cloud Run
+        id: deploy
+        run: |
+          gcloud run deploy ${{ env.BACKEND_SERVICE }} \
+            --image gcr.io/${{ env.PROJECT_ID }}/${{ env.BACKEND_SERVICE }}:${{ github.sha }} \
+            --region ${{ env.REGION }} \
+            --platform managed \
+            --allow-unauthenticated \
+            --memory 2Gi \
+            --cpu 2 \
+            --concurrency 80 \
+            --max-instances 10 \
+            --min-instances 0 \
+            --set-env-vars "ENVIRONMENT=production,DEBUG=false,CORS_ORIGINS=https://cerebrum-30d9c.web.app,https://cerebrum-landing.web.app" \
+            --set-secrets "DATABASE_URL=database-url:latest,REDIS_URL=redis-url:latest,SECRET_KEY=secret-key:latest,OPENAI_API_KEY=openai-api-key:latest" \
+            --timeout 300 \
+            --no-traffic ${{ github.event_name == 'pull_request' && '--no-traffic' || '' }}
+          
+          # Get the service URL
+          URL=$(gcloud run services describe ${{ env.BACKEND_SERVICE }} --region ${{ env.REGION }} --format 'value(status.url)')
+          echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "Backend URL: $URL"
+
+      - name: Run Database Migrations (if needed)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          echo "Migrations would run here - configure if using Alembic"
+          # Example: gcloud run jobs execute migration-job --region ${{ env.REGION }}
+
+  # ==========================================
+  # Build & Deploy Frontend to Firebase
+  # ==========================================
+  deploy-frontend:
+    name: ⚛️ Deploy Frontend to Firebase
+    runs-on: ubuntu-latest
+    needs: deploy-backend
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build Frontend
+        working-directory: frontend
+        run: npm run build
+        env:
+          # API calls will go through Firebase Hosting rewrites to Cloud Run
+          VITE_API_URL: ""
+
+      - name: Deploy Frontend to Firebase
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_CEREBRUM_30D9C }}
+          channelId: ${{ github.ref == 'refs/heads/main' && 'live' || '' }}
+          projectId: ${{ env.PROJECT_ID }}
+          target: frontend
+
+  # ==========================================
+  # Deploy Landing Page
+  # ==========================================
+  deploy-landing:
+    name: 🎯 Deploy Landing Page
+    runs-on: ubuntu-latest
+    needs: deploy-frontend
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Deploy Landing to Firebase
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_CEREBRUM_30D9C }}
+          channelId: live
+          projectId: ${{ env.PROJECT_ID }}
+          target: landing
+
+  # ==========================================
+  # Deploy Status Summary
+  # ==========================================
+  summary:
+    name: 📊 Deployment Summary
+    runs-on: ubuntu-latest
+    needs: [deploy-backend, deploy-frontend, deploy-landing]
+    if: always()
+    steps:
+      - name: Post Summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const backendStatus = '${{ needs.deploy-backend.result }}';
+            const frontendStatus = '${{ needs.deploy-frontend.result }}';
+            const landingStatus = '${{ needs.deploy-landing.result }}';
+            
+            const getEmoji = (status) => {
+              if (status === 'success') return '✅';
+              if (status === 'failure') return '❌';
+              if (status === 'skipped') return '⏭️';
+              return '⏳';
+            };
+            
+            const summary = `## 🚀 Firebase Full Stack Deployment
+            
+            | Component | Status | URL |
+            |-----------|--------|-----|
+            | Backend (Cloud Run) | ${getEmoji(backendStatus)} | https://cerebrum-backend-${{ env.REGION }}-${{ env.PROJECT_ID }}.run.app |
+            | Frontend (Hosting) | ${getEmoji(frontendStatus)} | https://cerebrum-30d9c.web.app |
+            | Landing Page | ${getEmoji(landingStatus)} | https://cerebrum-landing.web.app |
+            
+            ### API Endpoints
+            - Health Check: \`https://cerebrum-30d9c.web.app/health/live\`
+            - API Docs: \`https://cerebrum-30d9c.web.app/docs\`
+            - OpenAPI: \`https://cerebrum-30d9c.web.app/openapi.json\`
+            
+            ### Architecture
+            \`\`\`
+            User → Firebase Hosting → [Static Files / API Proxy] → Cloud Run (Backend)
+            \`\`\`
+            `;
+            
+            core.summary.addRaw(summary).write();
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request' && needs.deploy-frontend.result == 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue_number = context.issue.number;
+            const comment = `## 🚀 Preview Deployment Ready!
+            
+            | Resource | URL |
+            |----------|-----|
+            | Frontend Preview | Check the Actions summary above |
+            | Backend (Cloud Run) | https://cerebrum-backend-${{ env.REGION }}-${{ env.PROJECT_ID }}.run.app |
+            
+            > Note: PR previews use temporary channels and expire after a period of inactivity.`;
+            
+            github.rest.issues.createComment({
+              issue_number: issue_number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });

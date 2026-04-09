@@ -1,0 +1,53 @@
+# Cloud Build configuration for Cloud Run deployment
+steps:
+  # Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/cerebrum-backend:$COMMIT_SHA'
+      - '-f'
+      - 'Dockerfile.cloudrun'
+      - '.'
+    dir: 'backend'
+
+  # Push the container image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/cerebrum-backend:$COMMIT_SHA'
+
+  # Deploy container image to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'cerebrum-backend'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/cerebrum-backend:$COMMIT_SHA'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--set-secrets'
+      - 'DATABASE_URL=database-url:latest,REDIS_URL=redis-url:latest,SECRET_KEY=secret-key:latest'
+      - '--set-env-vars'
+      - 'ENVIRONMENT=production,DEBUG=false'
+      - '--memory'
+      - '2Gi'
+      - '--cpu'
+      - '2'
+      - '--concurrency'
+      - '80'
+      - '--max-instances'
+      - '10'
+      - '--min-instances'
+      - '1'
+
+images:
+  - 'gcr.io/$PROJECT_ID/cerebrum-backend:$COMMIT_SHA'
+
+options:
+  logging: CLOUD_LOGGING_ONLY

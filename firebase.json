@@ -10,6 +10,34 @@
       ],
       "rewrites": [
         {
+          "source": "/api/**",
+          "run": {
+            "serviceId": "cerebrum-backend",
+            "region": "us-central1"
+          }
+        },
+        {
+          "source": "/docs",
+          "run": {
+            "serviceId": "cerebrum-backend",
+            "region": "us-central1"
+          }
+        },
+        {
+          "source": "/openapi.json",
+          "run": {
+            "serviceId": "cerebrum-backend",
+            "region": "us-central1"
+          }
+        },
+        {
+          "source": "/health/**",
+          "run": {
+            "serviceId": "cerebrum-backend",
+            "region": "us-central1"
+          }
+        },
+        {
           "source": "**",
           "destination": "/index.html"
         }
@@ -21,6 +49,32 @@
             {
               "key": "Access-Control-Allow-Origin",
               "value": "*"
+            },
+            {
+              "key": "Access-Control-Allow-Methods",
+              "value": "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+            },
+            {
+              "key": "Access-Control-Allow-Headers",
+              "value": "Authorization, Content-Type, X-Requested-With"
+            }
+          ]
+        },
+        {
+          "source": "**/*.js",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "public, max-age=31536000, immutable"
+            }
+          ]
+        },
+        {
+          "source": "**/*.css",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "public, max-age=31536000, immutable"
             }
           ]
         }
@@ -33,6 +87,19 @@
         "firebase.json",
         "**/.*",
         "**/node_modules/**"
+      ],
+      "rewrites": [
+        {
+          "source": "/api/**",
+          "run": {
+            "serviceId": "cerebrum-backend",
+            "region": "us-central1"
+          }
+        },
+        {
+          "source": "**",
+          "destination": "/index.html"
+        }
       ]
     }
   ]
