@@ -13,14 +13,14 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_db
+from app.core.deps import get_db
 from app.prompts.ab_testing import ABTestConfig, get_ab_testing_framework
 from app.prompts.dynamic_loading import get_prompt_loader
 from app.prompts.models import (
     ModelProvider,
+    Prompt,
     PromptCreate,
     PromptDB,
-    PromptResponse,
     PromptStatus,
     PromptUpdate,
 )
@@ -92,7 +92,7 @@ class ABTestResponse(BaseModel):
 
 @router.get(
     "",
-    response_model=List[PromptResponse],
+    response_model=List[Prompt],
     summary="List prompts",
     description="Get all prompts with optional filtering."
 )
@@ -122,7 +122,7 @@ async def list_prompts(
     prompts = result.scalars().all()
     
     return [
-        PromptResponse(
+        Prompt(
             id=p.id,
             name=p.name,
             version=p.version,
@@ -149,7 +149,7 @@ async def list_prompts(
 
 @router.get(
     "/{prompt_id}",
-    response_model=PromptResponse,
+    response_model=Prompt,
     summary="Get prompt details",
     description="Get detailed information about a specific prompt."
 )
@@ -171,7 +171,7 @@ async def get_prompt(
             detail=f"Prompt {prompt_id} not found"
         )
     
-    return PromptResponse(
+    return Prompt(
         id=prompt.id,
         name=prompt.name,
         version=prompt.version,
@@ -196,7 +196,7 @@ async def get_prompt(
 
 @router.post(
     "",
-    response_model=PromptResponse,
+    response_model=Prompt,
     status_code=status.HTTP_201_CREATED,
     summary="Create prompt",
     description="Create a new prompt version."
@@ -242,7 +242,7 @@ async def create_prompt(
     
     logger.info(f"Created prompt {prompt.id}: {request.name}@{request.version}")
     
-    return PromptResponse(
+    return Prompt(
         id=prompt.id,
         name=prompt.name,
         version=prompt.version,
@@ -267,7 +267,7 @@ async def create_prompt(
 
 @router.patch(
     "/{prompt_id}",
-    response_model=PromptResponse,
+    response_model=Prompt,
     summary="Update prompt",
     description="Update a prompt (only allowed for DRAFT prompts)."
 )
@@ -307,7 +307,7 @@ async def update_prompt(
     await db.commit()
     await db.refresh(prompt)
     
-    return PromptResponse(
+    return Prompt(
         id=prompt.id,
         name=prompt.name,
         version=prompt.version,
@@ -332,7 +332,7 @@ async def update_prompt(
 
 @router.patch(
     "/{prompt_id}/activate",
-    response_model=PromptResponse,
+    response_model=Prompt,
     summary="Activate prompt",
     description="Activate a prompt for use, optionally starting A/B test."
 )
@@ -402,7 +402,7 @@ async def activate_prompt(
     loader = get_prompt_loader()
     loader.invalidate_cache(prompt.name)
     
-    return PromptResponse(
+    return Prompt(
         id=prompt.id,
         name=prompt.name,
         version=prompt.version,

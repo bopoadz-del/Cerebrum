@@ -66,6 +66,7 @@ sentence-transformers>=2.2.0  # For embeddings (optional fallback)
 # Use pure Python alternatives
 aiohttp>=3.9.0
 PyPDF2>=3.0.0
+PyMuPDF>=1.23.0  # Provides 'fitz' module for PDF processing
 python-jose>=3.3.0
 psycopg2-binary>=2.9.9
 structlog==24.1.0
