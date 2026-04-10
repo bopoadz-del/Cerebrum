@@ -199,7 +199,7 @@ def create_application() -> FastAPI:
     # Trusted Host Middleware (OWASP security)
     app.add_middleware(
         TrustedHostMiddleware,
-        allowed_hosts=["*.onrender.com", "localhost", "127.0.0.1"]
+        allowed_hosts=["*.onrender.com", "localhost", "127.0.0.1", "*.web.app", "*.run.app", "*.firebaseapp.com"]
     )
     
     # Setup exception handlers

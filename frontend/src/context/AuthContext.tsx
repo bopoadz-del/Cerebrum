@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://cerebrum-api.onrender.com';
+const API_URL = import.meta.env.VITE_API_URL || '';
 const API_BASE = API_URL.replace(/\/?$/, '').endsWith('/api/v1') 
   ? API_URL 
   : `${API_URL.replace(/\/?$/, '')}/api/v1`;

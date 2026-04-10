@@ -15,3 +15,5 @@ data/
 
 # SSH keys for Render/GitHub access
 .ssh-keys/
+gcp-sa-key.json
+.firebase/

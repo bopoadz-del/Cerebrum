@@ -1,7 +1,7 @@
 // File processing utilities for chat context
 // Processes PDF, Audio, Images and indexes them with session context
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://cerebrum-api.onrender.com';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 // File size limits (in bytes)
 export const FILE_SIZE_LIMITS = {

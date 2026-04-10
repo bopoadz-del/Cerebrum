@@ -1,0 +1,11 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/cerebrum-30d9c/cerebrum-backend:latest'
+      - '-f'
+      - 'backend/Dockerfile.cloudrun'
+      - 'backend/'
+images:
+  - 'gcr.io/cerebrum-30d9c/cerebrum-backend:latest'

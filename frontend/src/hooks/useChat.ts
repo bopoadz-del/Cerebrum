@@ -2,7 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import type { Message, Attachment, ChatMode, CodeExecutionResult, WebSearchResult } from '@/types';
 import { processDocument, processAudio } from '@/lib/fileProcessing';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://cerebrum-api.onrender.com';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 const API_PREFIX = API_BASE_URL.endsWith('/api/v1') ? API_BASE_URL : `${API_BASE_URL}/api/v1`;
 
 // Extended attachment type that includes the actual File object

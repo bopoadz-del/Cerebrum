@@ -5,7 +5,7 @@ import { STORAGE_KEYS } from '@/context/AuthContext';
 import { processAndIndexFile, validateFileOnSelect, type FileValidationResult } from '@/lib/fileProcessing';
 
 // API Configuration - fallback to production URL
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://cerebrum-api.onrender.com';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 const getApiUrl = () => {
   const url = API_BASE_URL.replace(/\/?$/, '');
   return url.endsWith('/api/v1') ? url : `${url}/api/v1`;
