@@ -90,11 +90,17 @@ async def upload_to_gcs(
             content_type=content_type,
         )
         
-        # Make blob publicly readable
-        blob.make_public()
+        # Generate a signed URL that doesn't require public access
+        # This URL will be valid for 7 days
+        from datetime import timedelta
+        url = blob.generate_signed_url(
+            version="v4",
+            expiration=timedelta(days=7),
+            method="GET",
+        )
         
         logger.info(f"Uploaded file to gs://{GCS_BUCKET_NAME}/{destination_path}")
-        return blob.public_url
+        return url
         
     except Exception as e:
         import traceback
