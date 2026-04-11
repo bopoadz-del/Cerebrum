@@ -46,6 +46,10 @@ if config.config_file_name is not None:
 # Import all models here so they are registered with Base.metadata
 from app.models.user import User  # noqa
 from app.models.audit import AuditLog  # noqa
+from app.models.conversation_session import ConversationSession  # noqa
+from app.models.message import Message, FileUpload  # noqa
+from app.models.document import Document, DocumentChunk  # noqa
+from app.models.integration import IntegrationToken  # noqa
 
 target_metadata = Base.metadata
 
