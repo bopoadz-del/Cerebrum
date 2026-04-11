@@ -245,7 +245,7 @@ if WEB_SEARCH_AVAILABLE and web_search_router:
 
 # Include optional endpoints conditionally
 if DOCUMENTS_AVAILABLE:
-    api_v1_router.include_router(documents.router, prefix="/documents", tags=["documents"])
+    api_v1_router.include_router(documents.router)
 
 if BIM_AVAILABLE:
     api_v1_router.include_router(bim.router, tags=["bim"])
