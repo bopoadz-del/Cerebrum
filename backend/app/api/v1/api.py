@@ -227,7 +227,9 @@ if CHAT_AVAILABLE and chat:
     api_v1_router.include_router(chat.router, tags=["chat"])
 
 if AGENT_AVAILABLE and agent_router:
+    logger.info(f"Including agent router with routes: {[r.path for r in agent_router.routes]}")
     api_v1_router.include_router(agent_router, prefix="/agent", tags=["agent"])
+    logger.info("Agent router included successfully")
 
 # Include optional endpoints conditionally
 if DOCUMENTS_AVAILABLE:
@@ -268,3 +270,6 @@ if WAREHOUSE_AVAILABLE:
 
 if STATE_AVAILABLE:
     api_v1_router.include_router(state.router, tags=["state"])
+
+# Log all registered routes
+logger.info(f"All registered routes: {[r.path for r in api_v1_router.routes]}")
