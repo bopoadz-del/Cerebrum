@@ -97,8 +97,10 @@ async def upload_to_gcs(
         return blob.public_url
         
     except Exception as e:
-        logger.error(f"GCS upload failed: {e}")
-        raise HTTPException(status_code=500, detail=f"File upload failed: {str(e)}")
+        import traceback
+        logger.error(f"GCS upload failed: {type(e).__name__}: {e}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"GCS upload failed: {type(e).__name__}: {e}")
 
 
 async def delete_from_gcs(storage_path: str) -> None:
@@ -252,6 +254,8 @@ async def upload_public_document(
             "url": public_url,
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         import traceback
         error_msg = f"{type(e).__name__}: {str(e)}"
