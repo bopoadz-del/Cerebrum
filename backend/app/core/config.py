@@ -273,6 +273,22 @@ class Settings(BaseSettings):
     )
     
     # =================================================================
+    # Third-Party API Keys (Optional)
+    # =================================================================
+    RSMEANS_API_KEY: Optional[str] = Field(
+        default=None,
+        description="RSMeans API key for construction cost data",
+    )
+    MLFLOW_TRACKING_URI: Optional[str] = Field(
+        default=None,
+        description="MLflow tracking URI for experiment tracking",
+    )
+    OPENAI_API_KEY: Optional[str] = Field(
+        default=None,
+        description="OpenAI API key for warehouse AI features",
+    )
+    
+    # =================================================================
     # Validators
     # =================================================================
     @field_validator("SECRET_KEY", mode="before")

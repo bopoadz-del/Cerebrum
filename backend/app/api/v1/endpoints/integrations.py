@@ -7,8 +7,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
-from app.database import get_db
-from app.auth import get_current_user
+from app.core.deps import get_db
+from app.api.deps import get_current_user
 from app.integrations.procore import ProcoreService, ProcoreConnectionCreateRequest
 from app.integrations.slack import SlackService, SlackCommandRequest
 from app.integrations.erp import QuickBooksService, SageService

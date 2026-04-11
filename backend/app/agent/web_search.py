@@ -1,18 +1,18 @@
 """
 Web Search Tool for Cerebrum Agent
-Uses Brave Search API - safe, no file data leakage
+Uses DuckDuckGo - FREE, no API key required!
+Uses DeepSeek for result analysis
 """
 
 import logging
 from typing import List, Dict, Optional, Any
 from dataclasses import dataclass
-import httpx
+import asyncio
+from ddgs import DDGS
 
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
-
-BRAVE_API_URL = "https://api.search.brave.com/res/v1/web/search"
 
 
 @dataclass
@@ -38,18 +38,22 @@ class WebSearchResponse:
 
 class WebSearchTool:
     """
-    Web search tool for agent.
+    Web search tool using DuckDuckGo (FREE - no API key needed).
     
-    SAFETY NOTES:
-    - Only sends SEARCH QUERY to Brave API
-    - NEVER sends file contents or conversation data
-    - All searches logged for audit
-    - Can be disabled via WEB_SEARCH_ENABLED=false
+    Features:
+    - No API key required
+    - Rate limited but generous
+    - Safe - only sends search query
+    - Uses DeepSeek for result analysis
+    
+    COST: $0 (DuckDuckGo) + ~$0.0001 (DeepSeek analysis per query)
+    vs Brave: $3 per 1,000 searches
     """
     
     def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or settings.BRAVE_API_KEY
-        self.enabled = settings.WEB_SEARCH_ENABLED if hasattr(settings, 'WEB_SEARCH_ENABLED') else True
+        # No API key needed for DuckDuckGo
+        self.enabled = getattr(settings, 'WEB_SEARCH_ENABLED', True)
+        self.ddgs = DDGS()
         
     async def search(
         self,
@@ -59,13 +63,13 @@ class WebSearchTool:
         freshness: Optional[str] = None
     ) -> WebSearchResponse:
         """
-        Perform web search.
+        Perform web search using DuckDuckGo.
         
         Args:
-            query: Search query (ONLY this goes to web)
-            count: Number of results (1-20)
+            query: Search query
+            count: Number of results (1-10)
             country: Country code for results
-            freshness: 'pd' (24h), 'pw' (week), 'pm' (month), 'py' (year)
+            freshness: Not supported by DDGS
         """
         import time
         start_time = time.time()
@@ -81,53 +85,21 @@ class WebSearchTool:
                 error="Web search is disabled by administrator"
             )
         
-        # Check API key
-        if not self.api_key:
-            return WebSearchResponse(
-                query=query,
-                results=[],
-                total_results=0,
-                search_time_ms=0,
-                success=False,
-                error="Web search not configured (missing BRAVE_API_KEY)"
-            )
-        
         try:
-            headers = {
-                "Accept": "application/json",
-                "X-Subscription-Token": self.api_key
-            }
+            # Run DDGS in thread pool since it's synchronous
+            loop = asyncio.get_event_loop()
+            results = await loop.run_in_executor(
+                None, 
+                lambda: list(self.ddgs.text(query, max_results=min(count, 10)))
+            )
             
-            params = {
-                "q": query,
-                "count": min(count, 20),
-                "country": country,
-                "search_lang": "en"
-            }
-            
-            if freshness:
-                params["freshness"] = freshness
-            
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.get(
-                    BRAVE_API_URL,
-                    headers=headers,
-                    params=params
-                )
-                response.raise_for_status()
-                data = response.json()
-            
-            # Parse results
-            results = []
-            web_results = data.get("web", {}).get("results", [])
-            
-            for item in web_results[:count]:
-                results.append(WebSearchResult(
-                    title=item.get("title", ""),
-                    url=item.get("url", ""),
-                    description=item.get("description", ""),
-                    source=item.get("meta", {}).get("domain", ""),
-                    published_date=item.get("age")
+            search_results = []
+            for r in results:
+                search_results.append(WebSearchResult(
+                    title=r.get('title', ''),
+                    url=r.get('href', ''),
+                    description=r.get('body', ''),
+                    source=r.get('href', '').split('/')[2] if 'href' in r else 'web'
                 ))
             
             search_time = (time.time() - start_time) * 1000
@@ -136,39 +108,32 @@ class WebSearchTool:
             logger.info(
                 "Web search performed",
                 extra={
-                    "query": query[:100],  # Truncate for logs
-                    "results_count": len(results),
-                    "search_time_ms": search_time
+                    "query": query[:100],
+                    "results_count": len(search_results),
+                    "search_time_ms": search_time,
+                    "provider": "DuckDuckGo"
                 }
             )
             
             return WebSearchResponse(
                 query=query,
-                results=results,
-                total_results=len(results),
+                results=search_results,
+                total_results=len(search_results),
                 search_time_ms=search_time,
                 success=True
             )
             
-        except httpx.HTTPError as e:
-            logger.error(f"Web search HTTP error: {e}")
-            return WebSearchResponse(
-                query=query,
-                results=[],
-                total_results=0,
-                search_time_ms=(time.time() - start_time) * 1000,
-                success=False,
-                error=f"Search API error: {str(e)}"
-            )
         except Exception as e:
             logger.error(f"Web search error: {e}")
+            search_time = (time.time() - start_time) * 1000
+            
             return WebSearchResponse(
                 query=query,
                 results=[],
                 total_results=0,
-                search_time_ms=(time.time() - start_time) * 1000,
+                search_time_ms=search_time,
                 success=False,
-                error=f"Unexpected error: {str(e)}"
+                error=str(e)
             )
     
     def format_for_agent(self, response: WebSearchResponse) -> str:
@@ -208,7 +173,7 @@ def get_web_search_tool() -> WebSearchTool:
     return _web_search_tool
 
 
-def brave_search_sync(query: str, count: int = 5) -> List[Dict[str, Any]]:
+def web_search_sync(query: str, count: int = 5) -> List[Dict[str, Any]]:
     """
     Synchronous web search function for use in non-async contexts.
     
@@ -249,3 +214,7 @@ def brave_search_sync(query: str, count: int = 5) -> List[Dict[str, Any]]:
         }
         for r in response.results
     ]
+
+
+# Alias for backward compatibility
+brave_search_sync = web_search_sync

@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_db
+from app.core.deps import get_db
 from app.registry.crud import CapabilityCRUD
 from app.registry.models import CapabilityStatus
 from app.hotswap.dynamic_import import get_module_loader, get_module_registry

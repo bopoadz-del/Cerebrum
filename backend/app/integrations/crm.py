@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import Column, String, DateTime, ForeignKey, Text, Boolean, JSON
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 
-from app.database import Base
+from app.db.base_class import Base
 
 
 class CRMConnection(Base):

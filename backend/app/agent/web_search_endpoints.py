@@ -39,10 +39,14 @@ class WebSearchResponseModel(BaseModel):
 @router.post("/search", response_model=WebSearchResponseModel)
 async def web_search(request: WebSearchRequest):
     """
-    Perform web search.
+    Perform web search using DuckDuckGo (FREE).
     
-    Only the search query is sent to Brave Search API.
+    No API key required!
+    Only the search query is sent to DuckDuckGo.
     No file contents or conversation data is transmitted.
+    
+    Cost: $0 (DuckDuckGo) + ~$0.0001 DeepSeek analysis
+    vs Brave: $3 per 1,000 searches
     """
     tool = get_web_search_tool()
     
@@ -78,6 +82,7 @@ async def web_search_status():
     web_search_enabled = getattr(settings, 'WEB_SEARCH_ENABLED', True)
     return {
         "enabled": web_search_enabled,
-        "configured": bool(settings.BRAVE_API_KEY),
-        "provider": "Brave Search"
+        "configured": True,  # DuckDuckGo doesn't need API key
+        "provider": "DuckDuckGo (FREE)",
+        "cost": "$0 - No API key required"
     }
