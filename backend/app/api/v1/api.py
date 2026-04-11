@@ -86,6 +86,15 @@ except Exception as e:
     AGENT_AVAILABLE = False
     agent_router = None
 
+try:
+    from app.agent.web_search_endpoints import router as web_search_router
+    logger.info("Web search endpoints loaded")
+    WEB_SEARCH_AVAILABLE = True
+except Exception as e:
+    logger.warning(f"Web search endpoints not available: {e}")
+    WEB_SEARCH_AVAILABLE = False
+    web_search_router = None
+
 # Try to import optional endpoints
 try:
     from app.api.v1.endpoints import documents
@@ -229,6 +238,10 @@ if CHAT_AVAILABLE and chat:
 if AGENT_AVAILABLE and agent_router:
     api_v1_router.include_router(agent_router)
     logger.info("Agent router included successfully")
+
+if WEB_SEARCH_AVAILABLE and web_search_router:
+    api_v1_router.include_router(web_search_router)
+    logger.info("Web search router included successfully")
 
 # Include optional endpoints conditionally
 if DOCUMENTS_AVAILABLE:
