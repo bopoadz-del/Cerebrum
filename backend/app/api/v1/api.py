@@ -227,8 +227,7 @@ if CHAT_AVAILABLE and chat:
     api_v1_router.include_router(chat.router, tags=["chat"])
 
 if AGENT_AVAILABLE and agent_router:
-    logger.info(f"Including agent router with routes: {[r.path for r in agent_router.routes]}")
-    api_v1_router.include_router(agent_router, prefix="/agent", tags=["agent"])
+    api_v1_router.include_router(agent_router)
     logger.info("Agent router included successfully")
 
 # Include optional endpoints conditionally
