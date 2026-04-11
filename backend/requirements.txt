@@ -83,3 +83,10 @@ PyMuPDF>=1.23.0
 
 # Web search (DuckDuckGo - FREE, no API key)
 ddgs>=8.0.0
+
+# AI/LLM APIs
+openai>=1.0.0
+
+# Google Cloud Storage
+google-cloud-storage>=2.10.0
+google-cloud-secret-manager>=2.18.0

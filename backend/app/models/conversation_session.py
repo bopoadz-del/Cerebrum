@@ -10,6 +10,7 @@ from typing import Optional
 
 from sqlalchemy import Column, String, Integer, Boolean, DateTime, Index
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 
 from app.db.base_class import Base
 
@@ -52,6 +53,9 @@ class ConversationSession(Base):
     expires_at = Column(DateTime(timezone=True), nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    messages = relationship("Message", back_populates="conversation", cascade="all, delete-orphan", lazy="dynamic")
     
     def __repr__(self) -> str:
         return f"<ConversationSession(id={self.id}, user_id={self.user_id}, capacity={self.capacity_percent}%)>"
