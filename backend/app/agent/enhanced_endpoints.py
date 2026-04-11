@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 
-from app.db.session import get_db
+from app.db.session import get_db_session
 from app.core.logging import get_logger
 from app.models.user import User
 from app.models.conversation_session import ConversationSession
@@ -108,7 +108,7 @@ async def get_agent_status():
 async def execute_agent(
     request: AgentExecuteRequest,
     background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_session),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -198,7 +198,7 @@ async def execute_agent(
 @router.post("/chat/completions", response_model=ChatResponse)
 async def chat_completion(
     request: AgentChatRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_session),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -355,7 +355,7 @@ async def chat_completion(
 async def list_conversations(
     limit: int = 20,
     offset: int = 0,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_session),
     current_user: User = Depends(get_current_user),
 ):
     """List user's conversations."""
@@ -377,7 +377,7 @@ async def list_conversations(
 @router.get("/conversations/{conversation_id}")
 async def get_conversation(
     conversation_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_session),
     current_user: User = Depends(get_current_user),
 ):
     """Get conversation with all messages."""
@@ -414,7 +414,7 @@ async def get_conversation(
 @router.delete("/conversations/{conversation_id}")
 async def delete_conversation(
     conversation_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_session),
     current_user: User = Depends(get_current_user),
 ):
     """Delete a conversation and all its messages."""

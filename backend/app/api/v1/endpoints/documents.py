@@ -19,7 +19,7 @@ from sqlalchemy import select, desc
 from google.cloud import storage
 from google.cloud.storage import Blob
 
-from app.db.session import get_db
+from app.db.session import get_db_session
 from app.core.logging import get_logger
 from app.core.config import settings
 from app.models.user import User
@@ -120,7 +120,7 @@ async def upload_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     conversation_id: Optional[str] = Query(None, description="Optional conversation ID to associate with"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_session),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -207,7 +207,7 @@ async def upload_document(
 async def upload_public_document(
     request: Request,
     file: UploadFile = File(...),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_session),
 ):
     """
     Upload a document without authentication (public endpoint for chat attachments).
@@ -261,7 +261,7 @@ async def upload_public_document(
 async def upload_chat_document(
     conversation_id: str,
     file: UploadFile = File(...),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_session),
     current_user: User = Depends(get_current_user),
 ):
     """Upload a document to a specific conversation."""
@@ -286,7 +286,7 @@ async def list_my_documents(
     conversation_id: Optional[str] = Query(None),
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_session),
     current_user: User = Depends(get_current_user),
 ) -> List[dict]:
     """List documents uploaded by the current user."""
@@ -310,7 +310,7 @@ async def list_my_documents(
 @router.get("/{document_id}")
 async def get_document(
     document_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_session),
     current_user: User = Depends(get_current_user),
 ):
     """Get document metadata by ID."""
@@ -336,7 +336,7 @@ async def get_document(
 @router.delete("/{document_id}")
 async def delete_document(
     document_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_session),
     current_user: User = Depends(get_current_user),
 ):
     """Delete a document."""
@@ -372,7 +372,7 @@ async def delete_document(
 async def get_download_url(
     document_id: str,
     expiry_minutes: int = Query(15, ge=1, le=60),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_session),
     current_user: User = Depends(get_current_user),
 ):
     """
