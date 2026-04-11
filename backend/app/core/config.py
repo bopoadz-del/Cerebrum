@@ -287,6 +287,10 @@ class Settings(BaseSettings):
         default=None,
         description="OpenAI API key for warehouse AI features",
     )
+    DEEPSEEK_API_KEY: Optional[str] = Field(
+        default=None,
+        description="DeepSeek API key for AI chat and agent features",
+    )
     
     # =================================================================
     # Validators

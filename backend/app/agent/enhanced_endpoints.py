@@ -1,6 +1,6 @@
 """
-Agent API - AI Implementation
-AI agent endpoints for chat and execution using OpenAI/Claude
+Agent API - DeepSeek + DuckDuckGo Implementation
+AI agent endpoints using DeepSeek for chat and DuckDuckGo for web search
 """
 
 import uuid
@@ -19,13 +19,14 @@ from app.models.user import User
 from app.models.conversation_session import ConversationSession
 from app.models.message import Message
 from app.api.v1.endpoints.auth import get_current_user
-from app.services.ai_service import get_ai_service, generate_chat_response, AIService
+from app.services.ai_service import get_ai_service, AIService
+from app.agent.web_search_duckduckgo import get_web_search_tool, web_search
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/agent", tags=["agent"])
 
 # Agent system prompt
-AGENT_SYSTEM_PROMPT = """You are Cerebrum AI, a construction intelligence assistant powered by advanced AI.
+AGENT_SYSTEM_PROMPT = """You are Cerebrum AI, a construction intelligence assistant powered by DeepSeek.
 
 Your capabilities include:
 - Construction cost estimation and RSMeans data lookups
@@ -34,6 +35,7 @@ Your capabilities include:
 - Construction formulas and calculations
 - Code generation for construction applications
 - Project management assistance
+- Web search for current information (via DuckDuckGo)
 
 Guidelines:
 - Be concise, professional, and practical
@@ -41,21 +43,23 @@ Guidelines:
 - Reference industry standards when relevant
 - If you don't know something, say so
 - Use construction terminology appropriately
+- When asked about costs, provide ranges with context about location factors
 
-When asked about costs, provide ranges with context about location factors and market conditions."""
+You have access to web search via DuckDuckGo for current information."""
 
 # Request/Response Models
 class AgentExecuteRequest(BaseModel):
     task: str = Field(..., description="Task description for the agent")
     context: Optional[str] = Field(None, description="Additional context for the task")
     conversation_id: Optional[str] = Field(None, description="Optional conversation ID for continuity")
+    use_web_search: bool = Field(False, description="Enable web search for this task")
 
 
 class AgentChatRequest(BaseModel):
     message: str = Field(..., description="User message")
     conversation_id: Optional[str] = Field(None, description="Conversation ID for persistence")
-    model: Optional[str] = Field(None, description="Model to use (gpt-4o-mini, gpt-4o, claude-3-5-sonnet)")
     temperature: float = Field(0.7, ge=0, le=2)
+    use_web_search: bool = Field(False, description="Enable web search for current information")
 
 
 class AgentResponse(BaseModel):
@@ -82,27 +86,21 @@ def generate_session_token() -> str:
 
 @router.get("/v2/status/enhanced")
 async def get_agent_status():
-    """Get agent status and available models."""
+    """Get agent status and available capabilities."""
     service = get_ai_service()
-    
-    models = []
-    if service.openai_key:
-        models.extend([
-            {"id": "gpt-4o-mini", "name": "GPT-4o Mini", "provider": "openai", "fast": True},
-            {"id": "gpt-4o", "name": "GPT-4o", "provider": "openai", "fast": False},
-        ])
-    if service.anthropic_key:
-        models.append(
-            {"id": "claude-3-5-sonnet", "name": "Claude 3.5 Sonnet", "provider": "anthropic", "fast": False}
-        )
     
     return {
         "status": "ready" if service.is_available() else "unconfigured",
         "version": "2.0.0",
-        "capabilities": ["chat", "code", "analysis", "documents"],
-        "available_models": models,
-        "provider": service.get_provider(),
+        "capabilities": ["chat", "code", "analysis", "documents", "web_search"],
+        "ai_provider": "DeepSeek",
+        "ai_model": "deepseek-chat (V3)",
         "ai_enabled": service.is_available(),
+        "web_search_provider": "DuckDuckGo (FREE)",
+        "web_search_enabled": True,
+        "models": [
+            {"id": "deepseek-chat", "name": "DeepSeek V3", "provider": "deepseek"},
+        ] if service.is_available() else [],
     }
 
 
@@ -114,34 +112,53 @@ async def execute_agent(
     current_user: User = Depends(get_current_user),
 ):
     """
-    Execute an agent task with AI.
+    Execute an agent task with DeepSeek AI.
     
     This endpoint handles complex tasks like:
     - Code generation
     - Document analysis
     - Cost estimation
     - BIM analysis
+    - Web search (if enabled)
     """
     service = get_ai_service()
     
     if not service.is_available():
         raise HTTPException(
             status_code=503,
-            detail="AI service not configured. Please set OPENAI_API_KEY or ANTHROPIC_API_KEY."
+            detail="DeepSeek AI not configured. Please set DEEPSEEK_API_KEY."
         )
     
     start_time = time.time()
     
     try:
+        # Optionally perform web search
+        web_search_results = None
+        if request.use_web_search:
+            logger.info(f"Performing web search for task: {request.task[:50]}...")
+            search_response = await web_search(request.task, count=3)
+            if search_response.success:
+                web_search_results = "\n\n".join([
+                    f"[{i+1}] {r.title}\n{r.description}\nURL: {r.url}"
+                    for i, r in enumerate(search_response.results[:3])
+                ])
+        
         # Build messages for the task
-        messages = [
-            {"role": "user", "content": f"Task: {request.task}"}
-        ]
+        messages = []
+        
+        # Add web search results if available
+        if web_search_results:
+            messages.append({
+                "role": "system",
+                "content": f"Web search results for context:\n{web_search_results}"
+            })
+        
+        messages.append({"role": "user", "content": f"Task: {request.task}"})
         
         if request.context:
             messages.insert(0, {"role": "user", "content": f"Context: {request.context}"})
         
-        # Get AI response
+        # Get AI response from DeepSeek
         response = await service.chat_completion(
             messages=messages,
             temperature=0.7,
@@ -157,6 +174,7 @@ async def execute_agent(
             model=response["model"],
             tokens=response["tokens_used"],
             time_ms=int(execution_time * 1000),
+            web_search=request.use_web_search,
         )
         
         return AgentResponse(
@@ -166,6 +184,7 @@ async def execute_agent(
                 "message": response["content"],
                 "task": request.task,
                 "execution_time_ms": int(execution_time * 1000),
+                "web_search_used": request.use_web_search,
             },
             model_used=response["model"],
             tokens_used=response["tokens_used"],
@@ -183,20 +202,21 @@ async def chat_completion(
     current_user: User = Depends(get_current_user),
 ):
     """
-    AI chat completion with conversation persistence.
+    AI chat completion with DeepSeek and conversation persistence.
     
     This endpoint:
     1. Creates or retrieves a conversation
     2. Loads previous messages for context
-    3. Sends to AI for response
-    4. Saves the exchange to database
+    3. Optionally performs web search (DuckDuckGo)
+    4. Sends to DeepSeek for response
+    5. Saves the exchange to database
     """
     service = get_ai_service()
     
     if not service.is_available():
         raise HTTPException(
             status_code=503,
-            detail="AI service not configured. Please set OPENAI_API_KEY or ANTHROPIC_API_KEY."
+            detail="DeepSeek AI not configured. Please set DEEPSEEK_API_KEY."
         )
     
     # Get or create conversation
@@ -243,7 +263,19 @@ async def chat_completion(
     previous_messages = list(reversed(result.scalars().all()))  # Oldest first
     
     # Build message list for AI
-    messages = []
+    messages = [{"role": "system", "content": AGENT_SYSTEM_PROMPT}]
+    
+    # Optionally perform web search
+    if request.use_web_search:
+        logger.info(f"Performing web search for: {request.message[:50]}...")
+        search_response = await web_search(request.message, count=3)
+        if search_response.success and search_response.results:
+            search_context = "Web search results:\n" + "\n\n".join([
+                f"[{i+1}] {r.title}: {r.description}"
+                for i, r in enumerate(search_response.results[:3])
+            ])
+            messages.append({"role": "system", "content": search_context})
+    
     for msg in previous_messages:
         messages.append({"role": msg.role, "content": msg.content})
     
@@ -251,10 +283,9 @@ async def chat_completion(
     messages.append({"role": "user", "content": request.message})
     
     try:
-        # Get AI response
+        # Get AI response from DeepSeek
         response = await service.chat_completion(
             messages=messages,
-            model=request.model,
             temperature=request.temperature,
             max_tokens=4096,
         )
@@ -300,6 +331,7 @@ async def chat_completion(
             user_id=str(current_user.id),
             model=response["model"],
             tokens=response["tokens_used"],
+            web_search=request.use_web_search,
         )
         
         return ChatResponse(

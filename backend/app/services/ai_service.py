@@ -1,12 +1,12 @@
 """
 AI Service
 
-OpenAI/Claude integration for chat completions and agent tasks.
-Supports both OpenAI and Anthropic Claude APIs with fallback.
+DeepSeek integration for chat completions and agent tasks.
+Falls back to stub responses if DeepSeek is not configured.
 """
 
 import os
-from typing import AsyncGenerator, List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional
 import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential
 
@@ -15,26 +15,17 @@ from app.core.config import settings
 
 logger = get_logger(__name__)
 
-# API Configuration
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") or settings.OPENAI_API_KEY
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-
-# Default models
-DEFAULT_OPENAI_MODEL = "gpt-4o-mini"  # Fast and cost-effective
-PREMIUM_OPENAI_MODEL = "gpt-4o"  # Higher quality
-DEFAULT_CLAUDE_MODEL = "claude-3-5-sonnet-20241022"
-
-# API Endpoints
-OPENAI_BASE_URL = "https://api.openai.com/v1"
-ANTHROPIC_BASE_URL = "https://api.anthropic.com/v1"
+# DeepSeek API Configuration
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY") or os.getenv("DEEPSEEKK_API_KEY") or settings.DEEPSEEK_API_KEY
+DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1"
+DEFAULT_DEEPSEEK_MODEL = "deepseek-chat"  # DeepSeek V3
 
 
 class AIService:
-    """AI service for chat completions and agent tasks."""
+    """AI service for chat completions and agent tasks using DeepSeek."""
     
     def __init__(self):
-        self.openai_key = OPENAI_API_KEY
-        self.anthropic_key = ANTHROPIC_API_KEY
+        self.deepseek_key = DEEPSEEK_API_KEY
         self.http_client = httpx.AsyncClient(timeout=60.0)
     
     async def close(self):
@@ -42,16 +33,12 @@ class AIService:
         await self.http_client.aclose()
     
     def is_available(self) -> bool:
-        """Check if any AI provider is configured."""
-        return bool(self.openai_key or self.anthropic_key)
+        """Check if DeepSeek is configured."""
+        return bool(self.deepseek_key)
     
     def get_provider(self) -> str:
-        """Get the preferred AI provider."""
-        if self.openai_key:
-            return "openai"
-        elif self.anthropic_key:
-            return "anthropic"
-        return "none"
+        """Get the AI provider."""
+        return "deepseek" if self.deepseek_key else "none"
     
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
     async def chat_completion(
@@ -63,11 +50,11 @@ class AIService:
         stream: bool = False,
     ) -> Dict[str, Any]:
         """
-        Generate chat completion using available AI provider.
+        Generate chat completion using DeepSeek API.
         
         Args:
             messages: List of message dicts with 'role' and 'content'
-            model: Model to use (defaults based on provider)
+            model: Model to use (defaults to deepseek-chat)
             temperature: Sampling temperature (0-2)
             max_tokens: Maximum tokens to generate
             stream: Whether to stream the response
@@ -75,21 +62,14 @@ class AIService:
         Returns:
             Response dict with 'content', 'tokens_used', 'model', etc.
         """
-        # Try OpenAI first
-        if self.openai_key:
-            return await self._openai_completion(
-                messages, model or DEFAULT_OPENAI_MODEL, temperature, max_tokens, stream
-            )
+        if not self.deepseek_key:
+            raise RuntimeError("DeepSeek API key not configured. Set DEEPSEEK_API_KEY.")
         
-        # Fall back to Claude
-        if self.anthropic_key:
-            return await self._claude_completion(
-                messages, model or DEFAULT_CLAUDE_MODEL, temperature, max_tokens, stream
-            )
-        
-        raise RuntimeError("No AI provider configured. Set OPENAI_API_KEY or ANTHROPIC_API_KEY.")
+        return await self._deepseek_completion(
+            messages, model or DEFAULT_DEEPSEEK_MODEL, temperature, max_tokens, stream
+        )
     
-    async def _openai_completion(
+    async def _deepseek_completion(
         self,
         messages: List[Dict[str, str]],
         model: str,
@@ -97,9 +77,9 @@ class AIService:
         max_tokens: int,
         stream: bool,
     ) -> Dict[str, Any]:
-        """Call OpenAI API for chat completion."""
+        """Call DeepSeek API for chat completion."""
         headers = {
-            "Authorization": f"Bearer {self.openai_key}",
+            "Authorization": f"Bearer {self.deepseek_key}",
             "Content-Type": "application/json",
         }
         
@@ -113,7 +93,7 @@ class AIService:
         
         try:
             response = await self.http_client.post(
-                f"{OPENAI_BASE_URL}/chat/completions",
+                f"{DEEPSEEK_BASE_URL}/chat/completions",
                 headers=headers,
                 json=payload,
             )
@@ -126,104 +106,13 @@ class AIService:
                 "model": data.get("model", model),
                 "tokens_used": data.get("usage", {}).get("total_tokens", 0),
                 "finish_reason": data["choices"][0].get("finish_reason", "stop"),
-                "provider": "openai",
+                "provider": "deepseek",
             }
         except httpx.HTTPStatusError as e:
-            logger.error(f"OpenAI API error: {e.response.status_code} - {e.response.text}")
+            logger.error(f"DeepSeek API error: {e.response.status_code} - {e.response.text}")
             raise
         except Exception as e:
-            logger.error(f"OpenAI request failed: {e}")
-            raise
-    
-    async def _claude_completion(
-        self,
-        messages: List[Dict[str, str]],
-        model: str,
-        temperature: float,
-        max_tokens: int,
-        stream: bool,
-    ) -> Dict[str, Any]:
-        """Call Anthropic Claude API for chat completion."""
-        headers = {
-            "x-api-key": self.anthropic_key,
-            "Content-Type": "application/json",
-            "anthropic-version": "2023-06-01",
-        }
-        
-        # Convert OpenAI format to Claude format
-        system_msg = None
-        claude_messages = []
-        
-        for msg in messages:
-            if msg["role"] == "system":
-                system_msg = msg["content"]
-            else:
-                claude_messages.append({
-                    "role": msg["role"],
-                    "content": msg["content"],
-                })
-        
-        payload = {
-            "model": model,
-            "messages": claude_messages,
-            "max_tokens": max_tokens,
-            "temperature": temperature,
-            "stream": stream,
-        }
-        
-        if system_msg:
-            payload["system"] = system_msg
-        
-        try:
-            response = await self.http_client.post(
-                f"{ANTHROPIC_BASE_URL}/messages",
-                headers=headers,
-                json=payload,
-            )
-            response.raise_for_status()
-            data = response.json()
-            
-            return {
-                "content": data["content"][0]["text"],
-                "role": "assistant",
-                "model": data.get("model", model),
-                "tokens_used": data.get("usage", {}).get("input_tokens", 0) + data.get("usage", {}).get("output_tokens", 0),
-                "finish_reason": data.get("stop_reason", "stop"),
-                "provider": "anthropic",
-            }
-        except httpx.HTTPStatusError as e:
-            logger.error(f"Claude API error: {e.response.status_code} - {e.response.text}")
-            raise
-        except Exception as e:
-            logger.error(f"Claude request failed: {e}")
-            raise
-    
-    async def generate_embedding(self, text: str) -> List[float]:
-        """Generate text embedding using OpenAI."""
-        if not self.openai_key:
-            raise RuntimeError("OpenAI API key not configured for embeddings")
-        
-        headers = {
-            "Authorization": f"Bearer {self.openai_key}",
-            "Content-Type": "application/json",
-        }
-        
-        payload = {
-            "model": "text-embedding-3-small",
-            "input": text,
-        }
-        
-        try:
-            response = await self.http_client.post(
-                f"{OPENAI_BASE_URL}/embeddings",
-                headers=headers,
-                json=payload,
-            )
-            response.raise_for_status()
-            data = response.json()
-            return data["data"][0]["embedding"]
-        except Exception as e:
-            logger.error(f"Embedding generation failed: {e}")
+            logger.error(f"DeepSeek request failed: {e}")
             raise
 
 
@@ -246,7 +135,7 @@ async def generate_chat_response(
     temperature: float = 0.7,
 ) -> str:
     """
-    Convenience function to generate a chat response.
+    Convenience function to generate a chat response using DeepSeek.
     
     Args:
         messages: List of message dicts with 'role' and 'content'
