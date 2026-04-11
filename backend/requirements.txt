@@ -83,6 +83,7 @@ PyMuPDF>=1.23.0
 
 # Web search (DuckDuckGo - FREE, no API key)
 ddgs>=8.0.0
+duckduckgo-search>=3.9.0
 
 # AI/LLM APIs
 openai>=1.0.0
