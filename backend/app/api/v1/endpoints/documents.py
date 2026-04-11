@@ -253,8 +253,11 @@ async def upload_public_document(
         }
         
     except Exception as e:
-        logger.error(f"Public document upload failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+        import traceback
+        error_msg = f"{type(e).__name__}: {str(e)}"
+        logger.error(f"Public document upload failed: {error_msg}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Upload failed: {error_msg}")
 
 
 @router.post("/upload/chat/{conversation_id}")
