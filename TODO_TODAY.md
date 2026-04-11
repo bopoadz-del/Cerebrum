@@ -140,24 +140,10 @@ gcloud logging read "resource.labels.service_name=cerebrum-backend AND severity>
 
 ## 🎯 TOMORROW'S PRIORITIES
 
-1. **Fix File Upload** ⚠️ KNOWN ISSUE
-   - **Error:** `AttributeError: you need a private key to sign credentials`
+1. **~~Fix File Upload~~** ✅ FIXED
    - **Problem:** Cloud Run compute credentials can't sign URLs
-   - **Solution Options:**
-     - Option A: Mount service account JSON key to Cloud Run
-     - Option B: Use public bucket with uniform access (no signed URLs)
-     - Option C: Use a separate service with the JSON key
-   
-   **Quick Fix (Option B):**
-   ```bash
-   # Make bucket publicly readable
-   gsutil uniformbucketlevelaccess set on gs://cerebrum-documents-30d9c
-   gsutil iam ch allUsers:objectViewer gs://cerebrum-documents-30d9c
-   
-   # Then modify code to return blob.public_url without signing
-   # Remove: blob.generate_signed_url(...)
-   # Use: return blob.public_url
-   ```
+   - **Solution:** Made GCS bucket public + use direct public URLs
+   - **Status:** Working! Test: `curl -F "file=@test.txt" /api/v1/documents/upload/public`
 
 2. **Frontend Testing**
    - Test file upload from UI
