@@ -72,9 +72,13 @@ async def upload_to_gcs(
     file_content: bytes,
     destination_path: str,
     content_type: str,
+    make_public: bool = True,
 ) -> str:
     """
     Upload file to Google Cloud Storage.
+    
+    Args:
+        make_public: If True, makes the blob publicly readable
     
     Returns:
         Public URL of the uploaded file
@@ -90,7 +94,15 @@ async def upload_to_gcs(
             content_type=content_type,
         )
         
-        # Return public URL (bucket is now public)
+        # Make blob publicly readable if requested
+        if make_public:
+            try:
+                blob.make_public()
+                logger.info(f"Made blob public: gs://{GCS_BUCKET_NAME}/{destination_path}")
+            except Exception as e:
+                logger.warning(f"Could not make blob public: {e}")
+        
+        # Return public URL
         url = f"https://storage.googleapis.com/{GCS_BUCKET_NAME}/{destination_path}"
         
         logger.info(f"Uploaded file to gs://{GCS_BUCKET_NAME}/{destination_path}")

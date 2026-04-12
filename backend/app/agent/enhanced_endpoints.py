@@ -74,65 +74,103 @@ async def execute_task(
     current_user: User = Depends(get_current_user),
 ):
     """Execute a task with DeepSeek."""
+    import asyncio
+    
     service = _check_ai()
     start = time.time()
 
-    # Web search if requested
-    search_results = ""
-    if request.use_web_search:
-        search = await web_search(request.task, count=3)
-        if search.success:
-            search_results = "\n\n".join(
-                f"[{i+1}] {r.title}\n{r.description}" for i, r in enumerate(search.results[:3])
+    try:
+        # Web search if requested (with timeout)
+        search_results = ""
+        if request.use_web_search:
+            try:
+                search = await asyncio.wait_for(
+                    web_search(request.task, count=3),
+                    timeout=5.0
+                )
+                if search.success:
+                    search_results = "\n\n".join(
+                        f"[{i+1}] {r.title}\n{r.description}" for i, r in enumerate(search.results[:3])
+                    )
+            except asyncio.TimeoutError:
+                logger.warning("Web search timed out")
+                search_results = ""
+
+        # Build messages
+        messages = []
+        if search_results:
+            messages.append({"role": "system", "content": f"Web search results:\n{search_results}"})
+        
+        # Add context if provided (can be string or dict)
+        if request.context:
+            if isinstance(request.context, dict):
+                context_str = json.dumps(request.context)
+            else:
+                context_str = str(request.context)
+            messages.append({"role": "user", "content": f"Context: {context_str}"})
+        
+        # Add conversation history if provided
+        if request.conversation_history:
+            for msg in request.conversation_history[-5:]:  # Last 5 messages for context
+                if isinstance(msg, dict) and 'role' in msg and 'content' in msg:
+                    messages.append({"role": msg['role'], "content": msg['content']})
+        
+        messages.append({"role": "user", "content": f"Task: {request.task}"})
+
+        # Get AI response with timeout
+        try:
+            response = await asyncio.wait_for(
+                service.chat_completion(messages=messages, temperature=0.7, max_tokens=2048),
+                timeout=30.0
             )
+        except asyncio.TimeoutError:
+            logger.error("AI response timed out")
+            return {
+                "success": False,
+                "action": "timeout",
+                "layer": request.context.get("current_layer", "coding") if request.context else "coding",
+                "data": {"error": "AI response timed out"},
+                "message": "I'm sorry, the request took too long to process. Please try again or simplify your question.",
+                "execution_time_ms": int((time.time() - start) * 1000),
+                "timestamp": datetime.utcnow().isoformat(),
+            }
 
-    # Build messages
-    messages = []
-    if search_results:
-        messages.append({"role": "system", "content": f"Web search results:\n{search_results}"})
-    
-    # Add context if provided (can be string or dict)
-    if request.context:
-        if isinstance(request.context, dict):
-            context_str = json.dumps(request.context)
-        else:
-            context_str = str(request.context)
-        messages.append({"role": "user", "content": f"Context: {context_str}"})
-    
-    # Add conversation history if provided
-    if request.conversation_history:
-        for msg in request.conversation_history[-5:]:  # Last 5 messages for context
-            if isinstance(msg, dict) and 'role' in msg and 'content' in msg:
-                messages.append({"role": msg['role'], "content": msg['content']})
-    
-    messages.append({"role": "user", "content": f"Task: {request.task}"})
-
-    # Get AI response
-    response = await service.chat_completion(messages=messages, temperature=0.7, max_tokens=4096)
-
-    # Return format matching frontend AgentResponse interface
-    return {
-        "success": True,
-        "action": "execute",
-        "layer": request.context.get("current_layer", "coding") if request.context else "coding",
-        "data": {
-            "model_used": response.get("model", "unknown"),
-            "tokens_used": response.get("tokens_used", {}),
-            "web_search_used": request.use_web_search,
-        },
-        "message": response["content"],
-        "execution_time_ms": int((time.time() - start) * 1000),
-        "timestamp": datetime.utcnow().isoformat(),
-        "reasoning": {
-            "steps": [
-                {"type": "thought", "content": "Processing task", "details": request.task[:100]},
-                {"type": "tool", "content": "DeepSeek AI", "details": "Generated response"},
-            ],
-            "toolsConsidered": ["DeepSeek AI"],
-            "dataLookedUp": ["User query"],
-            "whyThisAnswer": "Response generated using DeepSeek AI",
+        # Return format matching frontend AgentResponse interface
+        return {
+            "success": True,
+            "action": "execute",
+            "layer": request.context.get("current_layer", "coding") if request.context else "coding",
+            "data": {
+                "model_used": response.get("model", "unknown"),
+                "tokens_used": response.get("tokens_used", {}),
+                "web_search_used": request.use_web_search and bool(search_results),
+            },
+            "message": response["content"],
+            "execution_time_ms": int((time.time() - start) * 1000),
+            "timestamp": datetime.utcnow().isoformat(),
+            "reasoning": {
+                "steps": [
+                    {"type": "thought", "content": "Processing task", "details": request.task[:100]},
+                    {"type": "tool", "content": "DeepSeek AI", "details": "Generated response"},
+                ],
+                "toolsConsidered": ["DeepSeek AI"],
+                "dataLookedUp": ["User query"],
+                "whyThisAnswer": "Response generated using DeepSeek AI",
+            }
         }
-    }
+    except Exception as e:
+        logger.error(f"Agent execute error: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return {
+            "success": False,
+            "action": "error",
+            "layer": request.context.get("current_layer", "coding") if request.context else "coding",
+            "data": {"error": str(e)},
+            "message": f"I encountered an error processing your request: {str(e)[:100]}. Please try again.",
+            "execution_time_ms": int((time.time() - start) * 1000),
+            "timestamp": datetime.utcnow().isoformat(),
+        }
 
 
 @router.post("/chat/completions")
@@ -263,3 +301,57 @@ async def get_conversation(
         select(Message).where(Message.conversation_id == conv.id).order_by(Message.created_at)
     )
     return {"conversation": conv.to_dict(), "messages": [m.to_dict() for m in result.scalars().all()]}
+
+
+# Web Search Endpoint
+class WebSearchRequest(BaseModel):
+    query: str = Field(..., description="Search query")
+    count: int = Field(5, ge=1, le=10, description="Number of results")
+
+
+@router.post("/web-search/search")
+async def web_search_direct(
+    request: WebSearchRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """Direct web search endpoint."""
+    start = time.time()
+    
+    try:
+        search = await web_search(request.query, count=request.count)
+        
+        if search.success:
+            return {
+                "success": True,
+                "query": request.query,
+                "results": [
+                    {
+                        "title": r.title,
+                        "url": r.url,
+                        "description": r.description,
+                        "source": r.source,
+                    }
+                    for r in search.results
+                ],
+                "total_results": len(search.results),
+                "search_time_ms": int((time.time() - start) * 1000),
+            }
+        else:
+            return {
+                "success": False,
+                "query": request.query,
+                "error": search.error or "Search failed",
+                "results": [],
+                "total_results": 0,
+                "search_time_ms": int((time.time() - start) * 1000),
+            }
+    except Exception as e:
+        logger.error(f"Web search error: {e}")
+        return {
+            "success": False,
+            "query": request.query,
+            "error": str(e),
+            "results": [],
+            "total_results": 0,
+            "search_time_ms": int((time.time() - start) * 1000),
+        }

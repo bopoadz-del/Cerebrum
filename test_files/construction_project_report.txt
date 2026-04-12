@@ -1,0 +1,75 @@
+CONSTRUCTION PROJECT REPORT - Q1 2026
+======================================
+
+PROJECT DETAILS
+---------------
+Project Name: Diriyah Gate Development Phase 2
+Client: Diriyah Company
+Project Manager: Ahmed Al-Saud
+Start Date: January 15, 2026
+Estimated Completion: December 2027
+Budget: SAR 450,000,000 ($120M USD)
+
+SCOPE OF WORK
+-------------
+1. Structural Foundation Work
+   - Deep pile foundations (1200 piles)
+   - Groundwater management system
+   - Soil stabilization for 45,000 sqm
+
+2. Main Building Construction
+   - Heritage museum (12,000 sqm)
+   - Commercial retail spaces (8,500 sqm)
+   - Underground parking (3 levels, 500 spaces)
+
+3. Infrastructure
+   - Road network (2.5 km)
+   - Utility tunnels
+   - Sewage treatment plant
+   - District cooling system
+
+MATERIAL SPECIFICATIONS
+-----------------------
+Concrete: C40/50 for foundations, C30/37 for superstructure
+Steel Reinforcement: BS 4449 Grade B500B
+Structural Steel: ASTM A992 Grade 50
+Cladding: Local limestone with traditional Najdi patterns
+
+KEY MILESTONES
+--------------
+✓ Site mobilization - COMPLETED (Jan 2026)
+✓ Foundation piling - COMPLETED (Mar 2026)
+→ Structural steel erection - IN PROGRESS (Apr-Jun 2026)
+→ Museum facade installation - PLANNED (Jul-Sep 2026)
+→ MEP rough-in - PLANNED (Aug-Nov 2026)
+→ Final finishes - PLANNED (Jan-Mar 2027)
+
+SAFETY METRICS
+--------------
+- Zero lost-time incidents (LTI) to date
+- 45,000 man-hours worked without incident
+- Daily safety toolbox talks implemented
+- All workers certified for working at heights
+
+CHALLENGES & RISKS
+------------------
+1. Archaeological findings requiring design modifications
+2. Supply chain delays for specialty limestone
+3. Ramadan scheduling adjustments needed
+4. Summer heat protocols (June-August work restrictions)
+
+COST SUMMARY
+------------
+Budgeted: SAR 450,000,000
+Spent to date: SAR 78,500,000 (17.4%)
+Forecast final cost: SAR 462,000,000 (2.7% over budget)
+
+CONTACT INFORMATION
+-------------------
+Project Director: Khalid Mohammed
+Email: k.mohammed@diriyah.com
+Phone: +966 11 234 5678
+Office: Site Office Building A, Diriyah Gate
+
+Report Generated: April 12, 2026
+Next Update: May 15, 2026
