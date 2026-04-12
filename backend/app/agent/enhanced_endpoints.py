@@ -115,7 +115,14 @@ async def execute_task(
                 if isinstance(msg, dict) and 'role' in msg and 'content' in msg:
                     messages.append({"role": msg['role'], "content": msg['content']})
         
-        messages.append({"role": "user", "content": f"Task: {request.task}"})
+        # Add the user message - only prefix with "Task:" if it looks like a task request
+        task_keywords = ['create', 'generate', 'build', 'write', 'make', 'develop', 'implement', 'design']
+        is_task = any(request.task.lower().startswith(kw) for kw in task_keywords)
+        
+        if is_task:
+            messages.append({"role": "user", "content": f"Task: {request.task}"})
+        else:
+            messages.append({"role": "user", "content": request.task})
 
         # Get AI response with timeout
         try:

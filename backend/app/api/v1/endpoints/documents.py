@@ -225,6 +225,7 @@ async def upload_public_document(
 ):
     """
     Upload a document without authentication (public endpoint for chat attachments).
+    Performs OCR on images and PDFs to extract text.
     
     **Note:** Files uploaded here are temporary and may be cleaned up.
     """
@@ -247,6 +248,55 @@ async def upload_public_document(
     timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
     storage_filename = f"temp/{timestamp}_{file_id}.{file_ext}" if file_ext else f"temp/{timestamp}_{file_id}"
     
+    # Try to extract text via OCR for images and PDFs
+    extracted_text = ""
+    can_extract_text = False
+    text_length = 0
+    
+    try:
+        is_image = file.content_type.startswith('image/')
+        is_pdf = file.content_type == 'application/pdf'
+        is_text = file.content_type.startswith('text/')
+        
+        if is_text:
+            # Direct text extraction for text files
+            try:
+                extracted_text = content.decode('utf-8')
+                can_extract_text = True
+                text_length = len(extracted_text)
+            except UnicodeDecodeError:
+                try:
+                    extracted_text = content.decode('latin-1')
+                    can_extract_text = True
+                    text_length = len(extracted_text)
+                except:
+                    pass
+        
+        elif is_image or is_pdf:
+            # OCR for images and PDFs
+            try:
+                from app.pipelines.ocr import TesseractOCR
+                ocr = TesseractOCR()
+                
+                if is_image:
+                    result = await ocr.process_image(content)
+                    extracted_text = result.text
+                    can_extract_text = len(extracted_text) > 0
+                    text_length = len(extracted_text)
+                elif is_pdf:
+                    result = await ocr.process_pdf(content)
+                    extracted_text = result.text
+                    can_extract_text = len(extracted_text) > 0
+                    text_length = len(extracted_text)
+                    
+            except Exception as ocr_error:
+                logger.warning(f"OCR failed for {file.filename}: {ocr_error}")
+                can_extract_text = False
+                extracted_text = ""
+    
+    except Exception as e:
+        logger.warning(f"Text extraction failed: {e}")
+    
     try:
         # Upload to GCS
         public_url = await upload_to_gcs(
@@ -255,7 +305,7 @@ async def upload_public_document(
             content_type=file.content_type,
         )
         
-        logger.info(f"Public document uploaded: {file_id}")
+        logger.info(f"Public document uploaded: {file_id}, OCR success: {can_extract_text}, text length: {text_length}")
         
         return {
             "success": True,
@@ -265,6 +315,11 @@ async def upload_public_document(
             "content_type": file.content_type,
             "size_bytes": len(content),
             "url": public_url,
+            # Frontend expects these fields for OCR
+            "text": extracted_text[:10000] if can_extract_text else "",  # Limit text size
+            "can_extract_text": can_extract_text,
+            "text_length": text_length,
+            "document_type": "image" if is_image else ("pdf" if is_pdf else "text"),
         }
         
     except HTTPException:
