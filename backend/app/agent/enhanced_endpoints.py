@@ -5,6 +5,7 @@ Simple AI agent endpoints using DeepSeek for chat and DuckDuckGo for web search
 
 import uuid
 import time
+import json
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta
 
@@ -32,8 +33,10 @@ Be concise, professional, and practical."""
 
 class ExecuteRequest(BaseModel):
     task: str = Field(..., description="Task description")
-    context: Optional[str] = Field(None, description="Additional context")
+    context: Optional[Dict[str, Any]] = Field(None, description="Additional context as object")
     use_web_search: bool = Field(False, description="Enable web search")
+    use_memory: bool = Field(False, description="Enable memory")
+    conversation_history: Optional[List[Dict[str, Any]]] = Field(None, description="Previous messages")
 
 
 class ChatRequest(BaseModel):
@@ -87,23 +90,48 @@ async def execute_task(
     messages = []
     if search_results:
         messages.append({"role": "system", "content": f"Web search results:\n{search_results}"})
+    
+    # Add context if provided (can be string or dict)
     if request.context:
-        messages.append({"role": "user", "content": f"Context: {request.context}"})
+        if isinstance(request.context, dict):
+            context_str = json.dumps(request.context)
+        else:
+            context_str = str(request.context)
+        messages.append({"role": "user", "content": f"Context: {context_str}"})
+    
+    # Add conversation history if provided
+    if request.conversation_history:
+        for msg in request.conversation_history[-5:]:  # Last 5 messages for context
+            if isinstance(msg, dict) and 'role' in msg and 'content' in msg:
+                messages.append({"role": msg['role'], "content": msg['content']})
+    
     messages.append({"role": "user", "content": f"Task: {request.task}"})
 
     # Get AI response
     response = await service.chat_completion(messages=messages, temperature=0.7, max_tokens=4096)
 
+    # Return format matching frontend AgentResponse interface
     return {
-        "id": str(uuid.uuid4()),
-        "status": "completed",
-        "result": {
-            "message": response["content"],
-            "execution_time_ms": int((time.time() - start) * 1000),
+        "success": True,
+        "action": "execute",
+        "layer": request.context.get("current_layer", "coding") if request.context else "coding",
+        "data": {
+            "model_used": response.get("model", "unknown"),
+            "tokens_used": response.get("tokens_used", {}),
             "web_search_used": request.use_web_search,
         },
-        "model_used": response["model"],
-        "tokens_used": response["tokens_used"],
+        "message": response["content"],
+        "execution_time_ms": int((time.time() - start) * 1000),
+        "timestamp": datetime.utcnow().isoformat(),
+        "reasoning": {
+            "steps": [
+                {"type": "thought", "content": "Processing task", "details": request.task[:100]},
+                {"type": "tool", "content": "DeepSeek AI", "details": "Generated response"},
+            ],
+            "toolsConsidered": ["DeepSeek AI"],
+            "dataLookedUp": ["User query"],
+            "whyThisAnswer": "Response generated using DeepSeek AI",
+        }
     }
 
 

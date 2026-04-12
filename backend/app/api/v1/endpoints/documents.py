@@ -247,6 +247,7 @@ async def upload_public_document(
         
         return {
             "success": True,
+            "file_id": str(file_id),
             "file_key": str(file_id),
             "filename": file.filename,
             "content_type": file.content_type,
@@ -286,6 +287,82 @@ async def upload_chat_document(
         db=db,
         current_user=current_user,
     )
+
+
+@router.post("/upload/chat")
+async def upload_chat_document_simple(
+    file: UploadFile = File(...),
+    session_id: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Upload a document for chat (simplified endpoint - matches frontend expectation).
+    No conversation_id required in path.
+    """
+    # Validate file
+    validate_file(file)
+    
+    # Read file content
+    content = await file.read()
+    
+    # Check file size
+    if len(content) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File size exceeds maximum of {MAX_FILE_SIZE // (1024*1024)}MB"
+        )
+    
+    # Generate unique filename
+    file_id = uuid.uuid4()
+    file_ext = file.filename.split('.')[-1] if '.' in file.filename else ''
+    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    storage_filename = f"{current_user.id}/{timestamp}_{file_id}.{file_ext}" if file_ext else f"{current_user.id}/{timestamp}_{file_id}"
+    
+    try:
+        # Upload to GCS
+        public_url = await upload_to_gcs(
+            file_content=content,
+            destination_path=storage_filename,
+            content_type=file.content_type,
+        )
+        
+        # Save to database with chat_upload flag
+        file_upload = FileUpload(
+            id=file_id,
+            user_id=current_user.id,
+            filename=storage_filename,
+            original_filename=file.filename,
+            content_type=file.content_type,
+            size_bytes=len(content),
+            storage_provider="gcs",
+            storage_bucket=GCS_BUCKET_NAME,
+            storage_path=storage_filename,
+            public_url=public_url,
+            status="ready",
+        )
+        
+        db.add(file_upload)
+        await db.commit()
+        
+        logger.info(f"Chat document uploaded: {file_id} by user {current_user.id}")
+        
+        # Return format expected by frontend
+        return {
+            "success": True,
+            "file_id": str(file_id),
+            "url": public_url,
+            "filename": file.filename,
+            "text_length": len(content),
+            "text_extracted": file.content_type.startswith('text/'),
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Chat document upload failed: {e}")
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
 
 @router.get("/my")

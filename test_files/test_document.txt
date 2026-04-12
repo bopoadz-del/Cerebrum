@@ -1,0 +1,46 @@
+CEREBRUM AI PLATFORM - TEST DOCUMENT
+=====================================
+
+Introduction
+------------
+This is a test document created for validating the file upload and document analysis capabilities of the Cerebrum AI Platform. It contains various types of content to test different features.
+
+Technical Specifications
+------------------------
+1. File Format: Plain Text (.txt)
+2. Created: April 12, 2026
+3. Purpose: Testing file upload and conversation features
+4. Target: Cloud Run backend with GCS storage
+
+Project Overview
+----------------
+The Cerebrum AI Platform is a comprehensive AI solution designed for construction and engineering industries. It provides intelligent document analysis, chat-based assistance, and knowledge management capabilities.
+
+Key Features:
+- DeepSeek AI integration for intelligent responses
+- DuckDuckGo web search for real-time information
+- File upload to Google Cloud Storage
+- Chat persistence with PostgreSQL
+- Document analysis and summarization
+
+Test Scenarios
+--------------
+This document will be used to test the following scenarios:
+1. File upload via API endpoint
+2. Document content extraction
+3. AI-powered document analysis
+4. Conversation about uploaded documents
+5. Long-form conversation testing (20+ lines)
+
+Sample Data
+-----------
+Project ID: cerebrum-30d9c
+Backend URL: https://cerebrum-backend-rtmyy2f3na-uc.a.run.app
+Frontend URL: https://cerebrum-30d9c.web.app
+Storage Bucket: cerebrum-documents-30d9c
+
+Conclusion
+----------
+This document serves as a comprehensive test case for validating the end-to-end file upload and conversation functionality. It contains structured data, lists, URLs, and technical information that can be referenced in follow-up questions.
+
+End of Document
