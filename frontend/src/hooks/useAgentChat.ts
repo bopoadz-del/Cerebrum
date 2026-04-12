@@ -451,7 +451,13 @@ Just type your request and I'll route it to the appropriate layer!`;
   const sendMessage = useCallback(async () => {
     if (!inputValue.trim() && attachments.length === 0) return;
     
-    const content = inputValue.trim();
+    let content = inputValue.trim();
+    
+    // If there are attachments but no text content, create a default message
+    if (!content && attachments.length > 0) {
+      const fileNames = attachments.map(a => a.name).join(', ');
+      content = `I've uploaded: ${fileNames}`;
+    }
     
     const userMessage: Message = {
       id: uuidv4(),

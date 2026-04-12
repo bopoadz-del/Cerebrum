@@ -7,13 +7,19 @@ ENV PORT=8080
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies including OCR tools
 RUN apt-get update && apt-get install -y \
     gcc \
     libpq-dev \
     libpq5 \
     postgresql-client \
     curl \
+    tesseract-ocr \
+    tesseract-ocr-eng \
+    tesseract-ocr-ara \
+    libtesseract-dev \
+    poppler-utils \
+    libmagic1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
