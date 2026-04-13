@@ -14,6 +14,10 @@ zilqUxp5
 data/
 
 # SSH keys for Render/GitHub access
-.ssh-keys/
+.ssh-keys/*
+!.ssh-keys/*.secret
 gcp-sa-key.json
+!.gcp-sa-key.json.secret
 .firebase/
+.gitsecret/keys/random_seed
+!*.secret
