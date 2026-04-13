@@ -829,9 +829,24 @@ class IntelligentWorkflowRequest(BaseModel):
 
 @router.post("/workflow")
 async def intelligent_workflow(
+    req: IntelligentWorkflowRequest,
+    user=Depends(get_current_user),
+):
+    block = _get_block()
+    result = await block.intelligent_workflow(
+        req.input_data,
+        {"goal": req.goal}
+    )
+    if result.get("status") == "error":
+        raise HTTPException(status_code=400, detail=result.get("error"))
+    return result
+
+
+@router.post("/workflow/upload")
+async def intelligent_workflow_upload(
     goal: str = Form("process document"),
     input_data_json: str = Form("{}"),
-    file: UploadFile = File(None),
+    file: UploadFile = File(...),
     user=Depends(get_current_user),
 ):
     block = _get_block()
@@ -840,9 +855,8 @@ async def intelligent_workflow(
     except Exception:
         input_data = {}
 
-    if file:
-        temp_path = await _save_upload(file)
-        input_data["file_path"] = temp_path
+    temp_path = await _save_upload(file)
+    input_data["file_path"] = temp_path
 
     try:
         result = await block.intelligent_workflow(
@@ -850,8 +864,7 @@ async def intelligent_workflow(
             {"goal": goal}
         )
     finally:
-        if file and input_data.get("file_path"):
-            _safe_remove(input_data["file_path"])
+        _safe_remove(temp_path)
 
     if result.get("status") == "error":
         raise HTTPException(status_code=400, detail=result.get("error"))
