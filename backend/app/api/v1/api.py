@@ -193,6 +193,14 @@ except Exception as e:
     logger.warning(f"Warehouse endpoints not available: {e}")
 
 try:
+    from app.api.v1.endpoints import construction
+    CONSTRUCTION_AVAILABLE = True
+    logger.info("Construction endpoints loaded")
+except Exception as e:
+    CONSTRUCTION_AVAILABLE = False
+    logger.warning(f"Construction endpoints not available: {e}")
+
+try:
     from app.api.v1.endpoints import state
     STATE_AVAILABLE = True
     logger.info("State endpoints loaded")
@@ -282,6 +290,9 @@ if WAREHOUSE_AVAILABLE:
 
 if STATE_AVAILABLE:
     api_v1_router.include_router(state.router, tags=["state"])
+
+if CONSTRUCTION_AVAILABLE:
+    api_v1_router.include_router(construction.router, tags=["construction"])
 
 # Log all registered routes
 logger.info(f"All registered routes: {[r.path for r in api_v1_router.routes]}")
