@@ -9,9 +9,9 @@ from pydantic import BaseModel
 
 from app.core.deps import get_db
 from app.api.deps import get_current_user
-from app.integrations.procore import ProcoreService, ProcoreConnectionCreateRequest
+from app.integrations.procore import ProcoreService
 from app.integrations.slack import SlackService, SlackCommandRequest
-from app.integrations.erp import QuickBooksService, SageService
+from app.integrations.erp import QuickBooksService
 from app.integrations.esignature import DocuSignService, CreateEnvelopeRequest
 from app.integrations.zapier import ZapierService
 from app.integrations.microsoft_365 import Microsoft365Service, TeamsMeetingRequest
