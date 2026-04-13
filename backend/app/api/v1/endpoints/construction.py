@@ -17,6 +17,9 @@ from app.api.deps import get_current_user
 from app.core.block_registry import BLOCK_REGISTRY
 from app.core.logging import get_logger
 
+# Trigger construction block self-registration on import
+import app.containers.construction  # noqa: F401
+
 logger = get_logger(__name__)
 router = APIRouter(prefix="/construction", tags=["construction"])
 
