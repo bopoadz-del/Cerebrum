@@ -3,6 +3,7 @@ Construction Domain API Endpoints
 Complete AEC suite exposed via REST API.
 """
 
+import json
 import os
 import shutil
 import tempfile
@@ -122,6 +123,14 @@ async def _save_upload(file: UploadFile) -> str:
     with os.fdopen(fd, "wb") as f:
         shutil.copyfileobj(file.file, f)
     return tmp_path
+
+
+def _safe_remove(path: str):
+    try:
+        if path and os.path.exists(path):
+            os.remove(path)
+    except Exception:
+        pass
 
 
 # ═══════════════════════════════════════════════════════════
@@ -820,14 +829,30 @@ class IntelligentWorkflowRequest(BaseModel):
 
 @router.post("/workflow")
 async def intelligent_workflow(
-    req: IntelligentWorkflowRequest,
+    goal: str = Form("process document"),
+    input_data_json: str = Form("{}"),
+    file: UploadFile = File(None),
     user=Depends(get_current_user),
 ):
     block = _get_block()
-    result = await block.intelligent_workflow(
-        req.input_data,
-        {"goal": req.goal}
-    )
+    try:
+        input_data = json.loads(input_data_json) if input_data_json else {}
+    except Exception:
+        input_data = {}
+
+    if file:
+        temp_path = await _save_upload(file)
+        input_data["file_path"] = temp_path
+
+    try:
+        result = await block.intelligent_workflow(
+            input_data,
+            {"goal": goal}
+        )
+    finally:
+        if file and input_data.get("file_path"):
+            _safe_remove(input_data["file_path"])
+
     if result.get("status") == "error":
         raise HTTPException(status_code=400, detail=result.get("error"))
     return result
