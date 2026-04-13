@@ -20,4 +20,5 @@ gcp-sa-key.json
 !.gcp-sa-key.json.secret
 .firebase/
 .gitsecret/keys/random_seed
+.gitsecret/gitsecret-private-key.asc
 !*.secret
