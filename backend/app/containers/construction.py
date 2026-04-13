@@ -3899,7 +3899,10 @@ class ConstructionBlock(BaseBlock):
         for step in chain_steps:
             method = getattr(self, step["action"], None)
             if method:
-                result = await method(current_data, step.get("params", {}))
+                try:
+                    result = await method(current_data, step.get("params", {}))
+                except Exception as e:
+                    result = {"status": "error", "error": f"{step['action']} failed: {str(e)}"}
                 results.append({
                     "step": step["action"],
                     "status": result.get("status"),
