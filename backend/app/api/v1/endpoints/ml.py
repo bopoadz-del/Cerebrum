@@ -1,7 +1,7 @@
 """
 ML Tinker API endpoints.
 """
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query, UploadFile, File
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
 from datetime import datetime
@@ -17,6 +17,11 @@ from app.ml.ab_testing import ABTestFramework
 from app.ml.drift_detection import DriftDetector, DriftType
 from app.ml.retraining import RetrainingOrchestrator, RetrainingTriggerType
 from app.ml.explainability import ExplainabilityEngine, ExplanationMethod
+from app.services.image_understanding import (
+    ImageUnderstandingService,
+    AnalysisType,
+    get_image_understanding_service,
+)
 
 
 router = APIRouter(prefix="/ml", tags=["ml"])
@@ -462,3 +467,63 @@ async def list_retraining_jobs(
     """List retraining jobs."""
     jobs = await orchestrator.list_jobs(model_name=model_name)
     return {"jobs": jobs}
+
+
+# Image Understanding endpoint
+class ImageAnalysisRequest(BaseModel):
+    analysis_type: str = "general"
+    prompt: Optional[str] = None
+    extract_text: bool = True
+
+
+@router.post("/analyze-image")
+async def analyze_image(
+    file: UploadFile = File(...),
+    analysis_type: str = "general",
+    prompt: Optional[str] = None,
+    extract_text: bool = True,
+    current_user = Depends(get_current_user),
+):
+    """
+    Analyze an uploaded image using OCR and vision analysis.
+    
+    Supports:
+    - general: Basic image description
+    - ocr: Text extraction
+    - document: Document analysis
+    - diagram: Diagram interpretation
+    - chart: Chart/graph analysis
+    - construction: Construction-specific analysis
+    """
+    try:
+        image_data = await file.read()
+        if len(image_data) > 10 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="Image too large (max 10MB)")
+        
+        service = get_image_understanding_service()
+        
+        try:
+            analysis_enum = AnalysisType(analysis_type)
+        except ValueError:
+            analysis_enum = AnalysisType.GENERAL
+        
+        result = await service.analyze_image(
+            image_data,
+            analysis_type=analysis_enum,
+            prompt=prompt,
+            extract_text=extract_text,
+        )
+        
+        return {
+            "success": result.success,
+            "description": result.description,
+            "text_content": result.text_content,
+            "objects": result.objects,
+            "metadata": result.metadata,
+            "analysis_type": result.analysis_type.value,
+            "error": result.error,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Image analysis failed: {str(e)}")

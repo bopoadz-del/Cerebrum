@@ -22,6 +22,33 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 
+
+def safe_rate_limit_handler(request: Request, exc: Exception):
+    """Safe exception handler for rate limiter that handles any exception type."""
+    if isinstance(exc, RateLimitExceeded):
+        return JSONResponse(
+            status_code=429,
+            content={"error": f"Rate limit exceeded: {getattr(exc, 'detail', str(exc))}"},
+        )
+    # SlowAPI middleware can pass non-rate-limit exceptions (e.g. Redis errors).
+    # Return a generic server error rather than crashing on missing .detail
+    status_code = getattr(exc, "status_code", 500)
+    detail = getattr(exc, "detail", str(exc))
+    return JSONResponse(
+        status_code=status_code,
+        content={"error": detail},
+    )
+
+
+# Monkey-patch slowapi's global fallback handler so it never crashes on
+# non-RateLimitExceeded exceptions (e.g. Redis AuthenticationError).
+# We must patch both the extension module and the middleware module because
+# middleware imports the handler at module-load time.
+import slowapi.extension
+import slowapi.middleware
+slowapi.extension._rate_limit_exceeded_handler = safe_rate_limit_handler
+slowapi.middleware._rate_limit_exceeded_handler = safe_rate_limit_handler
+
 from app.api.v1.api import api_v1_router
 from app.api.health import router as health_router
 from app.core.config import settings
@@ -173,7 +200,7 @@ def create_application() -> FastAPI:
     
     # Attach rate limiter to app state
     app.state.limiter = limiter
-    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    app.add_exception_handler(RateLimitExceeded, safe_rate_limit_handler)
     
     # Add middleware (order matters - last added = first executed)
     

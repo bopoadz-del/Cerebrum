@@ -269,7 +269,7 @@ if SAFETY_AVAILABLE:
     api_v1_router.include_router(safety.router, tags=["safety"])
 
 if VOICE_AVAILABLE:
-    api_v1_router.include_router(voice.router, tags=["voice"])
+    api_v1_router.include_router(voice.router, prefix="/voice", tags=["voice"])
 
 if IOT_AVAILABLE:
     api_v1_router.include_router(iot.router, tags=["iot"])
