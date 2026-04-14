@@ -16,6 +16,7 @@ from pathlib import Path
 import math
 
 from app.core.block import BaseBlock, BlockConfig
+from app.llm import get_llm_client, LLMMessage
 
 
 @dataclass
@@ -65,6 +66,7 @@ class ConstructionBlock(BaseBlock):
         self._load_csi_masterformat()
         self._load_safety_codes()
         self._load_carbon_factors()
+        self.llm = get_llm_client()
 
     # ═══════════════════════════════════════════════════════════
     # INITIALIZATION & DATABASES
@@ -3890,7 +3892,7 @@ class ConstructionBlock(BaseBlock):
         file_path = input_data.get("file_path") or input_data.get("url")
 
         # Step 1: Analyze intent
-        chain_steps = self._build_intelligent_chain(user_goal, file_path)
+        chain_steps = await self._build_intelligent_chain(user_goal, file_path)
 
         # Step 2: Execute chain through existing methods
         results = []
@@ -3924,8 +3926,45 @@ class ConstructionBlock(BaseBlock):
             "user_query": user_goal
         }
 
-    def _build_intelligent_chain(self, user_goal: str, file_path: Optional[str]) -> List[Dict]:
-        """Determine which construction methods to call based on user intent"""
+    async def _build_intelligent_chain(self, user_goal: str, file_path: Optional[str]) -> List[Dict]:
+        """Determine which construction methods to call based on user intent.
+        First tries LLM reasoning, then falls back to keyword matching."""
+        try:
+            return await self._llm_build_intelligent_chain(user_goal, file_path)
+        except Exception:
+            return self._keyword_build_intelligent_chain(user_goal, file_path)
+
+    async def _llm_build_intelligent_chain(self, user_goal: str, file_path: Optional[str]) -> List[Dict]:
+        """Use the LLM layer to decide the optimal action chain."""
+        available_actions = list(self.get_actions().keys())
+        prompt = (
+            "You are an intelligent workflow orchestrator for a construction domain AI system.\n"
+            "Given the user's goal and an attached file (if any), select the optimal sequence "
+            "of actions from the list below.\n\n"
+            f"Available actions: {available_actions}\n\n"
+            f"User goal: {user_goal}\n"
+            f"File attached: {'yes (' + (file_path or 'unknown') + ')' if file_path else 'no'}\n\n"
+            "Respond ONLY with a JSON array of objects, each with keys 'action' and 'params'. "
+            "Keep the chain minimal but complete. Example:\n"
+            '[{"action": "process_document", "params": {}}, {"action": "extract_quantities", "params": {}}]'
+        )
+        try:
+            result = await self.llm.json_chat(
+                messages=[LLMMessage(role="user", content=prompt)],
+                temperature=0.2,
+                max_tokens=2048,
+            )
+            chain = result if isinstance(result, list) else []
+            # Validate actions exist
+            valid = [step for step in chain if step.get("action") in available_actions]
+            if valid:
+                return valid
+        except Exception:
+            pass
+        return self._keyword_build_intelligent_chain(user_goal, file_path)
+
+    def _keyword_build_intelligent_chain(self, user_goal: str, file_path: Optional[str]) -> List[Dict]:
+        """Legacy keyword-based chain builder (fallback)."""
         goal = user_goal.lower()
         chain = []
 
