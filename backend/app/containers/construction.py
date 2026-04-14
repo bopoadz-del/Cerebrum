@@ -140,8 +140,25 @@ class ConstructionBlock(BaseBlock):
     # 1. CORE DOCUMENT PROCESSING (Existing + Enhanced)
     # ═══════════════════════════════════════════════════════════
 
+    def _get_or_create_cache_key(self, file_path: str, doc_type: str) -> str:
+        """Generate a deterministic cache key for a document."""
+        from app.core.block_registry import BLOCK_REGISTRY
+        file_hasher = BLOCK_REGISTRY.get("file_hasher")
+        if file_hasher:
+            # We can't await here synchronously, so use path + mtime fallback
+            import os
+            try:
+                mtime = os.path.getmtime(file_path)
+                seed = f"{file_path}:{mtime}:{doc_type}"
+            except Exception:
+                seed = f"{file_path}:{doc_type}"
+        else:
+            seed = f"{file_path}:{doc_type}"
+        import hashlib
+        return f"doc_proc:{hashlib.md5(seed.encode()).hexdigest()}"
+
     async def process_document(self, input_data: dict, params: dict) -> dict:
-        """Master document processor with classification"""
+        """Master document processor with classification and infrastructure integration."""
         file_path = input_data.get("file_path") or params.get("file_path")
         url = input_data.get("url") or params.get("url")
         doc_type = params.get("doc_type", "auto")
@@ -151,6 +168,57 @@ class ConstructionBlock(BaseBlock):
 
         if not file_path:
             return {"status": "error", "error": "No file provided"}
+
+        from app.core.block_registry import BLOCK_REGISTRY
+        file_hasher = BLOCK_REGISTRY.get("file_hasher")
+        cache_manager = BLOCK_REGISTRY.get("cache_manager")
+        async_processor = BLOCK_REGISTRY.get("async_processor")
+        llm_enhancer = BLOCK_REGISTRY.get("llm_enhancer")
+
+        # 1. File fingerprint
+        fingerprint = None
+        if file_hasher:
+            fp_result = await file_hasher.fingerprint({"file_path": file_path}, {})
+            if fp_result.get("status") == "success":
+                fingerprint = fp_result
+
+        # 2. Cache lookup
+        cache_key = self._get_or_create_cache_key(file_path, doc_type)
+        if cache_manager:
+            cached = await cache_manager.get({"key": cache_key}, {})
+            if cached.get("found"):
+                return {
+                    "status": "success",
+                    "source": "cache",
+                    "cache_key": cache_key,
+                    "fingerprint": fingerprint,
+                    "data": cached.get("value"),
+                }
+
+        # 3. Large file async offloading
+        import os
+        file_size = os.path.getsize(file_path) if os.path.exists(file_path) else 0
+        if async_processor and file_size > 10 * 1024 * 1024:
+            dispatch_result = await async_processor.dispatch(
+                {
+                    "task_name": "app.containers.construction.process_document_task",
+                    "kwargs": {
+                        "file_path": file_path,
+                        "doc_type": doc_type,
+                        "params": params,
+                        "cache_key": cache_key,
+                    }
+                },
+                {"queue": "slow"},
+            )
+            if dispatch_result.get("status") == "success":
+                return {
+                    "status": "queued",
+                    "task_id": dispatch_result.get("task_id"),
+                    "cache_key": cache_key,
+                    "fingerprint": fingerprint,
+                    "message": "File >10MB, queued for background processing",
+                }
 
         # Auto-classify
         if doc_type == "auto":
@@ -170,7 +238,32 @@ class ConstructionBlock(BaseBlock):
         }
 
         processor = processors.get(doc_type, self._process_drawing)
-        return await processor(input_data, params)
+        result = await processor(input_data, params)
+
+        # 4. LLM enhancement / structuring
+        if llm_enhancer and result.get("status") == "success":
+            raw_text = str(result.get("sheets", result))
+            if len(raw_text) > 100:
+                try:
+                    enhanced = await llm_enhancer.structure_json(
+                        {"text": raw_text[:4000]},
+                        {"schema_hint": "Extract key fields as structured JSON with keys like title, disciplines, measurements, findings."},
+                    )
+                    if enhanced.get("status") == "success":
+                        result["llm_structured"] = enhanced.get("structured")
+                except Exception:
+                    pass
+
+        # 5. Cache store
+        if cache_manager and result.get("status") == "success":
+            await cache_manager.set(
+                {"key": cache_key, "value": result},
+                {"ttl": 86400},
+            )
+
+        if fingerprint:
+            result["fingerprint"] = fingerprint
+        return result
 
     async def _process_drawing(self, file_path: str, params: dict) -> dict:
         """Process technical drawings with full extraction"""
