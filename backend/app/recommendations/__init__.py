@@ -1,3 +1,4 @@
+"""
 Recommendation Engine package for Cerebrum.
 
 Provides template-based formula recommendations, context-aware suggestions,

@@ -1,0 +1,905 @@
+{
+  "version": "1.0.0",
+  "description": "Preloaded formula templates for construction calculations",
+  "categories": [
+    "concrete",
+    "rebar",
+    "cost_estimation",
+    "structural_analysis",
+    "earthwork"
+  ],
+  "templates": [
+    {
+      "id": "concrete_volume_basic",
+      "name": "Concrete Volume",
+      "description": "Calculate volume of concrete for rectangular elements like slabs, foundations, and walls",
+      "category": "concrete",
+      "formula": "length * width * height",
+      "inputs": [
+        {
+          "name": "length",
+          "type": "float",
+          "unit": "m",
+          "required": true,
+          "description": "Element length",
+          "min_value": 0
+        },
+        {
+          "name": "width",
+          "type": "float",
+          "unit": "m",
+          "required": true,
+          "description": "Element width",
+          "min_value": 0
+        },
+        {
+          "name": "height",
+          "type": "float",
+          "unit": "m",
+          "required": true,
+          "description": "Element height or thickness",
+          "min_value": 0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "volume",
+          "type": "float",
+          "unit": "m³",
+          "description": "Total concrete volume in cubic meters"
+        }
+      ],
+      "tags": ["concrete", "volume", "basic", "rectangular", "slab", "foundation"],
+      "required_elements": ["concrete", "formwork"],
+      "usage_count": 0,
+      "version": "1.0.0",
+      "references": ["ACI 318 - Building Code Requirements for Structural Concrete"]
+    },
+    {
+      "id": "concrete_volume_cylinder",
+      "name": "Concrete Volume (Cylindrical)",
+      "description": "Calculate concrete volume for cylindrical elements like columns, piers, and piles",
+      "category": "concrete",
+      "formula": "3.14159 * (diameter / 2) ** 2 * height",
+      "inputs": [
+        {
+          "name": "diameter",
+          "type": "float",
+          "unit": "m",
+          "required": true,
+          "description": "Column diameter",
+          "min_value": 0
+        },
+        {
+          "name": "height",
+          "type": "float",
+          "unit": "m",
+          "required": true,
+          "description": "Column height",
+          "min_value": 0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "volume",
+          "type": "float",
+          "unit": "m³",
+          "description": "Total concrete volume"
+        }
+      ],
+      "tags": ["concrete", "volume", "cylinder", "column", "pile", "pier"],
+      "required_elements": ["concrete", "column"],
+      "usage_count": 0,
+      "version": "1.0.0",
+      "references": ["ACI 318 - Building Code Requirements for Structural Concrete"]
+    },
+    {
+      "id": "concrete_volume_trapezoidal",
+      "name": "Concrete Volume (Trapezoidal Foundation)",
+      "description": "Calculate concrete volume for trapezoidal footings with sloped sides",
+      "category": "concrete",
+      "formula": "(bottom_length + top_length) / 2 * (bottom_width + top_width) / 2 * height",
+      "inputs": [
+        {
+          "name": "bottom_length",
+          "type": "float",
+          "unit": "m",
+          "required": true,
+          "description": "Length of footing bottom",
+          "min_value": 0
+        },
+        {
+          "name": "top_length",
+          "type": "float",
+          "unit": "m",
+          "required": true,
+          "description": "Length of footing top",
+          "min_value": 0
+        },
+        {
+          "name": "bottom_width",
+          "type": "float",
+          "unit": "m",
+          "required": true,
+          "description": "Width of footing bottom",
+          "min_value": 0
+        },
+        {
+          "name": "top_width",
+          "type": "float",
+          "unit": "m",
+          "required": true,
+          "description": "Width of footing top",
+          "min_value": 0
+        },
+        {
+          "name": "height",
+          "type": "float",
+          "unit": "m",
+          "required": true,
+          "description": "Footing height",
+          "min_value": 0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "volume",
+          "type": "float",
+          "unit": "m³",
+          "description": "Concrete volume for trapezoidal footing"
+        }
+      ],
+      "tags": ["concrete", "volume", "footing", "foundation", "trapezoid"],
+      "required_elements": ["concrete", "foundation"],
+      "usage_count": 0,
+      "version": "1.0.0",
+      "references": ["ACI 318 - Building Code Requirements for Structural Concrete"]
+    },
+    {
+      "id": "rebar_weight_basic",
+      "name": "Rebar Weight",
+      "description": "Calculate total weight of reinforcing steel based on count, length, and unit weight",
+      "category": "rebar",
+      "formula": "(count * length * weight_per_meter) / 1000",
+      "inputs": [
+        {
+          "name": "count",
+          "type": "int",
+          "unit": "pcs",
+          "required": true,
+          "description": "Number of rebars",
+          "min_value": 1
+        },
+        {
+          "name": "length",
+          "type": "float",
+          "unit": "m",
+          "required": true,
+          "description": "Length of each rebar",
+          "min_value": 0
+        },
+        {
+          "name": "weight_per_meter",
+          "type": "float",
+          "unit": "kg/m",
+          "required": true,
+          "description": "Weight per meter (varies by bar diameter: #4=0.994, #5=1.552, #6=2.235, #8=3.973 kg/m)",
+          "min_value": 0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "total_weight",
+          "type": "float",
+          "unit": "ton",
+          "description": "Total rebar weight in metric tons"
+        },
+        {
+          "name": "weight_kg",
+          "type": "float",
+          "unit": "kg",
+          "description": "Total rebar weight in kilograms"
+        }
+      ],
+      "tags": ["rebar", "steel", "weight", "estimation", "reinforcement"],
+      "required_elements": ["rebar", "steel"],
+      "usage_count": 0,
+      "version": "1.0.0",
+      "references": ["ASTM A615 - Standard Specification for Deformed and Plain Carbon-Steel Bars for Concrete Reinforcement"]
+    },
+    {
+      "id": "rebar_by_area",
+      "name": "Rebar Estimation (Area Based)",
+      "description": "Estimate rebar required based on concrete area and typical reinforcement ratios",
+      "category": "rebar",
+      "formula": "concrete_area * rebar_ratio",
+      "inputs": [
+        {
+          "name": "concrete_area",
+          "type": "float",
+          "unit": "m²",
+          "required": true,
+          "description": "Concrete surface area (e.g., slab area)",
+          "min_value": 0
+        },
+        {
+          "name": "rebar_ratio",
+          "type": "float",
+          "unit": "kg/m²",
+          "required": true,
+          "description": "Rebar ratio (typical values: slabs 80-120, beams 150-200, columns 100-150 kg/m²)",
+          "min_value": 0,
+          "default_value": 100
+        }
+      ],
+      "outputs": [
+        {
+          "name": "estimated_weight",
+          "type": "float",
+          "unit": "kg",
+          "description": "Estimated rebar weight"
+        }
+      ],
+      "tags": ["rebar", "estimation", "area", "ratio", "approximate"],
+      "required_elements": ["rebar", "concrete"],
+      "usage_count": 0,
+      "version": "1.0.0",
+      "references": ["Typical construction ratios - varies by project requirements"]
+    },
+    {
+      "id": "rebar_lap_length",
+      "name": "Rebar Lap Splice Length",
+      "description": "Calculate required lap splice length for rebar connections",
+      "category": "rebar",
+      "formula": "development_factor * bar_diameter * (f_y / sqrt(f_c))",
+      "inputs": [
+        {
+          "name": "bar_diameter",
+          "type": "float",
+          "unit": "mm",
+          "required": true,
+          "description": "Rebar diameter",
+          "min_value": 0
+        },
+        {
+          "name": "f_y",
+          "type": "float",
+          "unit": "MPa",
+          "required": true,
+          "description": "Steel yield strength (typically 400 or 500 MPa)",
+          "default_value": 400
+        },
+        {
+          "name": "f_c",
+          "type": "float",
+          "unit": "MPa",
+          "required": true,
+          "description": "Concrete compressive strength",
+          "default_value": 25
+        },
+        {
+          "name": "development_factor",
+          "type": "float",
+          "unit": "",
+          "required": false,
+          "description": "Development length factor (typically 0.5-0.8)",
+          "default_value": 0.6,
+          "min_value": 0.3,
+          "max_value": 1.0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "lap_length",
+          "type": "float",
+          "unit": "mm",
+          "description": "Required lap splice length"
+        }
+      ],
+      "tags": ["rebar", "lap", "splice", "connection", "development"],
+      "required_elements": ["rebar"],
+      "usage_count": 0,
+      "version": "1.0.0",
+      "references": ["ACI 318-19 Chapter 25 - Reinforcement Details"]
+    },
+    {
+      "id": "material_cost_basic",
+      "name": "Material Cost Estimation",
+      "description": "Calculate material costs based on quantities and unit prices with wastage factor",
+      "category": "cost_estimation",
+      "formula": "sum(quantities[i] * unit_prices[i]) * (1 + wastage_factor)",
+      "inputs": [
+        {
+          "name": "concrete_volume",
+          "type": "float",
+          "unit": "m³",
+          "required": true,
+          "description": "Total concrete volume required",
+          "min_value": 0
+        },
+        {
+          "name": "concrete_price",
+          "type": "float",
+          "unit": "currency/m³",
+          "required": true,
+          "description": "Concrete price per cubic meter",
+          "min_value": 0
+        },
+        {
+          "name": "rebar_weight",
+          "type": "float",
+          "unit": "kg",
+          "required": true,
+          "description": "Total rebar weight required",
+          "min_value": 0
+        },
+        {
+          "name": "rebar_price",
+          "type": "float",
+          "unit": "currency/kg",
+          "required": true,
+          "description": "Rebar price per kilogram",
+          "min_value": 0
+        },
+        {
+          "name": "wastage_factor",
+          "type": "float",
+          "unit": "ratio",
+          "required": false,
+          "description": "Wastage percentage (typically 5-10%)",
+          "default_value": 0.05,
+          "min_value": 0,
+          "max_value": 0.3
+        }
+      ],
+      "outputs": [
+        {
+          "name": "concrete_cost",
+          "type": "float",
+          "unit": "currency",
+          "description": "Concrete material cost"
+        },
+        {
+          "name": "rebar_cost",
+          "type": "float",
+          "unit": "currency",
+          "description": "Rebar material cost"
+        },
+        {
+          "name": "total_cost",
+          "type": "float",
+          "unit": "currency",
+          "description": "Total material cost including wastage"
+        }
+      ],
+      "tags": ["cost", "estimation", "material", "budget", "concrete", "rebar"],
+      "required_elements": [],
+      "usage_count": 0,
+      "version": "1.0.0",
+      "references": ["Standard construction estimating practices"]
+    },
+    {
+      "id": "labor_cost_basic",
+      "name": "Labor Cost Estimation",
+      "description": "Estimate labor costs based on productivity rates and crew size",
+      "category": "cost_estimation",
+      "formula": "(work_quantity / productivity_rate) * hourly_rate * crew_size",
+      "inputs": [
+        {
+          "name": "work_quantity",
+          "type": "float",
+          "unit": "various",
+          "required": true,
+          "description": "Quantity of work (e.g., m³ of concrete, m² of formwork)",
+          "min_value": 0
+        },
+        {
+          "name": "productivity_rate",
+          "type": "float",
+          "unit": "unit/hr",
+          "required": true,
+          "description": "Worker productivity (e.g., 2 m³/hour for concrete placement)",
+          "min_value": 0.1
+        },
+        {
+          "name": "hourly_rate",
+          "type": "float",
+          "unit": "currency/hr",
+          "required": true,
+          "description": "Labor hourly rate",
+          "min_value": 0
+        },
+        {
+          "name": "crew_size",
+          "type": "int",
+          "unit": "workers",
+          "required": false,
+          "description": "Number of workers in crew",
+          "default_value": 1,
+          "min_value": 1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "labor_hours",
+          "type": "float",
+          "unit": "hours",
+          "description": "Total labor hours required"
+        },
+        {
+          "name": "labor_cost",
+          "type": "float",
+          "unit": "currency",
+          "description": "Total labor cost"
+        }
+      ],
+      "tags": ["cost", "labor", "estimation", "productivity", "crew"],
+      "required_elements": [],
+      "usage_count": 0,
+      "version": "1.0.0",
+      "references": ["RS Means - Construction Cost Data", "Craftsman National Construction Estimator"]
+    },
+    {
+      "id": "beam_moment_simple",
+      "name": "Simple Beam Moment (Point Load)",
+      "description": "Calculate maximum bending moment in simply supported beam with central point load",
+      "category": "structural_analysis",
+      "formula": "(load * span) / 4",
+      "inputs": [
+        {
+          "name": "load",
+          "type": "float",
+          "unit": "kN",
+          "required": true,
+          "description": "Point load at midspan",
+          "min_value": 0
+        },
+        {
+          "name": "span",
+          "type": "float",
+          "unit": "m",
+          "required": true,
+          "description": "Beam span length",
+          "min_value": 0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "max_moment",
+          "type": "float",
+          "unit": "kN-m",
+          "description": "Maximum bending moment at midspan"
+        }
+      ],
+      "tags": ["structural", "beam", "moment", "analysis", "point-load"],
+      "required_elements": ["beam"],
+      "usage_count": 0,
+      "version": "1.0.0",
+      "references": ["Structural Analysis - Hibbeler, Chapter 6"]
+    },
+    {
+      "id": "beam_moment_uniform",
+      "name": "Simple Beam Moment (Uniform Load)",
+      "description": "Calculate maximum bending moment in simply supported beam with uniform distributed load",
+      "category": "structural_analysis",
+      "formula": "(load * span ** 2) / 8",
+      "inputs": [
+        {
+          "name": "load",
+          "type": "float",
+          "unit": "kN/m",
+          "required": true,
+          "description": "Uniform distributed load",
+          "min_value": 0
+        },
+        {
+          "name": "span",
+          "type": "float",
+          "unit": "m",
+          "required": true,
+          "description": "Beam span length",
+          "min_value": 0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "max_moment",
+          "type": "float",
+          "unit": "kN-m",
+          "description": "Maximum bending moment at midspan"
+        }
+      ],
+      "tags": ["structural", "beam", "moment", "analysis", "uniform-load"],
+      "required_elements": ["beam"],
+      "usage_count": 0,
+      "version": "1.0.0",
+      "references": ["Structural Analysis - Hibbeler, Chapter 6"]
+    },
+    {
+      "id": "beam_deflection_uniform",
+      "name": "Beam Deflection (Uniform Load)",
+      "description": "Calculate maximum deflection for simply supported beam with uniform load",
+      "category": "structural_analysis",
+      "formula": "(5 * load * span ** 4) / (384 * E * I)",
+      "inputs": [
+        {
+          "name": "load",
+          "type": "float",
+          "unit": "kN/m",
+          "required": true,
+          "description": "Uniform distributed load",
+          "min_value": 0
+        },
+        {
+          "name": "span",
+          "type": "float",
+          "unit": "m",
+          "required": true,
+          "description": "Beam span",
+          "min_value": 0
+        },
+        {
+          "name": "E",
+          "type": "float",
+          "unit": "kPa",
+          "required": true,
+          "description": "Modulus of elasticity (concrete ~25-35 GPa = 25,000,000 kPa)",
+          "default_value": 25000000
+        },
+        {
+          "name": "I",
+          "type": "float",
+          "unit": "m⁴",
+          "required": true,
+          "description": "Moment of inertia of beam section"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "deflection",
+          "type": "float",
+          "unit": "m",
+          "description": "Maximum deflection at midspan"
+        },
+        {
+          "name": "deflection_mm",
+          "type": "float",
+          "unit": "mm",
+          "description": "Deflection in millimeters"
+        },
+        {
+          "name": "deflection_span_ratio",
+          "type": "float",
+          "unit": "L/x",
+          "description": "Deflection as span ratio (e.g., L/360)"
+        }
+      ],
+      "tags": ["structural", "beam", "deflection", "serviceability", "uniform-load"],
+      "required_elements": ["beam"],
+      "usage_count": 0,
+      "version": "1.0.0",
+      "references": ["Structural Analysis - Hibbeler, Chapter 8"]
+    },
+    {
+      "id": "column_axial_capacity",
+      "name": "Column Axial Capacity",
+      "description": "Estimate concrete column axial load capacity using ACI 318 provisions",
+      "category": "structural_analysis",
+      "formula": "0.8 * (0.85 * f_c * (A_g - A_st) + f_y * A_st)",
+      "inputs": [
+        {
+          "name": "f_c",
+          "type": "float",
+          "unit": "MPa",
+          "required": true,
+          "description": "Concrete compressive strength",
+          "min_value": 0
+        },
+        {
+          "name": "f_y",
+          "type": "float",
+          "unit": "MPa",
+          "required": true,
+          "description": "Steel yield strength (typically 400 or 500 MPa)",
+          "default_value": 400
+        },
+        {
+          "name": "A_g",
+          "type": "float",
+          "unit": "mm²",
+          "required": true,
+          "description": "Gross area of column cross-section",
+          "min_value": 0
+        },
+        {
+          "name": "A_st",
+          "type": "float",
+          "unit": "mm²",
+          "required": true,
+          "description": "Total area of steel reinforcement",
+          "min_value": 0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "axial_capacity",
+          "type": "float",
+          "unit": "kN",
+          "description": "Maximum axial load capacity (compression)"
+        }
+      ],
+      "tags": ["structural", "column", "capacity", "concrete", "axial"],
+      "required_elements": ["column"],
+      "usage_count": 0,
+      "version": "1.0.0",
+      "references": ["ACI 318-19 Eq. (22.4.2.2) - Axial Strength of Columns"]
+    },
+    {
+      "id": "excavation_volume_basic",
+      "name": "Excavation Volume",
+      "description": "Calculate volume of earth to be excavated for foundations or trenches",
+      "category": "earthwork",
+      "formula": "length * width * depth * bulking_factor",
+      "inputs": [
+        {
+          "name": "length",
+          "type": "float",
+          "unit": "m",
+          "required": true,
+          "description": "Excavation length",
+          "min_value": 0
+        },
+        {
+          "name": "width",
+          "type": "float",
+          "unit": "m",
+          "required": true,
+          "description": "Excavation width",
+          "min_value": 0
+        },
+        {
+          "name": "depth",
+          "type": "float",
+          "unit": "m",
+          "required": true,
+          "description": "Excavation depth",
+          "min_value": 0
+        },
+        {
+          "name": "bulking_factor",
+          "type": "float",
+          "unit": "ratio",
+          "required": false,
+          "description": "Soil bulking factor after excavation (1.1-1.5 depending on soil type)",
+          "default_value": 1.25,
+          "min_value": 1.0,
+          "max_value": 1.5
+        }
+      ],
+      "outputs": [
+        {
+          "name": "bank_volume",
+          "type": "float",
+          "unit": "m³",
+          "description": "In-situ (bank) volume before excavation"
+        },
+        {
+          "name": "loose_volume",
+          "type": "float",
+          "unit": "m³",
+          "description": "Loose volume after excavation (what needs to be hauled)"
+        }
+      ],
+      "tags": ["earthwork", "excavation", "volume", "soil", "trench"],
+      "required_elements": ["excavation"],
+      "usage_count": 0,
+      "version": "1.0.0",
+      "references": ["Earthwork Construction Principles - Principles of excavation and soil behavior"]
+    },
+    {
+      "id": "cut_fill_balance",
+      "name": "Cut and Fill Balance",
+      "description": "Calculate net earthwork balance between cut and fill quantities",
+      "category": "earthwork",
+      "formula": "(cut_volume * shrinkage_factor) - fill_volume",
+      "inputs": [
+        {
+          "name": "cut_volume",
+          "type": "float",
+          "unit": "m³",
+          "required": true,
+          "description": "Volume of material to be cut/excavated",
+          "min_value": 0
+        },
+        {
+          "name": "fill_volume",
+          "type": "float",
+          "unit": "m³",
+          "required": true,
+          "description": "Volume of fill required",
+          "min_value": 0
+        },
+        {
+          "name": "shrinkage_factor",
+          "type": "float",
+          "unit": "ratio",
+          "required": false,
+          "description": "Material shrinkage factor (cut material compacts when placed as fill, typically 0.85-0.95)",
+          "default_value": 0.9,
+          "min_value": 0.7,
+          "max_value": 1.0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "net_volume",
+          "type": "float",
+          "unit": "m³",
+          "description": "Net volume (positive = excess cut, negative = fill needed)"
+        },
+        {
+          "name": "haul_estimate",
+          "type": "float",
+          "unit": "m³-km",
+          "description": "Estimated haul volume-distance (assumes 1km average haul)"
+        }
+      ],
+      "tags": ["earthwork", "cut", "fill", "balance", "grading", "mass-haul"],
+      "required_elements": ["excavation", "fill"],
+      "usage_count": 0,
+      "version": "1.0.0",
+      "references": ["Heavy Construction Methods - Earthwork balancing and mass haul diagrams"]
+    },
+    {
+      "id": "slope_fos_simple",
+      "name": "Slope Factor of Safety (Infinite Slope)",
+      "description": "Calculate factor of safety against sliding for infinite slope with optional seepage",
+      "category": "earthwork",
+      "formula": "(c + (gamma * z * cos(beta)**2 - gamma_w * h_w * cos(beta)**2) * tan(phi)) / (gamma * z * sin(beta) * cos(beta))",
+      "inputs": [
+        {
+          "name": "c",
+          "type": "float",
+          "unit": "kPa",
+          "required": true,
+          "description": "Soil cohesion",
+          "min_value": 0
+        },
+        {
+          "name": "phi",
+          "type": "float",
+          "unit": "degrees",
+          "required": true,
+          "description": "Soil friction angle",
+          "min_value": 0,
+          "max_value": 90
+        },
+        {
+          "name": "gamma",
+          "type": "float",
+          "unit": "kN/m³",
+          "required": true,
+          "description": "Soil unit weight",
+          "default_value": 18
+        },
+        {
+          "name": "gamma_w",
+          "type": "float",
+          "unit": "kN/m³",
+          "required": false,
+          "description": "Water unit weight",
+          "default_value": 9.81
+        },
+        {
+          "name": "z",
+          "type": "float",
+          "unit": "m",
+          "required": true,
+          "description": "Depth of failure surface below slope face",
+          "min_value": 0
+        },
+        {
+          "name": "beta",
+          "type": "float",
+          "unit": "degrees",
+          "required": true,
+          "description": "Slope angle",
+          "min_value": 0,
+          "max_value": 90
+        },
+        {
+          "name": "h_w",
+          "type": "float",
+          "unit": "m",
+          "required": false,
+          "description": "Height of water table above failure surface (0 if no seepage)",
+          "default_value": 0,
+          "min_value": 0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "factor_of_safety",
+          "type": "float",
+          "unit": "ratio",
+          "description": "Factor of safety against sliding (should be > 1.5 for permanent slopes)"
+        }
+      ],
+      "tags": ["earthwork", "slope", "stability", "geotechnical", "factor-of-safety"],
+      "required_elements": ["slope", "soil"],
+      "usage_count": 0,
+      "version": "1.0.0",
+      "references": ["Principles of Geotechnical Engineering - Das, Chapter on Slope Stability"]
+    },
+    {
+      "id": "compaction_control",
+      "name": "Soil Compaction Control",
+      "description": "Calculate required compactive effort and moisture content for soil compaction",
+      "category": "earthwork",
+      "formula": "(optimal_moisture - current_moisture) * soil_weight",
+      "inputs": [
+        {
+          "name": "soil_weight",
+          "type": "float",
+          "unit": "kg",
+          "required": true,
+          "description": "Weight of soil to be compacted",
+          "min_value": 0
+        },
+        {
+          "name": "optimal_moisture",
+          "type": "float",
+          "unit": "%",
+          "required": true,
+          "description": "Optimal moisture content from proctor test",
+          "min_value": 0,
+          "max_value": 100
+        },
+        {
+          "name": "current_moisture",
+          "type": "float",
+          "unit": "%",
+          "required": true,
+          "description": "Current in-situ moisture content",
+          "min_value": 0,
+          "max_value": 100
+        },
+        {
+          "name": "required_density",
+          "type": "float",
+          "unit": "kg/m³",
+          "required": true,
+          "description": "Required dry density",
+          "min_value": 0
+        },
+        {
+          "name": "current_density",
+          "type": "float",
+          "unit": "kg/m³",
+          "required": true,
+          "description": "Current in-situ dry density",
+          "min_value": 0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "water_to_add",
+          "type": "float",
+          "unit": "kg",
+          "description": "Water to add (positive) or remove (negative)"
+        },
+        {
+          "name": "compaction_ratio",
+          "type": "float",
+          "unit": "%",
+          "description": "Current compaction as percentage of required"
+        }
+      ],
+      "tags": ["earthwork", "compaction", "moisture", "density", "quality-control"],
+      "required_elements": ["soil", "compaction"],
+      "usage_count": 0,
+      "version": "1.0.0",
+      "references": ["ASTM D698 - Standard Test Methods for Laboratory Compaction"]
+    }
+  ]
+}
