@@ -158,6 +158,11 @@ services:
           name: cerebrum-api
           envVarKey: RENDER_EXTERNAL_URL
     autoDeploy: true
+    # SPA routing support - all routes serve index.html
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
 
   # KeyValue (Redis) Service
   - type: keyvalue
