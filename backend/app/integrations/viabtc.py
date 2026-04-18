@@ -52,7 +52,7 @@ class ViaBTCClient:
     API Documentation: https://www.viabtc.com/support/api_doc
     """
     
-    BASE_URL = "https://www.viabtc.com/res/openapi"
+    BASE_URL = "https://pool.viabtc.com/api"
     
     def __init__(self, api_key: str, api_secret: str = ""):
         self.api_key = api_key
@@ -119,11 +119,12 @@ class ViaBTCClient:
             MiningStatus with all miner details
         """
         try:
-            # Get worker list - ViaBTC uses /worker endpoint with user_id parameter
-            # Try with the proper authentication
-            response = self._make_request("/v1/worker", {
+            # Get worker list - ViaBTC Pool API endpoint
+            # Try miner/worker/list endpoint
+            response = self._make_request("/miner/worker/list", {
                 "coin": coin,
-                "status": "all"
+                "page": 1,
+                "limit": 100
             })
             
             if response.get("code") != 0:
@@ -239,7 +240,7 @@ def get_viabtc_client() -> ViaBTCClient:
     if _viabtc_client is None:
         # API key from user: 57c66210d1442a6615833b1e470a7cdd
         api_key = getattr(settings, 'VIABTC_API_KEY', None) or "57c66210d1442a6615833b1e470a7cdd"
-        api_secret = getattr(settings, 'VIABTC_API_SECRET', "")
+        api_secret = getattr(settings, 'VIABTC_API_SECRET', "") or "f67e6fc9f46555e60f1720643aa1065973ee22248d767f53856a771313f77cab"
         _viabtc_client = ViaBTCClient(api_key, api_secret)
     return _viabtc_client
 
