@@ -108,7 +108,7 @@ jobs:
             --max-instances 10 \
             --min-instances 0 \
             --set-env-vars "ENVIRONMENT=production,DEBUG=false,CORS_ORIGINS=https://cerebrum-30d9c.web.app,https://cerebrum-landing.web.app" \
-            --set-secrets "DATABASE_URL=database-url:latest,REDIS_URL=redis-url:latest,SECRET_KEY=secret-key:latest,OPENAI_API_KEY=openai-api-key:latest"
+            --set-secrets "DATABASE_URL=database-url:latest,REDIS_URL=redis-url:latest,SECRET_KEY=secret-key:latest"
           
           URL=$(gcloud run services describe ${{ env.BACKEND_SERVICE }} --region ${{ env.REGION }} --format 'value(status.url)')
           echo "url=$URL" >> $GITHUB_OUTPUT

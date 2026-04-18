@@ -1,5 +1,6 @@
 """
 Unified LLM client with provider routing, retries, and error handling.
+Uses DeepSeek as the default provider.
 """
 
 from __future__ import annotations
@@ -11,14 +12,12 @@ from app.core.config import settings
 from app.core.logging import get_logger
 from app.llm.models import LLMMessage, LLMRequest, LLMResponse
 from app.llm.providers.base import BaseLLMProvider
-from app.llm.providers.openai_provider import OpenAIProvider
 from app.llm.providers.deepseek_provider import DeepSeekProvider
 from app.llm.providers.ollama_provider import OllamaProvider
 
 logger = get_logger(__name__)
 
 _PROVIDER_REGISTRY: Dict[str, Type[BaseLLMProvider]] = {
-    "openai": OpenAIProvider,
     "deepseek": DeepSeekProvider,
     "ollama": OllamaProvider,
 }
@@ -26,14 +25,14 @@ _PROVIDER_REGISTRY: Dict[str, Type[BaseLLMProvider]] = {
 
 class LLMClient:
     """
-    Unified async LLM client.
+    Unified async LLM client with DeepSeek as default.
 
     Usage:
         client = LLMClient()
         response = await client.chat(
             messages=[LLMMessage(role="user", content="Hello")],
-            provider="openai",
-            model="gpt-4o-mini"
+            provider="deepseek",
+            model="deepseek-chat"
         )
     """
 
@@ -43,8 +42,6 @@ class LLMClient:
 
     def _infer_default_provider(self) -> str:
         """Pick the best available provider based on configured API keys."""
-        if settings.OPENAI_API_KEY:
-            return "openai"
         if settings.DEEPSEEK_API_KEY:
             return "deepseek"
         return "ollama"
@@ -62,10 +59,6 @@ class LLMClient:
         return instance
 
     def _create_provider_instance(self, name: str, provider_cls: Type[BaseLLMProvider]) -> BaseLLMProvider:
-        if name == "openai":
-            if not settings.OPENAI_API_KEY:
-                raise RuntimeError("OPENAI_API_KEY is not configured")
-            return provider_cls(api_key=settings.OPENAI_API_KEY)
         if name == "deepseek":
             if not settings.DEEPSEEK_API_KEY:
                 raise RuntimeError("DEEPSEEK_API_KEY is not configured")
