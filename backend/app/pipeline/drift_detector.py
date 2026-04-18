@@ -29,7 +29,7 @@ from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy.orm import declarative_base, Session
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.session import SessionLocal, AsyncSessionLocal
+from app.db.session import db_manager, get_db_context, get_sync_db_context
 from app.core.config import settings
 
 Base = declarative_base()

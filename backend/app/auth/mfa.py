@@ -12,7 +12,7 @@ import base64
 import hashlib
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any, Tuple
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 
 import pyotp
@@ -626,6 +626,9 @@ class MFAManager:
 
 # Global MFA manager instance
 mfa_manager = MFAManager()
+
+# Alias for E2E compatibility
+MFAService = MFAManager
 
 
 async def verify_mfa(

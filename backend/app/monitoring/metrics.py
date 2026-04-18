@@ -561,11 +561,84 @@ def get_metrics_response() -> tuple:
 
 
 # =============================================================================
+# Unified Metrics Interface
+# =============================================================================
+
+class Metrics:
+    """
+    Unified metrics interface for easy access to all metric types.
+    
+    This provides a single object to import for common metric operations.
+    """
+    
+    # HTTP Metrics
+    http_request_total = http_request_total
+    http_request_duration_seconds = http_request_duration_seconds
+    http_request_in_progress = http_request_in_progress
+    http_response_size_bytes = http_response_size_bytes
+    
+    # Formula Metrics
+    formula_execution_total = formula_execution_total
+    formula_execution_duration_seconds = formula_execution_duration_seconds
+    formula_validation_errors_total = formula_validation_errors_total
+    formula_cache_hits_total = formula_cache_hits_total
+    formula_cache_misses_total = formula_cache_misses_total
+    
+    # Validation Metrics
+    validation_total = validation_total
+    validation_duration_seconds = validation_duration_seconds
+    security_issues_total = security_issues_total
+    sandbox_execution_total = sandbox_execution_total
+    
+    # Celery Metrics
+    celery_task_total = celery_task_total
+    celery_task_duration_seconds = celery_task_duration_seconds
+    celery_task_retry_total = celery_task_retry_total
+    celery_workers_active = celery_workers_active
+    celery_queue_length = celery_queue_length
+    
+    # Database Metrics
+    db_connections_active = db_connections_active
+    db_connections_idle = db_connections_idle
+    db_query_duration_seconds = db_query_duration_seconds
+    db_query_total = db_query_total
+    db_transaction_total = db_transaction_total
+    db_pool_size = db_pool_size
+    db_pool_overflow = db_pool_overflow
+    
+    # LLM Metrics
+    llm_request_total = llm_request_total
+    llm_request_duration_seconds = llm_request_duration_seconds
+    llm_tokens_total = llm_tokens_total
+    llm_cost_dollars = llm_cost_dollars
+    
+    # Helper Classes
+    FormulaMetrics = FormulaMetrics
+    ValidationMetrics = ValidationMetrics
+    CeleryMetrics = CeleryMetrics
+    DatabaseMetrics = DatabaseMetrics
+    LLMMetrics = LLMMetrics
+    
+    # Middleware
+    PrometheusMiddleware = PrometheusMiddleware
+    
+    # Export
+    get_metrics_response = get_metrics_response
+    REGISTRY = REGISTRY
+
+
+# Singleton metrics instance
+metrics = Metrics()
+
+
+# =============================================================================
 # Legacy compatibility - keep existing module imports working
 # =============================================================================
 
 # Make metrics module available as 'metrics'
 __all__ = [
+    # Main metrics object
+    "metrics",
     # Metrics
     "http_request_total",
     "http_request_duration_seconds",

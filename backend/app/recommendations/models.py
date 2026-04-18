@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional, List
 
-from sqlalchemy import Column, String, Float, DateTime, ForeignKey, Integer, Text, JSON
+from sqlalchemy import Column, String, Float, DateTime, ForeignKey, Integer, Text, JSON, Boolean
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -210,8 +210,8 @@ class RecommendationFeedback(BaseModel):
     # Optional comment
     comment: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     
-    # Additional metadata
-    metadata: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    # Additional data
+    extra_data: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     
     # Relationship
     user: Mapped["User"] = relationship("User", backref="recommendation_feedbacks")
@@ -334,9 +334,6 @@ class TemplateUsage(BaseModel):
 
 
 # Import here to avoid circular imports
-from sqlalchemy import Boolean
-
-
 def get_db():
     """Get database session."""
     from app.db.session import SessionLocal
