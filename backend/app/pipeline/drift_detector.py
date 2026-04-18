@@ -174,7 +174,7 @@ class DriftDetector:
         DriftType.CONCEPT_DRIFT: 0.1,
         DriftType.FEATURE_DRIFT: 0.05,
         DriftType.PREDICTION_DRIFT: 0.05,
-        DriftType.PERFORMANCE_Drift: 0.15,  # 15% performance drop
+        DriftType.PERFORMANCE_DRIFT: 0.15,  # 15% performance drop
     }
     
     # PSI thresholds
