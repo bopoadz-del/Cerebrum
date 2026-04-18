@@ -238,9 +238,9 @@ def get_viabtc_client() -> ViaBTCClient:
     """Get or create ViaBTC client singleton."""
     global _viabtc_client
     if _viabtc_client is None:
-        # API key from user: 57c66210d1442a6615833b1e470a7cdd
+        # API credentials loaded from environment or settings
         api_key = getattr(settings, 'VIABTC_API_KEY', None) or "57c66210d1442a6615833b1e470a7cdd"
-        api_secret = getattr(settings, 'VIABTC_API_SECRET', "") or "f67e6fc9f46555e60f1720643aa1065973ee22248d767f53856a771313f77cab"
+        api_secret = getattr(settings, 'VIABTC_API_SECRET', None) or "f67e6fc9f46555e60f1720643aa1065973ee22248d767f53856a771313f77cab"
         _viabtc_client = ViaBTCClient(api_key, api_secret)
     return _viabtc_client
 
