@@ -203,12 +203,20 @@ class Settings(BaseSettings):
     S3_BACKUP_PREFIX: str = Field(default="backups/", description="S3 backup prefix")
     
     # =================================================================
-    # Google OAuth Settings (REMOVED)
+    # Google OAuth Settings
     # =================================================================
-    # GOOGLE_DRIVE_REDIRECT_URI: str = Field(
-    #     default="http://localhost:8000/api/v1/drive/auth/callback",
-    #     description="Google OAuth redirect URI"
-    # )
+    GOOGLE_CLIENT_ID: str = Field(
+        default="",
+        description="Google OAuth client ID",
+    )
+    GOOGLE_CLIENT_SECRET: str = Field(
+        default="",
+        description="Google OAuth client secret",
+    )
+    GOOGLE_REDIRECT_URI: str = Field(
+        default="http://localhost:8000/api/v1/connectors/google-drive/callback",
+        description="Google OAuth redirect URI",
+    )
     FRONTEND_URL: str = Field(default="http://localhost:3000", description="Frontend URL for OAuth origins")
     
     # =================================================================
@@ -240,7 +248,7 @@ class Settings(BaseSettings):
     # Compatibility & Stub Mode Settings
     # =================================================================
     USE_STUB_CONNECTORS: bool = Field(
-        default=True,
+        default=False,
         description="Use stub implementations for external connectors (safe for dev/testing)",
     )
     USE_STUB_ML: bool = Field(
@@ -306,6 +314,19 @@ class Settings(BaseSettings):
             )
         if len(v) < 32:
             raise ValueError("SECRET_KEY must be at least 32 characters")
+        return v
+
+    @field_validator("USE_STUB_CONNECTORS", mode="before")
+    @classmethod
+    def validate_stub_connectors(cls, v: bool, info) -> bool:
+        """Disable stub connectors in production environment."""
+        # Get the environment value from the data being validated
+        data = info.data
+        environment = data.get("ENVIRONMENT", "development")
+        
+        # If in production, force stub connectors to False regardless of env var
+        if environment == Environment.PRODUCTION:
+            return False
         return v
     
     # =================================================================
