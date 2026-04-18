@@ -88,6 +88,9 @@ duckduckgo-search>=3.9.0
 # AI/LLM APIs
 openai>=1.0.0
 
+# MLflow - Experiment Tracking & Model Registry
+mlflow>=2.14.0,<3.0.0
+
 # Google Cloud Storage
 google-cloud-storage==3.10.1
 google-cloud-secret-manager>=2.18.0

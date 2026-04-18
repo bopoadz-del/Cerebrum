@@ -87,6 +87,9 @@ def create_application() -> FastAPI:
     app.include_router(upload_router)
     app.include_router(execute_router)
     app.include_router(chain_router)
+    
+    # MLflow router
+    app.include_router(mlflow_router)
 
     # Middleware
     app.middleware("http")(add_correlation_id)
