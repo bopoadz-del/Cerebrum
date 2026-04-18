@@ -36,6 +36,31 @@ from app.routers import (
 )
 from app.learning.endpoints import router as learning_router
 
+# MLflow router (optional)
+try:
+    from app.routers.mlflow import router as mlflow_router
+    MLFLOW_AVAILABLE = True
+except Exception:
+    MLFLOW_AVAILABLE = False
+    mlflow_router = None
+
+# Orchestrator and Reasoning routers
+try:
+    from app.orchestrator.endpoints import router as orchestrator_router
+    ORCHESTRATOR_AVAILABLE = True
+except Exception as e:
+    logger.warning(f"Orchestrator router not available: {e}")
+    ORCHESTRATOR_AVAILABLE = False
+    orchestrator_router = None
+
+try:
+    from app.reasoning.endpoints import router as reasoning_router
+    REASONING_AVAILABLE = True
+except Exception as e:
+    logger.warning(f"Reasoning router not available: {e}")
+    REASONING_AVAILABLE = False
+    reasoning_router = None
+
 # Auto-register infrastructure blocks
 import app.blocks.llm_enhancer, app.blocks.cache_manager, app.blocks.async_processor, app.blocks.file_hasher  # noqa: F401, E401
 configure_logging()
@@ -90,8 +115,18 @@ def create_application() -> FastAPI:
     app.include_router(chain_router)
     
     # MLflow router
-    app.include_router(mlflow_router)
+    if MLFLOW_AVAILABLE and mlflow_router:
+        app.include_router(mlflow_router)
     app.include_router(learning_router)
+    
+    # Orchestrator and Reasoning routers
+    if ORCHESTRATOR_AVAILABLE and orchestrator_router:
+        app.include_router(orchestrator_router, prefix="/api/v1")
+        logger.info("Orchestrator router included")
+    
+    if REASONING_AVAILABLE and reasoning_router:
+        app.include_router(reasoning_router, prefix="/api/v1")
+        logger.info("Reasoning router included")
 
     # Middleware
     app.middleware("http")(add_correlation_id)
