@@ -1,24 +1,30 @@
 # Deploy Frontend to Firebase + Trigger Backend Deploy on Render
-name: Deploy All Services
+name: 🚀 Deploy All Services
 
 on:
   push:
     branches:
       - main
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
   workflow_dispatch:
+
+env:
+  PROJECT_ID: cerebrum-30d9c
+  VITE_API_URL_PROD: https://cerebrum-api.onrender.com
 
 jobs:
   # ==========================================
   # Deploy Frontend to Firebase Hosting
   # ==========================================
   deploy-frontend:
-    name: Deploy Frontend to Firebase
+    name: ⚛️ Deploy Frontend to Firebase
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
-          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
           fetch-depth: 0
 
       - name: Setup Node.js
@@ -36,7 +42,7 @@ jobs:
         working-directory: frontend
         run: npm run build
         env:
-          VITE_API_URL: ${{ secrets.VITE_API_URL || 'https://cerebrum-api.onrender.com' }}
+          VITE_API_URL: ${{ secrets.VITE_API_URL || env.VITE_API_URL_PROD }}
 
       - name: Deploy Frontend to Firebase
         uses: FirebaseExtended/action-hosting-deploy@v0
@@ -44,14 +50,14 @@ jobs:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_CEREBRUM_30D9C }}
           channelId: live
-          projectId: cerebrum-30d9c
+          projectId: ${{ env.PROJECT_ID }}
           target: frontend
 
   # ==========================================
   # Deploy Landing Page to Firebase Hosting
   # ==========================================
   deploy-landing:
-    name: Deploy Landing Page to Firebase
+    name: 🎯 Deploy Landing Page to Firebase
     runs-on: ubuntu-latest
     needs: deploy-frontend
     steps:
@@ -64,31 +70,32 @@ jobs:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_CEREBRUM_30D9C }}
           channelId: live
-          projectId: cerebrum-30d9c
+          projectId: ${{ env.PROJECT_ID }}
           target: landing
 
   # ==========================================
   # Trigger Backend Deploy on Render
   # ==========================================
   deploy-backend:
-    name: Trigger Backend Deploy
+    name: 🐍 Trigger Backend Deploy on Render
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && contains(github.event.head_commit.modified, 'backend/')
     steps:
       - name: Trigger Render Deploy Hook
+        env:
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
         run: |
-          if [ -n "${{ secrets.RENDER_DEPLOY_HOOK }}" ]; then
-            curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"
-            echo "Backend deploy triggered on Render"
+          if [ -n "$RENDER_DEPLOY_HOOK" ]; then
+            curl -X POST "$RENDER_DEPLOY_HOOK"
+            echo "✅ Backend deploy triggered on Render"
           else
-            echo "RENDER_DEPLOY_HOOK not set - skipping backend deploy trigger"
+            echo "⚠️ RENDER_DEPLOY_HOOK not set - skipping backend deploy trigger"
           fi
 
   # ==========================================
   # Deploy Status Summary
   # ==========================================
   deploy-summary:
-    name: Deployment Summary
+    name: 📊 Deployment Summary
     runs-on: ubuntu-latest
     needs: [deploy-frontend, deploy-landing, deploy-backend]
     if: always()
@@ -97,8 +104,25 @@ jobs:
         run: |
           echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Services Deployed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Service | Status | URL |" >> $GITHUB_STEP_SUMMARY
           echo "|---------|--------|-----|" >> $GITHUB_STEP_SUMMARY
-          echo "| Frontend | ${{ needs.deploy-frontend.result == 'success' && '✅ Success' || '❌ Failed' }} | https://cerebrum-30d9c.web.app |" >> $GITHUB_STEP_SUMMARY
-          echo "| Landing | ${{ needs.deploy-landing.result == 'success' && '✅ Success' || '❌ Failed' }} | https://cerebrum-landing.web.app |" >> $GITHUB_STEP_SUMMARY
-          echo "| Backend | ${{ needs.deploy-backend.result == 'success' && '✅ Triggered' || needs.deploy-backend.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }} | https://cerebrum-api.onrender.com |" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend (Firebase) | ${{ needs.deploy-frontend.result == 'success' && '✅ Success' || '❌ Failed' }} | https://cerebrum-30d9c.web.app |" >> $GITHUB_STEP_SUMMARY
+          echo "| Landing (Firebase) | ${{ needs.deploy-landing.result == 'success' && '✅ Success' || '❌ Failed' }} | https://cerebrum-landing.web.app |" >> $GITHUB_STEP_SUMMARY
+          echo "| Backend (Render) | ${{ needs.deploy-backend.result == 'success' && '✅ Triggered' || needs.deploy-backend.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }} | https://cerebrum-api.onrender.com |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### New Features Deployed" >> $GITHUB_STEP_SUMMARY
+          echo "- Formula Executor Service" >> $GITHUB_STEP_SUMMARY
+          echo "- Learning Engine with Auto-Tuning" >> $GITHUB_STEP_SUMMARY
+          echo "- MLflow Integration" >> $GITHUB_STEP_SUMMARY
+          echo "- Prometheus + Grafana Monitoring" >> $GITHUB_STEP_SUMMARY
+          echo "- MFA/RBAC Auth System" >> $GITHUB_STEP_SUMMARY
+          echo "- Recommendation Engine" >> $GITHUB_STEP_SUMMARY
+          echo "- Retraining Pipeline" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### API Endpoints" >> $GITHUB_STEP_SUMMARY
+          echo "- Health: https://cerebrum-api.onrender.com/health/live" >> $GITHUB_STEP_SUMMARY
+          echo "- API Docs: https://cerebrum-api.onrender.com/docs" >> $GITHUB_STEP_SUMMARY
+          echo "- Executor: https://cerebrum-api.onrender.com/api/v1/executor" >> $GITHUB_STEP_SUMMARY
+          echo "- Learning: https://cerebrum-api.onrender.com/api/v1/learning" >> $GITHUB_STEP_SUMMARY

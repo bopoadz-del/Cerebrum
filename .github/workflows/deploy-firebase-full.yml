@@ -47,7 +47,7 @@ jobs:
         with:
           project_id: ${{ env.PROJECT_ID }}
 
-      - name: Configure Docker
+      - name: Configure Docker for GCR
         run: gcloud auth configure-docker gcr.io --quiet
 
       - name: Build Backend Image
@@ -57,7 +57,7 @@ jobs:
             -f backend/Dockerfile.cloudrun \
             backend/
 
-      - name: Push Backend Image
+      - name: Push Backend Image to GCR
         run: |
           docker push gcr.io/${{ env.PROJECT_ID }}/${{ env.BACKEND_SERVICE }}:${{ github.sha }}
 
