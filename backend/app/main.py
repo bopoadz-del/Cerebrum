@@ -34,6 +34,7 @@ from app.routers import (
     root_router,
     upload_router,
 )
+from app.learning.endpoints import router as learning_router
 
 # Auto-register infrastructure blocks
 import app.blocks.llm_enhancer, app.blocks.cache_manager, app.blocks.async_processor, app.blocks.file_hasher  # noqa: F401, E401
@@ -90,6 +91,7 @@ def create_application() -> FastAPI:
     
     # MLflow router
     app.include_router(mlflow_router)
+    app.include_router(learning_router)
 
     # Middleware
     app.middleware("http")(add_correlation_id)

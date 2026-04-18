@@ -6,6 +6,13 @@ from app.models.conversation_session import ConversationSession
 from app.models.integration import IntegrationToken
 from app.models.document import Document, DocumentChunk
 from app.models.message import Message, FileUpload
+from app.recommendations.models import (
+    UserBehavior,
+    Recommendation,
+    RecommendationFeedback,
+    UserSimilarity,
+    TemplateUsage,
+)
 
 __all__ = [
     "User",
@@ -18,4 +25,9 @@ __all__ = [
     "DocumentChunk",
     "Message",
     "FileUpload",
+    "UserBehavior",
+    "Recommendation",
+    "RecommendationFeedback",
+    "UserSimilarity",
+    "TemplateUsage",
 ]

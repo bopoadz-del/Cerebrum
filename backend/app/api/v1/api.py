@@ -215,6 +215,14 @@ except Exception as e:
     GOOGLE_DRIVE_AVAILABLE = False
     logger.warning(f"Google Drive endpoints not available: {e}")
 
+try:
+    from app.recommendations.endpoints import router as recommendations_router
+    RECOMMENDATIONS_AVAILABLE = True
+    logger.info("Recommendations endpoints loaded")
+except Exception as e:
+    RECOMMENDATIONS_AVAILABLE = False
+    logger.warning(f"Recommendations endpoints not available: {e}")
+
 
 # Create main router - MUST BE NAMED api_v1_router for main.py
 api_v1_router = APIRouter()
@@ -293,6 +301,9 @@ if STATE_AVAILABLE:
 
 if CONSTRUCTION_AVAILABLE:
     api_v1_router.include_router(construction.router, tags=["construction"])
+
+if RECOMMENDATIONS_AVAILABLE:
+    api_v1_router.include_router(recommendations_router, tags=["recommendations"])
 
 # Log all registered routes
 logger.info(f"All registered routes: {[r.path for r in api_v1_router.routes]}")
