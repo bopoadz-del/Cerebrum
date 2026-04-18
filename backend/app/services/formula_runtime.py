@@ -6,6 +6,7 @@ Provides safe evaluation of mathematical formulas with:
 - Lazy loading with caching
 - Restricted eval environment (no open/import/exec)
 - Input validation and error handling
+- Prometheus metrics instrumentation
 """
 
 from __future__ import annotations
@@ -14,9 +15,12 @@ import json
 import logging
 import math
 import os
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
+
+from app.monitoring.metrics import FormulaMetrics
 
 logger = logging.getLogger(__name__)
 
@@ -193,6 +197,7 @@ def eval_formula(
     formula_expression: str,
     inputs: Dict[str, Any],
     formula_id: Optional[str] = None,
+    domain: str = "general",
 ) -> Dict[str, Any]:
     """
     Safely evaluate a formula expression.
@@ -201,12 +206,17 @@ def eval_formula(
         formula_expression: The formula as a Python expression string
         inputs: Dictionary of input values
         formula_id: Optional formula ID for error reporting
+        domain: Formula domain for metrics
         
     Returns:
         Dictionary with either:
         - {"output_values": {"result": value}, "formula_id": id}
         - {"error": "...", "formula_id": id}
     """
+    start_time = time.time()
+    success = True
+    error_type = None
+    
     # Security: Check for dangerous patterns
     dangerous_patterns = ["__import__", "import", "open", "exec", "eval", "compile", 
                          "__builtins__", "__globals__", "__class__", "__base__",
@@ -216,6 +226,11 @@ def eval_formula(
     for pattern in dangerous_patterns:
         if pattern in expr_lower:
             logger.warning(f"Blocked dangerous pattern '{pattern}' in formula: {formula_id}")
+            success = False
+            error_type = "security_violation"
+            FormulaMetrics.record_validation_error(error_type, domain)
+            duration = time.time() - start_time
+            FormulaMetrics.record_execution(domain, formula_id or "unknown", success, duration)
             return {
                 "error": f"Security violation: '{pattern}' is not allowed",
                 "formula_id": formula_id,
@@ -228,24 +243,42 @@ def eval_formula(
         # Evaluate the expression
         result = eval(formula_expression, {"__builtins__": {}}, safe_env)
         
+        duration = time.time() - start_time
+        FormulaMetrics.record_execution(domain, formula_id or "unknown", True, duration)
+        
         return {
             "output_values": {"result": result},
             "formula_id": formula_id,
         }
     except NameError as e:
         logger.warning(f"Formula evaluation name error: formula={formula_id} error={e}")
+        success = False
+        error_type = "unknown_variable"
+        FormulaMetrics.record_validation_error(error_type, domain)
+        duration = time.time() - start_time
+        FormulaMetrics.record_execution(domain, formula_id or "unknown", success, duration)
         return {
             "error": f"Unknown variable or function: {e}",
             "formula_id": formula_id,
         }
     except ZeroDivisionError:
         logger.warning(f"Formula evaluation division by zero: formula={formula_id}")
+        success = False
+        error_type = "division_by_zero"
+        FormulaMetrics.record_validation_error(error_type, domain)
+        duration = time.time() - start_time
+        FormulaMetrics.record_execution(domain, formula_id or "unknown", success, duration)
         return {
             "error": "Division by zero",
             "formula_id": formula_id,
         }
     except Exception as e:
         logger.error(f"Formula evaluation error: formula={formula_id} error={e}")
+        success = False
+        error_type = type(e).__name__.lower()
+        FormulaMetrics.record_validation_error(error_type, domain)
+        duration = time.time() - start_time
+        FormulaMetrics.record_execution(domain, formula_id or "unknown", success, duration)
         return {
             "error": f"Evaluation error: {type(e).__name__}: {e}",
             "formula_id": formula_id,
@@ -377,9 +410,12 @@ def evaluate_formula_by_id(
     # Validate required inputs
     for inp in formula.inputs:
         if inp.required and inp.name not in inputs:
+            domain = formula.domain if formula else "unknown"
+            FormulaMetrics.record_validation_error("missing_input", domain)
             return {
                 "error": f"Missing required input: {inp.name}",
                 "formula_id": formula_id,
             }
     
-    return eval_formula(formula.formula_expression, inputs, formula_id)
+    domain = formula.domain if formula else "unknown"
+    return eval_formula(formula.formula_expression, inputs, formula_id, domain)

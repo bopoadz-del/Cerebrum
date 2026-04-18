@@ -1,0 +1,56 @@
+# Cerebrum Formula Sandbox Dockerfile
+# 
+# Provides isolated execution environment for construction formulas
+# Security features:
+#   - Non-root user execution
+#   - Minimal base image
+#   - No network access by default
+#   - Resource limits enforced at runtime
+#
+# Build: docker build -t cerebrum-formula-sandbox -f Dockerfile.sandbox .
+# Run:   docker run --rm --network none --memory=512m cerebrum-formula-sandbox
+
+FROM python:3.11-slim
+
+# Security: Create non-root user
+RUN groupadd -r sandbox && useradd -r -g sandbox -u 1000 sandbox
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    g++ \
+    gfortran \
+    libopenblas-dev \
+    liblapack-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set up Python environment
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONFAULTHANDLER=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Install Python packages for construction calculations
+# Using specific versions for reproducibility
+RUN pip install --no-cache-dir \
+    numpy==1.24.3 \
+    pandas==2.0.3 \
+    scipy==1.11.1 \
+    matplotlib==3.7.2 \
+    plotly==5.15.0 \
+    seaborn==0.12.2 \
+    sympy==1.12 \
+    pint==0.22
+
+# Create workspace directory
+RUN mkdir -p /workspace && chown -R sandbox:sandbox /workspace
+
+# Switch to non-root user
+USER sandbox
+
+# Set working directory
+WORKDIR /workspace
+
+# Default command
+CMD ["python", "-c", "print('Cerebrum Formula Sandbox Ready')"]

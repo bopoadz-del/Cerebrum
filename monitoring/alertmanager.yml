@@ -1,0 +1,119 @@
+# =============================================================================
+# Alertmanager Configuration
+# =============================================================================
+# Configure alert routing, grouping, and notification channels
+
+route:
+  # Default receiver
+  receiver: 'default'
+  
+  # Group alerts by these labels
+  group_by: ['alertname', 'severity', 'team']
+  
+  # Wait before sending initial notification
+  group_wait: 30s
+  
+  # Wait before sending batch of new alerts for the same group
+  group_interval: 5m
+  
+  # Minimum interval before re-sending notification
+  repeat_interval: 4h
+  
+  # Routes for specific alerts
+  routes:
+    # Critical alerts -> PagerDuty/Slack immediately
+    - match:
+        severity: critical
+      receiver: 'critical'
+      continue: true
+    
+    # Backend team alerts
+    - match_re:
+        team: backend|database
+      receiver: 'backend-team'
+      group_by: ['alertname', 'severity']
+    
+    # AI/ML team alerts
+    - match_re:
+        team: ai|formulas
+      receiver: 'ai-team'
+      group_by: ['alertname', 'severity']
+    
+    # Security alerts
+    - match:
+        team: security
+      receiver: 'security-team'
+      group_by: ['alertname', 'severity']
+
+# Inhibition rules - suppress lower severity alerts when higher ones fire
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'instance']
+  
+  - source_match:
+      severity: 'warning'
+    target_match:
+      severity: 'info'
+    equal: ['alertname', 'instance']
+
+# Receivers - notification channels
+receivers:
+  - name: 'default'
+    slack_configs:
+      - send_resolved: true
+        api_url: '${SLACK_WEBHOOK_URL:-}'
+        channel: '#alerts'
+        title: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+        text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+        
+  - name: 'critical'
+    pagerduty_configs:
+      - send_resolved: true
+        service_key: '${PAGERDUTY_KEY:-}'
+        severity: '{{ .CommonLabels.severity }}'
+        description: '{{ .CommonAnnotations.summary }}'
+        
+    slack_configs:
+      - send_resolved: true
+        api_url: '${SLACK_WEBHOOK_URL:-}'
+        channel: '#critical-alerts'
+        title: '🚨 CRITICAL: {{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+        text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+        color: '{{ if eq .Status "firing" }}danger{{ else }}good{{ end }}'
+        
+  - name: 'backend-team'
+    slack_configs:
+      - send_resolved: true
+        api_url: '${SLACK_WEBHOOK_URL:-}'
+        channel: '#backend-alerts'
+        title: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+        text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+        
+  - name: 'ai-team'
+    slack_configs:
+      - send_resolved: true
+        api_url: '${SLACK_WEBHOOK_URL:-}'
+        channel: '#ai-alerts'
+        title: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+        text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+        
+  - name: 'security-team'
+    slack_configs:
+      - send_resolved: true
+        api_url: '${SLACK_WEBHOOK_URL:-}'
+        channel: '#security-alerts'
+        title: '🔒 SECURITY: {{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+        text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+        color: 'warning'
+    
+    # Email for security alerts
+    email_configs:
+      - send_resolved: true
+        to: 'security@cerebrum.ai'
+        from: 'alerts@cerebrum.ai'
+        smarthost: '${SMTP_HOST:-smtp.gmail.com:587}'
+        auth_username: '${SMTP_USER:-}'
+        auth_password: '${SMTP_PASSWORD:-}'

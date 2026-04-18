@@ -7,9 +7,16 @@ No files are downloaded to disk - everything is processed via Google Drive API.
 
 import os
 import asyncio
+import time
 from datetime import datetime
 from typing import List, Dict, Any
 from celery import Celery
+from celery.signals import task_prerun, task_postrun, task_failure, task_retry
+
+from app.monitoring.metrics import CeleryMetrics
+
+# Store task start times for duration calculation
+_task_start_times = {}
 
 # Initialize Celery app
 broker_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
@@ -31,6 +38,44 @@ celery_app.conf.update(
     task_time_limit=1800,  # 30 min max per task (Drive API calls can be slow)
     worker_prefetch_multiplier=1,
 )
+
+
+# =============================================================================
+# Celery Signal Handlers for Metrics
+# =============================================================================
+
+@task_prerun.connect
+def task_prerun_handler(signal, sender, task_id, task, args, kwargs):
+    """Record when a task starts."""
+    CeleryMetrics.record_task_started(task.name)
+    _task_start_times[task_id] = time.time()
+
+
+@task_postrun.connect
+def task_postrun_handler(signal, sender, task_id, task, args, kwargs, retval, state):
+    """Record when a task completes."""
+    # Calculate duration from stored start time
+    start_time = _task_start_times.pop(task_id, None)
+    duration = time.time() - start_time if start_time else 0.0
+    
+    if state == 'SUCCESS':
+        CeleryMetrics.record_task_success(task.name, duration)
+    elif state == 'FAILURE':
+        CeleryMetrics.record_task_failure(task.name)
+
+
+@task_failure.connect
+def task_failure_handler(signal, sender, task_id, exception, args, kwargs, traceback, einfo):
+    """Record task failures."""
+    CeleryMetrics.record_task_failure(sender.name)
+    # Clean up start time if present
+    _task_start_times.pop(task_id, None)
+
+
+@task_retry.connect
+def task_retry_handler(signal, sender, request, reason, einfo):
+    """Record task retries."""
+    CeleryMetrics.record_task_retry(sender.name)
 
 
 @celery_app.task(bind=True, max_retries=3)

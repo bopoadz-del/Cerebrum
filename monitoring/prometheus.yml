@@ -1,0 +1,98 @@
+# =============================================================================
+# Cerebrum AI - Prometheus Configuration
+# =============================================================================
+# This configuration monitors:
+# - FastAPI application metrics (via /metrics endpoint)
+# - Celery workers (via celery-exporter or direct instrumentation)
+# - PostgreSQL database (via postgres-exporter)
+# - Redis (via redis-exporter)
+# - Node/host metrics (via node-exporter)
+# =============================================================================
+
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: cerebrum
+    replica: '{{.ExternalURL}}'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+# Load alert rules
+rule_files:
+  - "alert_rules.yml"
+
+# Scrape configurations
+scrape_configs:
+  # ---------------------------------------------------------------------------
+  # FastAPI Application Metrics
+  # ---------------------------------------------------------------------------
+  - job_name: 'cerebrum-api'
+    static_configs:
+      - targets:
+          - cerebrum-api:8000
+    metrics_path: /metrics
+    scrape_interval: 15s
+    scrape_timeout: 10s
+
+  # ---------------------------------------------------------------------------
+  # Celery Workers (via celery-exporter)
+  # ---------------------------------------------------------------------------
+  - job_name: 'celery-workers'
+    static_configs:
+      - targets:
+          - celery-exporter:9540
+    scrape_interval: 15s
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL Database (via postgres-exporter)
+  # ---------------------------------------------------------------------------
+  - job_name: 'postgresql'
+    static_configs:
+      - targets:
+          - postgres-exporter:9187
+    scrape_interval: 15s
+
+  # ---------------------------------------------------------------------------
+  # Redis (via redis-exporter)
+  # ---------------------------------------------------------------------------
+  - job_name: 'redis'
+    static_configs:
+      - targets:
+          - redis-exporter:9121
+    scrape_interval: 15s
+
+  # ---------------------------------------------------------------------------
+  # Node/Host Metrics (via node-exporter)
+  # ---------------------------------------------------------------------------
+  - job_name: 'node'
+    static_configs:
+      - targets:
+          - node-exporter:9100
+    scrape_interval: 15s
+
+  # ---------------------------------------------------------------------------
+  # Prometheus Self-Monitoring
+  # ---------------------------------------------------------------------------
+  - job_name: 'prometheus'
+    static_configs:
+      - targets:
+          - localhost:9090
+
+  # ---------------------------------------------------------------------------
+  # Render-Hosted Services (Production)
+  # ---------------------------------------------------------------------------
+  - job_name: 'cerebrum-api-production'
+    static_configs:
+      - targets:
+          - cerebrum-api.onrender.com
+    metrics_path: /metrics
+    scheme: https
+    scrape_interval: 30s
+    scrape_timeout: 15s

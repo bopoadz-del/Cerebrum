@@ -23,6 +23,7 @@ from app.middleware.rate_limit import limiter, safe_rate_limit_handler
 from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.middleware.correlation import add_correlation_id
 from app.middleware.logging import log_requests
+from app.monitoring.metrics import PrometheusMiddleware
 from app.routers import (
     blocks_router,
     chat_router,
@@ -53,6 +54,9 @@ def create_application() -> FastAPI:
 
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, safe_rate_limit_handler)
+
+    # Add Prometheus middleware first to capture all requests
+    app.add_middleware(PrometheusMiddleware)
 
     app.add_middleware(SlowAPIMiddleware)
     app.add_middleware(GZipMiddleware, minimum_size=1000)

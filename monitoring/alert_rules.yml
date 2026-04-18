@@ -1,0 +1,329 @@
+# =============================================================================
+# Cerebrum AI - Prometheus Alert Rules
+# =============================================================================
+# Critical alerts for production monitoring
+# =============================================================================
+
+groups:
+  # ---------------------------------------------------------------------------
+  # API Health Alerts
+  # ---------------------------------------------------------------------------
+  - name: api_health
+    rules:
+      # High error rate
+      - alert: CerebrumHighErrorRate
+        expr: |
+          (
+            sum(rate(cerebrum_http_requests_total{status_code=~"5.."}[5m]))
+            /
+            sum(rate(cerebrum_http_requests_total[5m]))
+          ) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "Cerebrum API high error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }} for the last 5 minutes"
+
+      # High latency (p99)
+      - alert: CerebrumHighLatency
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(cerebrum_http_request_duration_seconds_bucket[5m])) by (le)
+          ) > 5
+        for: 3m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "Cerebrum API high latency detected"
+          description: "p99 latency is {{ $value }}s for the last 5 minutes"
+
+      # API down (no metrics)
+      - alert: CerebrumAPIDown
+        expr: |
+          absent(up{job="cerebrum-api"}) or up{job="cerebrum-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "Cerebrum API is down"
+          description: "API has been down for more than 1 minute"
+
+  # ---------------------------------------------------------------------------
+  # Celery Worker Alerts
+  # ---------------------------------------------------------------------------
+  - name: celery_health
+    rules:
+      # Task failure rate
+      - alert: CeleryHighFailureRate
+        expr: |
+          (
+            sum(rate(cerebrum_celery_tasks_total{status="failure"}[10m]))
+            /
+            sum(rate(cerebrum_celery_tasks_total[10m]))
+          ) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          team: workers
+        annotations:
+          summary: "Celery high task failure rate"
+          description: "Task failure rate is {{ $value | humanizePercentage }} for the last 10 minutes"
+
+      # Queue backlog
+      - alert: CeleryQueueBacklog
+        expr: |
+          cerebrum_celery_queue_length > 100
+        for: 10m
+        labels:
+          severity: warning
+          team: workers
+        annotations:
+          summary: "Celery queue backlog detected"
+          description: "Queue {{ $labels.queue_name }} has {{ $value }} pending tasks"
+
+      # Worker offline
+      - alert: CeleryWorkersOffline
+        expr: |
+          cerebrum_celery_workers_active == 0
+        for: 2m
+        labels:
+          severity: critical
+          team: workers
+        annotations:
+          summary: "All Celery workers are offline"
+          description: "No active Celery workers detected"
+
+      # Slow task execution
+      - alert: CelerySlowTasks
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(cerebrum_celery_task_duration_seconds_bucket[10m])) by (le, task_name)
+          ) > 300
+        for: 5m
+        labels:
+          severity: warning
+          team: workers
+        annotations:
+          summary: "Celery slow task execution"
+          description: "Task {{ $labels.task_name }} p95 duration is {{ $value }}s"
+
+  # ---------------------------------------------------------------------------
+  # Database Alerts
+  # ---------------------------------------------------------------------------
+  - name: database_health
+    rules:
+      # High connection count
+      - alert: PostgreSQLHighConnections
+        expr: |
+          cerebrum_db_connections_active / cerebrum_db_pool_size > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          team: database
+        annotations:
+          summary: "PostgreSQL high connection usage"
+          description: "Connection pool usage is {{ $value | humanizePercentage }}"
+
+      # Slow queries
+      - alert: PostgreSQLSlowQueries
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(cerebrum_db_query_duration_seconds_bucket[5m])) by (le)
+          ) > 1
+        for: 5m
+        labels:
+          severity: warning
+          team: database
+        annotations:
+          summary: "PostgreSQL slow queries detected"
+          description: "p95 query duration is {{ $value }}s"
+
+      # Connection pool exhausted
+      - alert: PostgreSQLPoolExhausted
+        expr: |
+          cerebrum_db_pool_overflow > 0
+        for: 3m
+        labels:
+          severity: critical
+          team: database
+        annotations:
+          summary: "PostgreSQL connection pool exhausted"
+          description: "Pool overflow detected - connection pool is exhausted"
+
+  # ---------------------------------------------------------------------------
+  # Business Logic Alerts - Formula Execution
+  # ---------------------------------------------------------------------------
+  - name: formula_alerts
+    rules:
+      # High formula execution error rate
+      - alert: FormulaHighErrorRate
+        expr: |
+          (
+            sum(rate(cerebrum_formula_executions_total{status="error"}[10m]))
+            /
+            sum(rate(cerebrum_formula_executions_total[10m]))
+          ) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          team: formulas
+        annotations:
+          summary: "Formula execution high error rate"
+          description: "Formula error rate is {{ $value | humanizePercentage }}"
+
+      # Formula validation errors spike
+      - alert: FormulaValidationErrorsSpike
+        expr: |
+          sum(rate(cerebrum_formula_validation_errors_total[10m])) > 10
+        for: 5m
+        labels:
+          severity: warning
+          team: formulas
+        annotations:
+          summary: "Formula validation errors spike"
+          description: "Validation error rate is {{ $value }} errors/sec"
+
+      # Slow formula execution
+      - alert: FormulaSlowExecution
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(cerebrum_formula_execution_duration_seconds_bucket[10m])) by (le)
+          ) > 2
+        for: 5m
+        labels:
+          severity: info
+          team: formulas
+        annotations:
+          summary: "Formula execution is slow"
+          description: "p95 formula execution time is {{ $value }}s"
+
+  # ---------------------------------------------------------------------------
+  # Business Logic Alerts - Validation Pipeline
+  # ---------------------------------------------------------------------------
+  - name: validation_alerts
+    rules:
+      # High validation failure rate
+      - alert: ValidationHighFailureRate
+        expr: |
+          (
+            sum(rate(cerebrum_validations_total{status="failed"}[10m]))
+            /
+            sum(rate(cerebrum_validations_total[10m]))
+          ) > 0.2
+        for: 5m
+        labels:
+          severity: warning
+          team: security
+        annotations:
+          summary: "Validation pipeline high failure rate"
+          description: "Validation failure rate is {{ $value | humanizePercentage }}"
+
+      # Security issues detected
+      - alert: SecurityIssuesDetected
+        expr: |
+          sum(rate(cerebrum_security_issues_total{severity=~"critical|high"}[10m])) > 0
+        for: 1m
+        labels:
+          severity: critical
+          team: security
+        annotations:
+          summary: "Security issues detected"
+          description: "Critical or high severity security issues found"
+
+  # ---------------------------------------------------------------------------
+  # Resource Alerts
+  # ---------------------------------------------------------------------------
+  - name: resource_alerts
+    rules:
+      # High memory usage
+      - alert: HighMemoryUsage
+        expr: |
+          (
+            node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes
+          ) / node_memory_MemTotal_bytes > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          team: infrastructure
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value | humanizePercentage }}"
+
+      # High CPU usage
+      - alert: HighCPUUsage
+        expr: |
+          100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+          team: infrastructure
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is {{ $value }}%"
+
+      # Disk space low
+      - alert: LowDiskSpace
+        expr: |
+          (
+            node_filesystem_avail_bytes{mountpoint="/"}
+            /
+            node_filesystem_size_bytes{mountpoint="/"}
+          ) < 0.1
+        for: 5m
+        labels:
+          severity: critical
+          team: infrastructure
+        annotations:
+          summary: "Low disk space"
+          description: "Disk space available is {{ $value | humanizePercentage }}"
+
+  # ---------------------------------------------------------------------------
+  # LLM Service Alerts
+  # ---------------------------------------------------------------------------
+  - name: llm_alerts
+    rules:
+      # LLM API errors
+      - alert: LLMHighErrorRate
+        expr: |
+          (
+            sum(rate(cerebrum_llm_requests_total{status="error"}[10m]))
+            /
+            sum(rate(cerebrum_llm_requests_total[10m]))
+          ) > 0.2
+        for: 5m
+        labels:
+          severity: warning
+          team: ai
+        annotations:
+          summary: "LLM API high error rate"
+          description: "LLM error rate is {{ $value | humanizePercentage }} for {{ $labels.provider }}"
+
+      # High LLM latency
+      - alert: LLMHighLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(cerebrum_llm_request_duration_seconds_bucket[10m])) by (le, provider)
+          ) > 30
+        for: 5m
+        labels:
+          severity: warning
+          team: ai
+        annotations:
+          summary: "LLM API high latency"
+          description: "p95 latency for {{ $labels.provider }} is {{ $value }}s"
+
+      # High LLM costs
+      - alert: LLMHighCosts
+        expr: |
+          sum(rate(cerebrum_llm_cost_dollars_total[1h])) > 10
+        for: 10m
+        labels:
+          severity: info
+          team: ai
+        annotations:
+          summary: "High LLM API costs"
+          description: "LLM spending is ${{ $value }}/hour"

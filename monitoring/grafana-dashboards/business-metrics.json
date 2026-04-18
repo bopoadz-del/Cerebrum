@@ -1,0 +1,369 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Cerebrum Business Metrics",
+    "tags": ["cerebrum", "business", "formulas", "validation"],
+    "timezone": "utc",
+    "schemaVersion": 36,
+    "version": 1,
+    "refresh": "30s",
+    "annotations": {
+      "list": [
+        {
+          "name": "Annotations & Alerts",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "enable": true,
+          "iconColor": "red"
+        }
+      ]
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Formula Executions/sec",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(rate(cerebrum_formula_executions_total[1m]))",
+            "legendFormat": "Executions/sec",
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            }
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ops",
+            "min": 0
+          }
+        },
+        "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Formula Success Rate",
+        "type": "gauge",
+        "targets": [
+          {
+            "expr": "sum(rate(cerebrum_formula_executions_total{status=\"success\"}[5m])) / sum(rate(cerebrum_formula_executions_total[5m]))",
+            "legendFormat": "Success %",
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            }
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit",
+            "min": 0,
+            "max": 1,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "red", "value": null},
+                {"color": "yellow", "value": 0.95},
+                {"color": "green", "value": 0.99}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 6, "x": 6, "y": 0},
+        "options": {
+          "showThresholdLabels": true
+        }
+      },
+      {
+        "id": 3,
+        "title": "Cache Hit Rate",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(rate(cerebrum_formula_cache_hits_total[5m])) / (sum(rate(cerebrum_formula_cache_hits_total[5m])) + sum(rate(cerebrum_formula_cache_misses_total[5m])))",
+            "legendFormat": "Hit Rate",
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            }
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit",
+            "min": 0,
+            "max": 1,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "red", "value": null},
+                {"color": "yellow", "value": 0.5},
+                {"color": "green", "value": 0.8}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 6, "x": 12, "y": 0},
+        "options": {
+          "colorMode": "background"
+        }
+      },
+      {
+        "id": 4,
+        "title": "Validation Errors/min",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(rate(cerebrum_formula_validation_errors_total[1m])) * 60",
+            "legendFormat": "Errors/min",
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            }
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "min": 0,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 10},
+                {"color": "red", "value": 50}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 6, "x": 18, "y": 0},
+        "options": {
+          "colorMode": "value"
+        }
+      },
+      {
+        "id": 5,
+        "title": "Formula Executions by Domain",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "sum by (domain) (rate(cerebrum_formula_executions_total[5m]))",
+            "legendFormat": "{{domain}}",
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            }
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ops",
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "linear",
+              "stacking": {"mode": "normal"}
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+        "options": {
+          "legend": {"displayMode": "table", "placement": "right"}
+        }
+      },
+      {
+        "id": 6,
+        "title": "Formula Execution Status",
+        "type": "piechart",
+        "targets": [
+          {
+            "expr": "sum by (status) (rate(cerebrum_formula_executions_total[5m]))",
+            "legendFormat": "{{status}}",
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            }
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ops"
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+        "options": {
+          "legend": {"displayMode": "table", "placement": "right"}
+        }
+      },
+      {
+        "id": 7,
+        "title": "Formula Duration by Domain (p95)",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum by (le, domain) (rate(cerebrum_formula_execution_duration_seconds_bucket[5m])))",
+            "legendFormat": "{{domain}}",
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            }
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "min": 0,
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "linear"
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}
+      },
+      {
+        "id": 8,
+        "title": "Validation Errors by Type",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "sum by (error_type) (rate(cerebrum_formula_validation_errors_total[5m]))",
+            "legendFormat": "{{error_type}}",
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            }
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ops",
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "linear",
+              "stacking": {"mode": "normal"}
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+        "options": {
+          "legend": {"displayMode": "table", "placement": "right"}
+        }
+      },
+      {
+        "id": 9,
+        "title": "Top Formulas by Execution Count",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "topk(10, sum by (formula_id) (rate(cerebrum_formula_executions_total[5m])))",
+            "format": "table",
+            "instant": true,
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            }
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ops"
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24}
+      },
+      {
+        "id": 10,
+        "title": "Top Formulas by Error Rate",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "topk(10, sum by (formula_id) (rate(cerebrum_formula_executions_total{status=\"error\"}[10m])) / sum by (formula_id) (rate(cerebrum_formula_executions_total[10m])))",
+            "format": "table",
+            "instant": true,
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            }
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 0.1},
+                {"color": "red", "value": 0.25}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24}
+      },
+      {
+        "id": 11,
+        "title": "Cache Performance",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "sum(rate(cerebrum_formula_cache_hits_total[5m]))",
+            "legendFormat": "Cache Hits",
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            }
+          },
+          {
+            "expr": "sum(rate(cerebrum_formula_cache_misses_total[5m]))",
+            "legendFormat": "Cache Misses",
+            "refId": "B",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            }
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ops",
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "linear",
+              "fillOpacity": 10
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 32}
+      }
+    ],
+    "templating": {
+      "list": [
+        {
+          "name": "interval",
+          "type": "interval",
+          "query": "1m,5m,10m,30m,1h,6h,12h,1d",
+          "current": {"text": "5m", "value": "5m"}
+        }
+      ]
+    },
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    }
+  }
+}
