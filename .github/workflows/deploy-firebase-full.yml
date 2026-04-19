@@ -20,11 +20,48 @@ env:
 
 jobs:
   # ==========================================
+  # Pre-flight Checks
+  # ==========================================
+  check-secrets:
+    name: 🔍 Validate Secrets
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check GCP_SA_KEY
+        run: |
+          if [ -z "${{ secrets.GCP_SA_KEY }}" ]; then
+            echo "::error::❌ GCP_SA_KEY is not set in GitHub Secrets!"
+            echo "::error::Go to: https://github.com/${{ github.repository }}/settings/secrets/actions"
+            echo "::error::Add GCP_SA_KEY with the service account JSON from Google Cloud Console"
+            exit 1
+          fi
+          echo "✅ GCP_SA_KEY is configured"
+
+      - name: Check FIREBASE_SERVICE_ACCOUNT_CEREBRUM_30D9C
+        run: |
+          if [ -z "${{ secrets.FIREBASE_SERVICE_ACCOUNT_CEREBRUM_30D9C }}" ]; then
+            echo "::error::❌ FIREBASE_SERVICE_ACCOUNT_CEREBRUM_30D9C is not set in GitHub Secrets!"
+            echo "::error::Go to: https://github.com/${{ github.repository }}/settings/secrets/actions"
+            echo "::error::Add FIREBASE_SERVICE_ACCOUNT_CEREBRUM_30D9C with the Firebase service account JSON"
+            echo "::error::Get it from: https://console.firebase.google.com/project/cerebrum-30d9c/settings/serviceaccounts/adminsdk"
+            exit 1
+          fi
+          echo "✅ FIREBASE_SERVICE_ACCOUNT_CEREBRUM_30D9C is configured"
+
+      - name: Secrets Check Summary
+        run: |
+          echo "## ✅ All Required Secrets Verified"
+          echo "| Secret | Status |"
+          echo "|--------|--------|"
+          echo "| GCP_SA_KEY | ✅ |"
+          echo "| FIREBASE_SERVICE_ACCOUNT_CEREBRUM_30D9C | ✅ |"
+
+  # ==========================================
   # Build & Deploy Backend to Cloud Run
   # ==========================================
   deploy-backend:
     name: 🐍 Deploy Backend to Cloud Run
     runs-on: ubuntu-latest
+    needs: check-secrets
     permissions:
       contents: 'read'
       id-token: 'write'
