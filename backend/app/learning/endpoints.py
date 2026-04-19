@@ -18,8 +18,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status, Background
 from pydantic import BaseModel, Field, validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.session import get_async_session
-from app.core.security import get_current_user, get_current_user_optional, require_admin
+from app.db.session import get_db_session
+from app.core.security import require_role, require_permission
+from app.api.deps import get_current_user
 from app.models.user import User
 from app.core.logging import get_logger
 from app.core.credibility import CredibilityTier
@@ -46,6 +47,17 @@ from app.learning.models import (
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/learning", tags=["Learning Engine"])
+
+
+# Create optional version of get_current_user
+async def get_current_user_optional(
+    token: Optional[str] = None
+) -> Optional[User]:
+    """Get current user if authenticated, otherwise return None."""
+    try:
+        return await get_current_user()
+    except Exception:
+        return None
 
 
 # =============================================================================
@@ -249,7 +261,7 @@ class LearningStatsResponse(BaseModel):
 # =============================================================================
 
 async def get_learning_engine_dep(
-    db: AsyncSession = Depends(get_async_session)
+    db: AsyncSession = Depends(get_db_session)
 ) -> LearningEngine:
     """Get learning engine with dependencies."""
     return get_learning_engine()
@@ -279,7 +291,7 @@ async def create_feedback(
     request: FeedbackCreateRequest,
     current_user: User = Depends(get_current_user_optional),
     engine: LearningEngine = Depends(get_learning_engine_dep),
-    db: AsyncSession = Depends(get_async_session),
+    db: AsyncSession = Depends(get_db_session),
 ) -> FeedbackResponse:
     """
     Create a feedback loop entry from an execution result.
@@ -343,7 +355,7 @@ async def process_pending_feedback(
     batch_size: int = Query(100, ge=1, le=500),
     current_user: User = Depends(get_current_user),
     engine: LearningEngine = Depends(get_learning_engine_dep),
-    db: AsyncSession = Depends(get_async_session),
+    db: AsyncSession = Depends(get_db_session),
 ) -> ProcessFeedbackResponse:
     """
     Process pending feedback loop entries.
@@ -375,7 +387,7 @@ async def get_feedback_entries(
     processed: Optional[bool] = Query(None),
     limit: int = Query(50, ge=1, le=200),
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_async_session),
+    db: AsyncSession = Depends(get_db_session),
 ) -> List[FeedbackResponse]:
     """Get feedback loop entries with optional filters."""
     query = select(FeedbackLoop)
@@ -423,7 +435,7 @@ async def get_sources_by_tier(
     include_under_review: bool = Query(False),
     limit: int = Query(100, ge=1, le=500),
     tier_manager: TierManager = Depends(get_tier_manager_dep),
-    db: AsyncSession = Depends(get_async_session),
+    db: AsyncSession = Depends(get_db_session),
 ) -> List[SourceReputationResponse]:
     """Get all sources in a specific credibility tier."""
     sources = await tier_manager.get_sources_by_tier(
@@ -462,7 +474,7 @@ async def evaluate_source_tier(
     source_id: str,
     force: bool = Query(False, description="Force evaluation even if criteria not met"),
     tier_manager: TierManager = Depends(get_tier_manager_dep),
-    db: AsyncSession = Depends(get_async_session),
+    db: AsyncSession = Depends(get_db_session),
 ) -> TierDecisionResponse:
     """Evaluate a source for potential tier change."""
     decision = await tier_manager.evaluate_source(source_id, db, force=force)
@@ -487,9 +499,9 @@ async def evaluate_source_tier(
 async def manual_tier_change(
     source_id: str,
     request: TierChangeRequest,
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_role("admin")),
     tier_manager: TierManager = Depends(get_tier_manager_dep),
-    db: AsyncSession = Depends(get_async_session),
+    db: AsyncSession = Depends(get_db_session),
 ) -> TierHistoryResponse:
     """
     Manually change a source's credibility tier.
@@ -535,7 +547,7 @@ async def get_tier_history(
     source_id: str,
     limit: int = Query(50, ge=1, le=100),
     tier_manager: TierManager = Depends(get_tier_manager_dep),
-    db: AsyncSession = Depends(get_async_session),
+    db: AsyncSession = Depends(get_db_session),
 ) -> List[TierHistoryResponse]:
     """Get tier change history for a source."""
     history = await tier_manager.get_tier_history(source_id, db, limit=limit)
@@ -564,7 +576,7 @@ async def get_tier_history(
 )
 async def get_tier_statistics(
     tier_manager: TierManager = Depends(get_tier_manager_dep),
-    db: AsyncSession = Depends(get_async_session),
+    db: AsyncSession = Depends(get_db_session),
 ) -> Dict[str, Any]:
     """Get tier statistics across the system."""
     return await tier_manager.get_tier_statistics(db)
@@ -585,7 +597,7 @@ async def analyze_coefficient(
     coefficient_name: str,
     lookback_days: int = Query(30, ge=7, le=365),
     tuner: CoefficientTuner = Depends(get_coefficient_tuner_dep),
-    db: AsyncSession = Depends(get_async_session),
+    db: AsyncSession = Depends(get_db_session),
 ) -> CoefficientAnalysisResponse:
     """Analyze performance of a specific coefficient."""
     analysis = await tuner.analyze_coefficient_performance(
@@ -614,7 +626,7 @@ async def suggest_coefficient(
     formula_id: str,
     request: CoefficientAdjustmentRequest,
     tuner: CoefficientTuner = Depends(get_coefficient_tuner_dep),
-    db: AsyncSession = Depends(get_async_session),
+    db: AsyncSession = Depends(get_db_session),
 ) -> Dict[str, Any]:
     """Get AI-suggested coefficient adjustment."""
     suggestion = await tuner.suggest_coefficient_adjustment(
@@ -654,7 +666,7 @@ async def apply_coefficient_adjustment(
     formula_type: str = Query(..., description="Formula type (concrete, rebar, etc.)"),
     request: Dict[str, Any] = {},
     tuner: CoefficientTuner = Depends(get_coefficient_tuner_dep),
-    db: AsyncSession = Depends(get_async_session),
+    db: AsyncSession = Depends(get_db_session),
 ) -> CoefficientAdjustmentResponse:
     """Apply a coefficient adjustment."""
     from app.learning.coefficient_tuner import CoefficientSuggestion, TuningMethod
@@ -714,7 +726,7 @@ async def get_pending_adjustments(
     min_confidence: float = Query(0.0, ge=0.0, le=1.0),
     limit: int = Query(100, ge=1, le=500),
     tuner: CoefficientTuner = Depends(get_coefficient_tuner_dep),
-    db: AsyncSession = Depends(get_async_session),
+    db: AsyncSession = Depends(get_db_session),
 ) -> List[CoefficientAdjustmentResponse]:
     """Get pending coefficient adjustments."""
     adjustments = await tuner.get_pending_adjustments(db, formula_id, min_confidence, limit)
@@ -745,7 +757,7 @@ async def validate_adjustment(
     adjustment_id: str,
     current_user: User = Depends(get_current_user),
     tuner: CoefficientTuner = Depends(get_coefficient_tuner_dep),
-    db: AsyncSession = Depends(get_async_session),
+    db: AsyncSession = Depends(get_db_session),
 ) -> Dict[str, bool]:
     """Validate (approve) a coefficient adjustment."""
     success = await tuner.validate_adjustment(
@@ -769,7 +781,7 @@ async def rollback_adjustment(
     reason: str = Query(..., min_length=5, description="Reason for rollback"),
     current_user: User = Depends(get_current_user),
     tuner: CoefficientTuner = Depends(get_coefficient_tuner_dep),
-    db: AsyncSession = Depends(get_async_session),
+    db: AsyncSession = Depends(get_db_session),
 ) -> Dict[str, bool]:
     """Rollback a coefficient adjustment."""
     success = await tuner.rollback_adjustment(adjustment_id, reason, db)
@@ -794,7 +806,7 @@ async def register_model(
     request: ModelRegisterRequest,
     current_user: User = Depends(get_current_user),
     engine: LearningEngine = Depends(get_learning_engine_dep),
-    db: AsyncSession = Depends(get_async_session),
+    db: AsyncSession = Depends(get_db_session),
 ) -> ModelResponse:
     """Register a new ML model."""
     model = await engine.register_model(
@@ -834,7 +846,7 @@ async def list_models(
     deployed_only: bool = Query(False),
     limit: int = Query(50, ge=1, le=200),
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_async_session),
+    db: AsyncSession = Depends(get_db_session),
 ) -> List[ModelResponse]:
     """List ML models."""
     query = select(LearningModel)
@@ -874,9 +886,9 @@ async def list_models(
 )
 async def deploy_model(
     model_id: str,
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_role("admin")),
     engine: LearningEngine = Depends(get_learning_engine_dep),
-    db: AsyncSession = Depends(get_async_session),
+    db: AsyncSession = Depends(get_db_session),
 ) -> Dict[str, Any]:
     """Deploy a model to production."""
     result = await engine.deploy_model(model_id, db)
@@ -902,7 +914,7 @@ async def deploy_model(
 async def start_episode(
     request: EpisodeStartRequest,
     engine: LearningEngine = Depends(get_learning_engine_dep),
-    db: AsyncSession = Depends(get_async_session),
+    db: AsyncSession = Depends(get_db_session),
 ) -> EpisodeStartResponse:
     """Start a new reinforcement learning episode."""
     from uuid import UUID
@@ -932,7 +944,7 @@ async def get_formula_suggestion(
     episode_id: str,
     context: Dict[str, Any],
     engine: LearningEngine = Depends(get_learning_engine_dep),
-    db: AsyncSession = Depends(get_async_session),
+    db: AsyncSession = Depends(get_db_session),
 ) -> FormulaSuggestionResponse:
     """Get a formula suggestion using reinforcement learning."""
     suggestion = await engine.make_formula_suggestion(episode_id, context, db)
@@ -964,7 +976,7 @@ async def record_episode_selection(
     episode_id: str,
     selected: bool = Query(..., description="Whether the suggestion was selected"),
     engine: LearningEngine = Depends(get_learning_engine_dep),
-    db: AsyncSession = Depends(get_async_session),
+    db: AsyncSession = Depends(get_db_session),
 ) -> Dict[str, bool]:
     """Record user selection of a formula suggestion."""
     success = await engine.record_episode_selection(episode_id, selected, db)
@@ -985,7 +997,7 @@ async def complete_episode(
     episode_id: str,
     request: EpisodeCompleteRequest,
     engine: LearningEngine = Depends(get_learning_engine_dep),
-    db: AsyncSession = Depends(get_async_session),
+    db: AsyncSession = Depends(get_db_session),
 ) -> EpisodeCompleteResponse:
     """Complete a reinforcement learning episode."""
     result = await engine.complete_episode(
@@ -1018,9 +1030,9 @@ async def complete_episode(
 )
 async def run_learning_cycle(
     background_tasks: BackgroundTasks,
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_role("admin")),
     engine: LearningEngine = Depends(get_learning_engine_dep),
-    db: AsyncSession = Depends(get_async_session),
+    db: AsyncSession = Depends(get_db_session),
 ) -> LearningCycleResponse:
     """
     Run a complete learning cycle.
@@ -1052,7 +1064,7 @@ async def run_learning_cycle(
 async def get_learning_statistics(
     days: int = Query(30, ge=1, le=365),
     engine: LearningEngine = Depends(get_learning_engine_dep),
-    db: AsyncSession = Depends(get_async_session),
+    db: AsyncSession = Depends(get_db_session),
 ) -> LearningStatsResponse:
     """Get comprehensive learning system statistics."""
     stats = await engine.get_learning_stats(db, days)
@@ -1074,7 +1086,7 @@ async def get_learning_statistics(
 )
 async def get_learning_health(
     engine: LearningEngine = Depends(get_learning_engine_dep),
-    db: AsyncSession = Depends(get_async_session),
+    db: AsyncSession = Depends(get_db_session),
 ) -> Dict[str, Any]:
     """Get health status of the learning system."""
     # Check pending feedback
