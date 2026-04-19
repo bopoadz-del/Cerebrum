@@ -1,0 +1,50 @@
+2026-04-08T18:51:42.715356741Z          ^^^^^^^^^^^^^^^^
+2026-04-08T18:51:42.715370613Z   File "/usr/local/lib/python3.11/site-packages/click/core.py", line 1269, in invoke
+2026-04-08T18:51:42.715594937Z     return ctx.invoke(self.callback, **ctx.params)
+2026-04-08T18:51:42.715698633Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-08T18:51:42.715713195Z   File "/usr/local/lib/python3.11/site-packages/click/core.py", line 824, in invoke
+2026-04-08T18:51:42.715897583Z     return callback(*args, **kwargs)
+2026-04-08T18:51:42.715947861Z            ^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-08T18:51:42.715984526Z   File "/usr/local/lib/python3.11/site-packages/uvicorn/main.py", line 416, in main
+2026-04-08T18:51:42.716115516Z     run(
+2026-04-08T18:51:42.716121767Z   File "/usr/local/lib/python3.11/site-packages/uvicorn/main.py", line 587, in run
+2026-04-08T18:51:42.716248556Z     server.run()
+2026-04-08T18:51:42.716255047Z   File "/usr/local/lib/python3.11/site-packages/uvicorn/server.py", line 61, in run
+2026-04-08T18:51:42.716347331Z     return asyncio.run(self.serve(sockets=sockets))
+2026-04-08T18:51:42.716428104Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-08T18:51:42.716439685Z   File "/usr/local/lib/python3.11/asyncio/runners.py", line 190, in run
+2026-04-08T18:51:42.716567525Z     return runner.run(main)
+2026-04-08T18:51:42.716597499Z            ^^^^^^^^^^^^^^^^
+2026-04-08T18:51:42.716606301Z   File "/usr/local/lib/python3.11/asyncio/runners.py", line 118, in run
+2026-04-08T18:51:42.716748622Z     return self._loop.run_until_complete(task)
+2026-04-08T18:51:42.716817913Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-08T18:51:42.716845187Z   File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
+2026-04-08T18:51:42.716992129Z   File "/usr/local/lib/python3.11/site-packages/uvicorn/server.py", line 68, in serve
+2026-04-08T18:51:42.717051068Z     config.load()
+2026-04-08T18:51:42.717054269Z   File "/usr/local/lib/python3.11/site-packages/uvicorn/config.py", line 467, in load
+2026-04-08T18:51:42.717201571Z     self.loaded_app = import_from_string(self.app)
+2026-04-08T18:51:42.717291155Z                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-08T18:51:42.717294926Z   File "/usr/local/lib/python3.11/site-packages/uvicorn/importer.py", line 24, in import_from_string
+2026-04-08T18:51:42.717394401Z     raise exc from None
+2026-04-08T18:51:42.717399661Z   File "/usr/local/lib/python3.11/site-packages/uvicorn/importer.py", line 21, in import_from_string
+2026-04-08T18:51:42.717484474Z     module = importlib.import_module(module_str)
+2026-04-08T18:51:42.717561746Z              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-08T18:51:42.717567247Z   File "/usr/local/lib/python3.11/importlib/__init__.py", line 126, in import_module
+2026-04-08T18:51:42.717687745Z     return _bootstrap._gcd_import(name[level:], package, level)
+2026-04-08T18:51:42.717822286Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-08T18:51:42.717832797Z   File "<frozen importlib._bootstrap>", line 1204, in _gcd_import
+2026-04-08T18:51:42.717844309Z   File "<frozen importlib._bootstrap>", line 1176, in _find_and_load
+2026-04-08T18:51:42.71784913Z   File "<frozen importlib._bootstrap>", line 1147, in _find_and_load_unlocked
+2026-04-08T18:51:42.717861181Z   File "<frozen importlib._bootstrap>", line 690, in _load_unlocked
+2026-04-08T18:51:42.717865782Z   File "<frozen importlib._bootstrap_external>", line 940, in exec_module
+2026-04-08T18:51:42.717869193Z   File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
+2026-04-08T18:51:42.717883455Z   File "/app/app/main.py", line 25, in <module>
+2026-04-08T18:51:42.717972929Z     from app.api.v1.api import api_v1_router
+2026-04-08T18:51:42.717977249Z   File "/app/app/api/v1/api.py", line 16, in <module>
+2026-04-08T18:51:42.718070703Z     from app.api.v1.endpoints import chat
+2026-04-08T18:51:42.718074804Z   File "/app/app/api/v1/endpoints/chat.py", line 15, in <module>
+2026-04-08T18:51:42.71817742Z     from app.services.document_analyzer import document_analyzer
+2026-04-08T18:51:42.71818169Z   File "/app/app/services/document_analyzer.py", line 10, in <module>
+2026-04-08T18:51:42.718268143Z     import fitz  # PyMuPDF
+2026-04-08T18:51:42.718274634Z     ^^^^^^^^^^^
+2026-04-08T18:51:42.718288997Z ModuleNotFoundError: No module named 'fitz'

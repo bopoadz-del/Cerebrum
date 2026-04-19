@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LEGO KINGDOM - Cerebrum Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #0a0a0f 0%, #1a1025 50%, #0d1420 100%);
+            min-height: 100vh;
+            color: #e0e0ff;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            padding: 30px 20px;
+            position: relative;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #a855f7, #3b82f6, transparent);
+        }
+
+        .logo {
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #a855f7 0%, #3b82f6 50%, #06b6d4 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -1px;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #8b8b9e;
+            font-size: 1rem;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        /* Status Indicator */
+        .status-bar {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            margin: 20px auto;
+            border: 1px solid rgba(168, 85, 247, 0.2);
+            backdrop-filter: blur(10px);
+            max-width: 400px;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: #a0a0b5;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #ef4444;
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+            transition: all 0.3s ease;
+        }
+
+        .status-dot.connected {
+            background: #10b981;
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.6);
+        }
+
+        .status-dot.checking {
+            background: #f59e0b;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.2); }
+        }
+
+        /* Main Content Grid */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+            flex: 1;
+            margin-top: 20px;
+        }
+
+        @media (max-width: 900px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Panel Styling */
+        .panel {
+            background: rgba(20, 20, 35, 0.6);
+            border-radius: 20px;
+            border: 1px solid rgba(168, 85, 247, 0.15);
+            backdrop-filter: blur(20px);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4), 0 0 40px rgba(168, 85, 247, 0.1);
+        }
+
+        .panel-header {
+            padding: 20px 25px;
+            background: linear-gradient(90deg, rgba(168, 85, 247, 0.15), rgba(59, 130, 246, 0.1));
+            border-bottom: 1px solid rgba(168, 85, 247, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .panel-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #a855f7, #3b82f6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+
+        .panel-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .panel-body {
+            flex: 1;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Chat Interface */
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 400px;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-height: 350px;
+        }
+
+        .chat-messages::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .chat-messages::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 3px;
+        }
+
+        .chat-messages::-webkit-scrollbar-thumb {
+            background: rgba(168, 85, 247, 0.5);
+            border-radius: 3px;
+        }
+
+        .message {
+            max-width: 85%;
+            padding: 14px 18px;
+            border-radius: 18px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            animation: messageSlide 0.3s ease;
+        }
+
+        @keyframes messageSlide {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.user {
+            align-self: flex-end;
+            background: linear-gradient(135deg, #a855f7, #7c3aed);
+            color: white;
+            border-bottom-right-radius: 6px;
+        }
+
+        .message.assistant {
+            align-self: flex-start;
+            background: rgba(255, 255, 255, 0.08);
+            color: #e0e0ff;
+            border: 1px solid rgba(168, 85, 247, 0.2);
+            border-bottom-left-radius: 6px;
+        }
+
+        .message.streaming::after {
+            content: '▋';
+            animation: blink 1s infinite;
+            margin-left: 4px;
+            color: #a855f7;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+
+        .message-time {
+            font-size: 0.7rem;
+            color: rgba(255, 255, 255, 0.5);
+            margin-top: 6px;
+        }
+
+        .chat-input-area {
+            display: flex;
+            gap: 12px;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(168, 85, 247, 0.2);
+        }
+
+        .chat-input {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(168, 85, 247, 0.3);
+            border-radius: 12px;
+            padding: 14px 18px;
+            color: #e0e0ff;
+            font-size: 0.95rem;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .chat-input:focus {
+            border-color: #a855f7;
+            box-shadow: 0 0 20px rgba(168, 85, 247, 0.2);
+        }
+
+        .chat-input::placeholder {
+            color: #6b6b8b;
+        }
+
+        .send-btn {
+            background: linear-gradient(135deg, #a855f7, #3b82f6);
+            border: none;
+            border-radius: 12px;
+            padding: 14px 24px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .send-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(168, 85, 247, 0.4);
+        }
+
+        .send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* File Upload */
+        .upload-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 400px;
+        }
+
+        .drop-zone {
+            border: 2px dashed rgba(168, 85, 247, 0.4);
+            border-radius: 16px;
+            padding: 40px 30px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            background: rgba(168, 85, 247, 0.05);
+        }
+
+        .drop-zone:hover,
+        .drop-zone.dragover {
+            border-color: #a855f7;
+            background: rgba(168, 85, 247, 0.1);
+            box-shadow: 0 0 30px rgba(168, 85, 247, 0.15);
+        }
+
+        .drop-zone.uploading {
+            border-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.1);
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            opacity: 0.8;
+        }
+
+        .upload-text {
+            font-size: 1rem;
+            color: #a0a0b5;
+            margin-bottom: 8px;
+        }
+
+        .upload-hint {
+            font-size: 0.85rem;
+            color: #6b6b8b;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .extracted-content {
+            margin-top: 20px;
+            flex: 1;
+            display: none;
+        }
+
+        .extracted-content.show {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .content-label {
+            font-size: 0.8rem;
+            color: #a855f7;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+
+        .content-box {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(168, 85, 247, 0.2);
+            border-radius: 12px;
+            padding: 15px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.85rem;
+            line-height: 1.6;
+            color: #c0c0d5;
+            overflow-y: auto;
+            max-height: 250px;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .content-box::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .content-box::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 3px;
+        }
+
+        .content-box::-webkit-scrollbar-thumb {
+            background: rgba(168, 85, 247, 0.5);
+            border-radius: 3px;
+        }
+
+        /* Progress */
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            margin-top: 15px;
+            overflow: hidden;
+            display: none;
+        }
+
+        .progress-bar.show {
+            display: block;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #a855f7, #3b82f6);
+            border-radius: 2px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 25px;
+            color: #6b6b8b;
+            font-size: 0.85rem;
+        }
+
+        .footer a {
+            color: #a855f7;
+            text-decoration: none;
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .logo {
+                font-size: 1.8rem;
+            }
+
+            .subtitle {
+                font-size: 0.8rem;
+            }
+
+            .panel {
+                border-radius: 16px;
+            }
+
+            .panel-header {
+                padding: 15px 20px;
+            }
+
+            .panel-body {
+                padding: 15px;
+            }
+
+            .chat-messages {
+                max-height: 300px;
+            }
+
+            .message {
+                max-width: 90%;
+                padding: 12px 15px;
+                font-size: 0.9rem;
+            }
+
+            .chat-input-area {
+                flex-direction: column;
+            }
+
+            .send-btn {
+                padding: 12px;
+            }
+
+            .drop-zone {
+                padding: 30px 20px;
+            }
+        }
+
+        /* Empty States */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6b6b8b;
+        }
+
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+
+        .empty-state-text {
+            font-size: 0.95rem;
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1 class="logo">LEGO KINGDOM</h1>
+            <p class="subtitle">Powered by Cerebrum</p>
+        </header>
+
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <div class="status-item">
+                <div class="status-dot" id="apiStatus"></div>
+                <span id="apiStatusText">Checking API...</span>
+            </div>
+            <div class="status-item">
+                <span id="versionText">v1.0</span>
+            </div>
+        </div>
+
+        <!-- Main Grid -->
+        <div class="main-grid">
+            <!-- Chat Panel -->
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-icon">💬</div>
+                    <h2 class="panel-title">Chat Interface</h2>
+                </div>
+                <div class="panel-body">
+                    <div class="chat-container">
+                        <div class="chat-messages" id="chatMessages">
+                            <div class="empty-state">
+                                <div class="empty-state-icon">🤖</div>
+                                <p class="empty-state-text">Start a conversation with the AI</p>
+                            </div>
+                        </div>
+                        <div class="chat-input-area">
+                            <input 
+                                type="text" 
+                                class="chat-input" 
+                                id="chatInput" 
+                                placeholder="Type your message..."
+                                maxlength="1000"
+                            >
+                            <button class="send-btn" id="sendBtn">
+                                <span id="sendBtnText">Send</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Document Upload Panel -->
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-icon">📄</div>
+                    <h2 class="panel-title">Document Upload</h2>
+                </div>
+                <div class="panel-body">
+                    <div class="upload-container">
+                        <div class="drop-zone" id="dropZone">
+                            <div class="upload-icon">📤</div>
+                            <p class="upload-text">Drop your document here</p>
+                            <p class="upload-hint">or click to browse (PDF, PNG, JPG)</p>
+                        </div>
+                        <input type="file" class="file-input" id="fileInput" accept=".pdf,.png,.jpg,.jpeg">
+                        
+                        <div class="progress-bar" id="progressBar">
+                            <div class="progress-fill" id="progressFill"></div>
+                        </div>
+
+                        <div class="extracted-content" id="extractedContent">
+                            <div class="content-label">Extracted Text</div>
+                            <div class="content-box" id="contentBox"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>Connected to <a href="https://cerebrum-platform-api.onrender.com" target="_blank">cerebrum-platform-api</a> • Built with 💜</p>
+        </footer>
+    </div>
+
+    <script>
+        // Configuration
+        const API_BASE = 'https://cerebrum-platform-api.onrender.com';
+        const API_KEY = 'cb_dev_key';
+
+        // DOM Elements
+        const apiStatus = document.getElementById('apiStatus');
+        const apiStatusText = document.getElementById('apiStatusText');
+        const chatMessages = document.getElementById('chatMessages');
+        const chatInput = document.getElementById('chatInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const sendBtnText = document.getElementById('sendBtnText');
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const progressBar = document.getElementById('progressBar');
+        const progressFill = document.getElementById('progressFill');
+        const extractedContent = document.getElementById('extractedContent');
+        const contentBox = document.getElementById('contentBox');
+
+        let isStreaming = false;
+
+        // Check API Status on Load
+        async function checkApiStatus() {
+            apiStatus.className = 'status-dot checking';
+            apiStatusText.textContent = 'Checking API...';
+
+            try {
+                const response = await fetch(`${API_BASE}/v1/chain`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${API_KEY}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        steps: [{ block: 'chat', params: { message: 'ping' } }]
+                    })
+                });
+
+                if (response.ok) {
+                    apiStatus.className = 'status-dot connected';
+                    apiStatusText.textContent = 'API Connected';
+                } else {
+                    throw new Error('API returned error');
+                }
+            } catch (error) {
+                apiStatus.className = 'status-dot';
+                apiStatusText.textContent = 'API Disconnected';
+            }
+        }
+
+        // Chat Functions
+        function addMessage(text, type) {
+            // Remove empty state if present
+            const emptyState = chatMessages.querySelector('.empty-state');
+            if (emptyState) {
+                emptyState.remove();
+            }
+
+            const message = document.createElement('div');
+            message.className = `message ${type}`;
+            
+            const time = new Date().toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+
+            message.innerHTML = `
+                ${text}
+                <div class="message-time">${time}</div>
+            `;
+            
+            chatMessages.appendChild(message);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            return message;
+        }
+
+        async function sendMessage() {
+            const text = chatInput.value.trim();
+            if (!text || isStreaming) return;
+
+            // Add user message
+            addMessage(text, 'user');
+            chatInput.value = '';
+
+            // Create assistant message placeholder
+            const assistantMsg = document.createElement('div');
+            assistantMsg.className = 'message assistant streaming';
+            assistantMsg.innerHTML = '<div class="message-time">Thinking...</div>';
+            chatMessages.appendChild(assistantMsg);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            isStreaming = true;
+            sendBtn.disabled = true;
+            sendBtnText.innerHTML = '<span class="spinner"></span>';
+
+            try {
+                const response = await fetch(`${API_BASE}/v1/chain`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${API_KEY}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        steps: [{ 
+                            block: 'chat', 
+                            params: { message: text } 
+                        }]
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                // Remove streaming class and update content
+                assistantMsg.classList.remove('streaming');
+                
+                // Extract response text from various possible formats
+                let responseText = '';
+                if (data.output && data.output.text) {
+                    responseText = data.output.text;
+                } else if (data.result) {
+                    responseText = data.result;
+                } else if (data.message) {
+                    responseText = data.message;
+                } else if (typeof data === 'string') {
+                    responseText = data;
+                } else {
+                    responseText = JSON.stringify(data, null, 2);
+                }
+
+                const time = new Date().toLocaleTimeString('en-US', { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                });
+
+                assistantMsg.innerHTML = `${responseText}<div class="message-time">${time}</div>`;
+                
+            } catch (error) {
+                assistantMsg.classList.remove('streaming');
+                assistantMsg.innerHTML = `
+                    <span style="color: #ef4444;">Error: ${error.message}</span>
+                    <div class="message-time">${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</div>
+                `;
+            } finally {
+                isStreaming = false;
+                sendBtn.disabled = false;
+                sendBtnText.textContent = 'Send';
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+        }
+
+        // Event Listeners for Chat
+        sendBtn.addEventListener('click', sendMessage);
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+
+        // File Upload Functions
+        function updateProgress(percent) {
+            progressBar.classList.add('show');
+            progressFill.style.width = `${percent}%`;
+        }
+
+        function resetProgress() {
+            progressBar.classList.remove('show');
+            progressFill.style.width = '0%';
+            dropZone.classList.remove('uploading');
+            dropZone.innerHTML = `
+                <div class="upload-icon">📤</div>
+                <p class="upload-text">Drop your document here</p>
+                <p class="upload-hint">or click to browse (PDF, PNG, JPG)</p>
+            `;
+        }
+
+        async function handleFileUpload(file) {
+            if (!file) return;
+
+            // Validate file type
+            const validTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'];
+            if (!validTypes.includes(file.type)) {
+                alert('Please upload a PDF, PNG, or JPG file');
+                return;
+            }
+
+            // Validate file size (10MB max)
+            if (file.size > 10 * 1024 * 1024) {
+                alert('File size must be less than 10MB');
+                return;
+            }
+
+            dropZone.classList.add('uploading');
+            dropZone.innerHTML = `
+                <div class="upload-icon">⏳</div>
+                <p class="upload-text">Uploading ${file.name}...</p>
+            `;
+
+            updateProgress(30);
+
+            try {
+                // Convert file to base64
+                const base64 = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result.split(',')[1]);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+
+                updateProgress(60);
+
+                // Send to API with OCR block
+                const response = await fetch(`${API_BASE}/v1/chain`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${API_KEY}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        steps: [{ 
+                            block: 'pdf/ocr', 
+                            params: { 
+                                file: base64,
+                                filename: file.name,
+                                mimeType: file.type
+                            } 
+                        }]
+                    })
+                });
+
+                updateProgress(90);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                // Display extracted content
+                let extractedText = '';
+                if (data.output && data.output.text) {
+                    extractedText = data.output.text;
+                } else if (data.text) {
+                    extractedText = data.text;
+                } else if (data.result) {
+                    extractedText = data.result;
+                } else if (typeof data === 'string') {
+                    extractedText = data;
+                } else {
+                    extractedText = JSON.stringify(data, null, 2);
+                }
+
+                contentBox.textContent = extractedText || 'No text extracted from document';
+                extractedContent.classList.add('show');
+
+                updateProgress(100);
+
+                // Reset after delay
+                setTimeout(resetProgress, 1500);
+
+            } catch (error) {
+                contentBox.textContent = `Error: ${error.message}`;
+                extractedContent.classList.add('show');
+                resetProgress();
+            }
+        }
+
+        // File Upload Event Listeners
+        dropZone.addEventListener('click', () => fileInput.click());
+        
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileUpload(e.target.files[0]);
+            }
+        });
+
+        // Drag and Drop
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            
+            if (e.dataTransfer.files.length > 0) {
+                handleFileUpload(e.dataTransfer.files[0]);
+            }
+        });
+
+        // Initialize
+        checkApiStatus();
+
+        // Re-check API status every 30 seconds
+        setInterval(checkApiStatus, 30000);
+
+        // Focus input on load
+        chatInput.focus();
+    </script>
+</body>
+</html>

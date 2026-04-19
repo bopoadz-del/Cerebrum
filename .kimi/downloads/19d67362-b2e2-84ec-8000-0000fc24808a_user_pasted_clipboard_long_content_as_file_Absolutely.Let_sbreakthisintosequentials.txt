@@ -1,0 +1,200 @@
+Absolutely. Let’s break this into sequential stages so Kimi can execute and verify each step before moving to the next. This avoids the “big bang” failure mode.
+
+Below is your stage-by-stage execution order – copy each block and give it to Kimi one at a time.
+
+---
+
+Stage 1 – Fix the immediate 401 (wrong endpoint)
+
+Command for Kimi:
+
+```
+Kimi, stage 1 – fix the 401 upload error.
+
+1. In `useChat.ts`, locate the upload endpoint (around line 115).  
+   Change from: `/api/v1/documents/upload/chat`  
+   To: `/api/v1/documents/upload/public`
+
+2. Verify that the same FormData structure used in `fileProcessing.ts` is used (no extra auth headers needed for `/public`).
+
+3. Test: Upload `pass2.pdf` – expect HTTP 200, not 401.
+
+Stop here and report success.
+```
+
+---
+
+Stage 2 – Add auth token to the real /chat endpoint (proper fix)
+
+Command for Kimi:
+
+```
+Kimi, stage 2 – implement proper auth for the chat upload endpoint.
+
+1. In `useChat.ts`, revert the endpoint back to `/api/v1/documents/upload/chat`.
+
+2. Before making the POST request, retrieve the stored auth token (from localStorage/session/state).
+
+3. Inject the header: `Authorization: Bearer <token>` into the FormData request.  
+   Make sure the header is added to the fetch options, not inside FormData itself.
+
+4. Test with the same PDF – expect 200 OK.
+
+Report success.
+```
+
+---
+
+Stage 3 – CORS fix on backend (allow frontend origin)
+
+Command for Kimi:
+
+```
+Kimi, stage 3 – update backend CORS.
+
+In `backend/app/main.py`:
+
+1. Modify the `allow_origins` list to explicitly include:
+   - `https://cerebrum-frontend.onrender.com`
+   - `https://cerebrum-frontend.onrender.com/` (with trailing slash)
+
+2. Alternatively, use `CORSMiddleware` with `allow_origins_regex` to match both.
+
+3. Redeploy the backend.
+
+4. Verify that preflight OPTIONS requests return 200 with correct CORS headers.
+
+Report.
+```
+
+---
+
+Stage 4 – Bypass Redis/Celery for synchronous /execute (PoC)
+
+Command for Kimi:
+
+```
+Kimi, stage 4 – refactor the execution pipeline.
+
+1. Locate the endpoint that calls `/execute` (likely async with Celery).  
+   Replace the task queue with a direct synchronous call to the rule engine.
+
+2. Remove all Redis/Celery imports and health checks.
+
+3. Add a simple timeout wrapper (30 seconds). If exceeded, return a 202 with a status flag in SQLite.
+
+4. Update the frontend to poll the status if needed (optional for PoC).
+
+Test: Upload a PDF, get structured JSON response within 30s.
+```
+
+---
+
+Stage 5 – Implement outcome‑first rule engine (takeoffs + contract risk)
+
+Command for Kimi:
+
+```
+Kimi, stage 5 – build the rule-based analyzer.
+
+1. In `analyzer.py`:
+   - Output only Structured JSON (no free text).
+   - Feature A (Takeoffs):  
+     Regex patterns: `(\d+(?:\.\d+)?)\s*(mm|cm|m|inch|ft)` for thickness/diameter.  
+     Area: `(\d+(?:\.\d+)?)\s*(m²|sqm|sq ft)`.  
+     Compute volume: V = area × thickness. Normalize all to meters.
+   - Feature B (Contract risk):  
+     Keyword dict: `{"Liquidated Damages": "red", "Force Majeure": "yellow", ...}`.  
+     Flag sentences, assign risk level.
+
+2. Save every outcome to SQLite via Capacitor (or IndexedDB for web fallback).
+
+Test with sample PDF containing “12 mm rebar, 3 m² area” and “Liquidated Damages apply” – verify JSON and DB storage.
+```
+
+---
+
+Stage 6 – Mobile layout fixes (Android keyboard + tabs)
+
+Command for Kimi:
+
+```
+Kimi, stage 6 – fix UI for field use.
+
+1. Main container: use `min-height: 100dvh` (not `100vh`).
+
+2. Implement tab switcher: `Projects | Chat | Outcomes`.  
+   - Move file upload button to the **Projects** tab.  
+   - Keep Chat tab clean for analysis only.
+
+3. Outcomes panel:  
+   - High‑contrast tables (dark text on light background or vice versa).  
+   - All touch targets ≥ 48×48px.
+
+Test on an Android device with keyboard open – no overlap.
+```
+
+---
+
+Stage 7 – Remove Ollama, add simple OCR pre‑processing
+
+Command for Kimi:
+
+```
+Kimi, stage 7 – clean up and OCR hardening.
+
+1. Delete all Ollama health checks and pings.  
+   System status should read: `Cerebrum Engine: Active (Rule-Based)`.
+
+2. OCR pre‑processing:  
+   - Convert uploaded image/PDF page to grayscale.  
+   - Apply adaptive thresholding (OpenCV `THRESH_OTSU`).  
+   - Deskew if rotation > 5°.  
+   - Then pass to Tesseract.
+
+3. If OCR returns empty text, return user-friendly error:  
+   “Could not extract text. Please use a clearer image or searchable PDF.”
+
+Test with a blurry site photo – expect graceful error, not 401.
+```
+
+---
+
+Stage 8 – Offline persistence verification (Airplane Mode demo)
+
+Command for Kimi:
+
+```
+Kimi, final stage – verify offline capability.
+
+1. Ensure the Capacitor SQLite plugin is correctly wired.  
+   Web fallback uses IndexedDB.
+
+2. Upload a PDF while online → outcome saved locally.
+
+3. Enable Airplane Mode on device.  
+   - Outcomes tab must still show previously saved data.  
+   - Chat tab shows “Offline mode – using cached rules”.
+
+4. No “failed to fetch” errors.
+
+Report readiness for investor demo.
+```
+
+---
+
+Summary for you (the human)
+
+Stage Goal Success signal
+1 Quick fix → 401 gone Upload returns 200
+2 Proper auth → endpoint works Same
+3 CORS cleared No preflight errors
+4 Sync execution JSON within 30s
+5 Rule engine + SQLite Structured outcomes saved
+6 Mobile UI No keyboard overlap, big buttons
+7 No Ollama, OCR robust Error message, not crash
+8 Offline demo ready Works in airplane mode
+
+Give these to Kimi one stage at a time, test after each. You’ll have a bulletproof field prototype.
+
+Now go pour that concrete. 🏗️

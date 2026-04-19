@@ -16,6 +16,7 @@ from telegram.ext import (
     filters,
     ContextTypes,
 )
+from telegram.request import HTTPXRequest
 
 # Load environment variables
 load_dotenv()
@@ -37,12 +38,18 @@ if not TELEGRAM_BOT_TOKEN:
 if not ANTHROPIC_API_KEY:
     raise ValueError("ANTHROPIC_API_KEY environment variable is not set!")
 
-# Initialize Anthropic client
-anthropic_client = Anthropic(api_key=ANTHROPIC_API_KEY)
+# Initialize Anthropic client with proxy support for China/regional blocks
+anthropic_client = Anthropic(
+    api_key=ANTHROPIC_API_KEY,
+    base_url="https://api.anthropic.com",
+)
 
 # Bot configuration
 CLAUDE_MODEL = "claude-sonnet-4-20250514"
 MAX_TOKENS = 2048
+
+# Proxy configuration for Telegram (if behind firewall)
+PROXY_URL = os.getenv("TELEGRAM_PROXY_URL")  # e.g., "http://proxy:8080"
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -110,7 +117,14 @@ def main() -> None:
     """Start the bot."""
     logger.info("Starting Claude Telegram Bot...")
     
-    # Create the Application
+    # Build request with proxy if configured
+    request_kwargs = {}
+    if PROXY_URL:
+        request_kwargs['proxy_url'] = PROXY_URL
+        logger.info(f"Using proxy: {PROXY_URL}")
+    
+    # Create the Application with custom request handler
+    request = HTTPXRequest(**request_kwargs) if request_kwargs else None
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
     
     # Add handlers
@@ -120,7 +134,7 @@ def main() -> None:
     # Add error handler
     application.add_error_handler(error_handler)
     
-    # Run the bot until Ctrl-C is pressed
+    # Run the bot
     logger.info("Bot is running! Press Ctrl+C to stop.")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
