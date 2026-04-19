@@ -1,6 +1,6 @@
 """
 RSMeans API Integration for Construction Cost Pricing
-Fetches and manages construction cost data from RSMeans.
+Fetches and manages construction cost data from RSMeans or embedded fallback data.
 """
 
 import json
@@ -13,6 +13,14 @@ import aiohttp
 
 from app.core.logging import get_logger
 from app.core.config import settings
+from app.economics.cost_data import (
+    search_embedded_cost_items,
+    get_building_cost_data,
+    get_location_factor_data,
+    EMBEDDED_COST_ITEMS,
+    BUILDING_COST_DATA,
+    LOCATION_FACTORS
+)
 
 logger = get_logger(__name__)
 
@@ -189,7 +197,7 @@ class RSMeansAPI:
         limit: int = 20
     ) -> List[CostItem]:
         """
-        Search for cost items.
+        Search for cost items using RSMeans API or embedded fallback data.
         
         Args:
             query: Search query
@@ -199,42 +207,61 @@ class RSMeansAPI:
         Returns:
             List of matching CostItems
         """
-        try:
-            session = await self._get_session()
-            
-            params = {
-                "q": query,
-                "limit": limit
-            }
-            if category:
-                params["category"] = category
-            
-            url = f"{self.BASE_URL}/costs/search"
-            
-            async with session.get(url, params=params) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    
-                    results = []
-                    for item in data.get("results", []):
-                        cost_item = CostItem(
-                            rsmeans_id=item.get("id"),
-                            description=item.get("description", ""),
-                            unit=item.get("unit", "ea"),
-                            material_cost=Decimal(str(item.get("materialCost", 0))),
-                            labor_cost=Decimal(str(item.get("laborCost", 0))),
-                            equipment_cost=Decimal(str(item.get("equipmentCost", 0)))
-                        )
-                        results.append(cost_item)
-                    
-                    return results
-                else:
-                    logger.error(f"RSMeans search error: {response.status}")
-                    return []
-                    
-        except Exception as e:
-            logger.error(f"Failed to search cost items: {e}")
-            return []
+        results = []
+        
+        # Try RSMeans API first if key is available
+        if self.api_key:
+            try:
+                session = await self._get_session()
+                
+                params = {
+                    "q": query,
+                    "limit": limit
+                }
+                if category:
+                    params["category"] = category
+                
+                url = f"{self.BASE_URL}/costs/search"
+                
+                async with session.get(url, params=params) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        
+                        for item in data.get("results", []):
+                            cost_item = CostItem(
+                                rsmeans_id=item.get("id"),
+                                description=item.get("description", ""),
+                                unit=item.get("unit", "ea"),
+                                material_cost=Decimal(str(item.get("materialCost", 0))),
+                                labor_cost=Decimal(str(item.get("laborCost", 0))),
+                                equipment_cost=Decimal(str(item.get("equipmentCost", 0)))
+                            )
+                            results.append(cost_item)
+                        
+                        if results:
+                            logger.info(f"RSMeans API returned {len(results)} items for '{query}'")
+                            return results
+                            
+            except Exception as e:
+                logger.warning(f"RSMeans API search failed, using embedded data: {e}")
+        
+        # Fallback to embedded real cost data
+        embedded = search_embedded_cost_items(query, limit)
+        for item in embedded:
+            cost_item = CostItem(
+                rsmeans_id=item["rsmeans_id"],
+                description=item["description"],
+                unit=item["unit"],
+                material_cost=Decimal(str(item["material_cost"])),
+                labor_cost=Decimal(str(item["labor_cost"])),
+                equipment_cost=Decimal(str(item["equipment_cost"]))
+            )
+            results.append(cost_item)
+        
+        if results:
+            logger.info(f"Embedded data returned {len(results)} items for '{query}'")
+        
+        return results
     
     async def get_location_factor(
         self,
@@ -242,6 +269,7 @@ class RSMeansAPI:
     ) -> Optional[LocationFactor]:
         """
         Get location cost factor for ZIP code.
+        Uses RSMeans API or embedded fallback data.
         
         Args:
             zip_code: ZIP code
@@ -249,40 +277,55 @@ class RSMeansAPI:
         Returns:
             LocationFactor or None
         """
+        if not zip_code:
+            return None
+            
         cache_key = f"loc_{zip_code}"
         
         if cache_key in self._cache:
             return self._cache[cache_key]
         
-        try:
-            session = await self._get_session()
-            
-            url = f"{self.BASE_URL}/location-factors/{zip_code}"
-            
-            async with session.get(url) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    
-                    factor = LocationFactor(
-                        city=data.get("city", ""),
-                        state=data.get("state", ""),
-                        zip_code=zip_code,
-                        cost_index=data.get("costIndex", 100),
-                        material_index=data.get("materialIndex", 100),
-                        labor_index=data.get("laborIndex", 100),
-                        equipment_index=data.get("equipmentIndex", 100)
-                    )
-                    
-                    self._cache[cache_key] = factor
-                    return factor
-                    
-                else:
-                    logger.warning(f"Location factor for {zip_code} not found")
-                    return None
-                    
-        except Exception as e:
-            logger.error(f"Failed to get location factor: {e}")
-            return None
+        # Try RSMeans API first if key is available
+        if self.api_key:
+            try:
+                session = await self._get_session()
+                
+                url = f"{self.BASE_URL}/location-factors/{zip_code}"
+                
+                async with session.get(url) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        
+                        factor = LocationFactor(
+                            city=data.get("city", ""),
+                            state=data.get("state", ""),
+                            zip_code=zip_code,
+                            cost_index=data.get("costIndex", 100),
+                            material_index=data.get("materialIndex", 100),
+                            labor_index=data.get("laborIndex", 100),
+                            equipment_index=data.get("equipmentIndex", 100)
+                        )
+                        
+                        self._cache[cache_key] = factor
+                        return factor
+                        
+            except Exception as e:
+                logger.warning(f"RSMeans location API failed, using embedded: {e}")
+        
+        # Fallback to embedded location data
+        loc_data = get_location_factor_data(zip_code)
+        factor = LocationFactor(
+            city=loc_data["city"],
+            state="",
+            zip_code=zip_code,
+            cost_index=loc_data["factor"] * 100,
+            material_index=loc_data["factor"] * 100,
+            labor_index=loc_data["factor"] * 100,
+            equipment_index=loc_data["factor"] * 100
+        )
+        
+        self._cache[cache_key] = factor
+        return factor
     
     async def get_crew_rates(
         self,
@@ -455,6 +498,15 @@ class PricingEngine:
             "summary": {
                 "item_count": len(results),
                 "total_material": float(total_material),
+                "total_labor": float(total_labor),
+                "total_equipment": float(total_equipment),
+                "total_cost": float(total_cost)
+            }
+        }
+    
+    def get_building_cost_data(self, building_type: str) -> Optional[Dict[str, Any]]:
+        """Get building cost data from embedded real RSMeans data."""
+        return get_building_cost_data(building_type)
                 "total_labor": float(total_labor),
                 "total_equipment": float(total_equipment),
                 "total_cost": float(total_cost)
