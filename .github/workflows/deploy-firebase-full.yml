@@ -36,16 +36,16 @@ jobs:
           fi
           echo "✅ GCP_SA_KEY is configured"
 
-      - name: Check FIREBASE_SERVICE_ACCOUNT_CEREBRUM_30D9C
+      - name: Check FIREBASE_SA_KEY
         run: |
-          if [ -z "${{ secrets.FIREBASE_SERVICE_ACCOUNT_CEREBRUM_30D9C }}" ]; then
-            echo "::error::❌ FIREBASE_SERVICE_ACCOUNT_CEREBRUM_30D9C is not set in GitHub Secrets!"
+          if [ -z "${{ secrets.FIREBASE_SA_KEY }}" ]; then
+            echo "::error::❌ FIREBASE_SA_KEY is not set in GitHub Secrets!"
             echo "::error::Go to: https://github.com/${{ github.repository }}/settings/secrets/actions"
-            echo "::error::Add FIREBASE_SERVICE_ACCOUNT_CEREBRUM_30D9C with the Firebase service account JSON"
+            echo "::error::Add FIREBASE_SA_KEY with the Firebase service account JSON"
             echo "::error::Get it from: https://console.firebase.google.com/project/cerebrum-30d9c/settings/serviceaccounts/adminsdk"
             exit 1
           fi
-          echo "✅ FIREBASE_SERVICE_ACCOUNT_CEREBRUM_30D9C is configured"
+          echo "✅ FIREBASE_SA_KEY is configured"
 
       - name: Secrets Check Summary
         run: |
@@ -53,7 +53,7 @@ jobs:
           echo "| Secret | Status |"
           echo "|--------|--------|"
           echo "| GCP_SA_KEY | ✅ |"
-          echo "| FIREBASE_SERVICE_ACCOUNT_CEREBRUM_30D9C | ✅ |"
+          echo "| FIREBASE_SA_KEY | ✅ |"
 
   # ==========================================
   # Build & Deploy Backend to Cloud Run
@@ -160,7 +160,7 @@ jobs:
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_CEREBRUM_30D9C }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SA_KEY }}
           channelId: ${{ github.ref == 'refs/heads/main' && 'live' || '' }}
           projectId: ${{ env.PROJECT_ID }}
           target: frontend
@@ -181,7 +181,7 @@ jobs:
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_CEREBRUM_30D9C }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SA_KEY }}
           channelId: live
           projectId: ${{ env.PROJECT_ID }}
           target: landing
