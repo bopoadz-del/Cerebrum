@@ -50,14 +50,14 @@ jobs:
 
       - name: Check FIREBASE_SERVICE_ACCOUNT
         run: |
-          if [ -z "${{ secrets.FIREBASE_SERVICE_ACCOUNT_CEREBRUM_30D9C }}" ]; then
-            echo "❌ FIREBASE_SERVICE_ACCOUNT_CEREBRUM_30D9C is not set!"
+          if [ -z "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" ]; then
+            echo "❌ FIREBASE_SERVICE_ACCOUNT is not set!"
             echo "Go to: https://console.firebase.google.com/project/cerebrum-30d9c/settings/serviceaccounts/adminsdk"
             echo "Generate new private key"
-            echo "Add to GitHub Secrets as: FIREBASE_SERVICE_ACCOUNT_CEREBRUM_30D9C"
+            echo "Add to GitHub Secrets as: FIREBASE_SERVICE_ACCOUNT"
             exit 1
           fi
-          echo "✅ FIREBASE_SERVICE_ACCOUNT_CEREBRUM_30D9C is set"
+          echo "✅ FIREBASE_SERVICE_ACCOUNT is set"
 
   # ==========================================
   # Deploy Backend
@@ -140,7 +140,7 @@ jobs:
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_CEREBRUM_30D9C }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           channelId: live
           projectId: ${{ env.PROJECT_ID }}
           target: frontend
