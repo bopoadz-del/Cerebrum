@@ -1,17 +1,5 @@
 {
   "projects": {
     "default": "cerebrum-30d9c"
-  },
-  "targets": {
-    "cerebrum-30d9c": {
-      "hosting": {
-        "frontend": [
-          "cerebrum-30d9c"
-        ],
-        "landing": [
-          "cerebrum-landing"
-        ]
-      }
-    }
   }
 }
