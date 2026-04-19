@@ -50,7 +50,7 @@ jobs:
 
       - name: Check FIREBASE_SERVICE_ACCOUNT
         run: |
-          if [ -z "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" ]; then
+          if [ -z "${{ secrets.FIREBASE_SA_KEY }}" ]; then
             echo "❌ FIREBASE_SERVICE_ACCOUNT is not set!"
             echo "Go to: https://console.firebase.google.com/project/cerebrum-30d9c/settings/serviceaccounts/adminsdk"
             echo "Generate new private key"
@@ -140,7 +140,7 @@ jobs:
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SA_KEY }}
           channelId: live
           projectId: ${{ env.PROJECT_ID }}
           target: frontend

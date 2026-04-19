@@ -71,7 +71,7 @@ jobs:
             --concurrency 80 \
             --min-instances 0 \
             --max-instances 10 \
-            --set-env-vars "ENVIRONMENT=production,DEBUG=false,CORS_ORIGINS=https://cerebrum-30d9c.web.app,https://cerebrum-30d9c.firebaseapp.com" \
+            --set-env-vars "^|^ENVIRONMENT=production|DEBUG=false|CORS_ORIGINS=https://cerebrum-30d9c.web.app,https://cerebrum-30d9c.firebaseapp.com" \
             --update-secrets "DATABASE_URL=database-url:latest,SECRET_KEY=secret-key:latest" \
             --update-secrets "DEEPSEEK_API_KEY=deepseek-api-key:latest,GOOGLE_CLIENT_ID=google-client-id:latest,GOOGLE_CLIENT_SECRET=google-client-secret:latest" \
             --project ${{ env.GCP_PROJECT }}
@@ -118,6 +118,6 @@ jobs:
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SA_KEY }}
           projectId: cerebrum-30d9c
           channelId: live
