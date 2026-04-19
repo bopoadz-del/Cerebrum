@@ -171,3 +171,14 @@ async def get_current_user_async(
 ) -> User:
     """Async version - same as get_current_user."""
     return await get_current_user(token, db)
+
+
+async def get_current_user_optional(
+    token: Optional[str] = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+) -> Optional[User]:
+    """Get current user if authenticated, otherwise return None."""
+    try:
+        return await get_current_user(token, db)
+    except HTTPException:
+        return None
