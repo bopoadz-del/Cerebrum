@@ -2,11 +2,10 @@
 AI Service - Simple DeepSeek integration for chat completions.
 """
 
-import os
 from typing import List, Dict, Any, Optional
 import httpx
+from app.core.config import settings
 
-DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 DEFAULT_MODEL = "deepseek-chat"
 
@@ -15,7 +14,7 @@ class AIService:
     """Simple DeepSeek AI service."""
     
     def __init__(self):
-        self.api_key = DEEPSEEK_API_KEY
+        self.api_key = settings.DEEPSEEK_API_KEY
     
     def is_available(self) -> bool:
         """Check if DeepSeek is configured."""

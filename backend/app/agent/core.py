@@ -77,8 +77,13 @@ class AgentResult:
 
 async def call_llm(messages: List[Dict[str, str]], temperature: float = 0.7) -> str:
     """Call REAL DeepSeek LLM - no templates."""
+    from app.core.config import settings
+    api_key = settings.DEEPSEEK_API_KEY
+    if not api_key:
+        return "DeepSeek API key not configured. Please set DEEPSEEK_API_KEY in environment."
+    
     try:
-        client = LLMClient()
+        client = LLMClient(api_key=api_key)
         response = await client.chat(
             messages=[{"role": m["role"], "content": m["content"]} for m in messages],
             temperature=temperature,
@@ -243,3 +248,10 @@ def get_agent() -> CerebrumAgent:
     if _agent_instance is None:
         _agent_instance = CerebrumAgent()
     return _agent_instance
+
+
+def reset_agent() -> None:
+    """Reset the agent singleton instance."""
+    global _agent_instance
+    _agent_instance = None
+    logger.info("Agent instance reset")

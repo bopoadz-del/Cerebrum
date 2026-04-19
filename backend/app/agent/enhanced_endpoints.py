@@ -25,15 +25,15 @@ from app.agent.web_search_duckduckgo import web_search
 
 # Import Smart Orchestrator and Reasoning Engine
 from app.orchestrator.intent_router import IntentRouter
-from app.reasoning.engine import ReasoningEngine
-from app.services.formula_runtime import get_formulas, execute_formula
+from app.reasoning.engine import HeavyReasoningEngine
+from app.services.formula_runtime import get_formulas, evaluate_formula_by_id
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/agent", tags=["agent"])
 
 # Initialize engines
 intent_router = IntentRouter()
-reasoning_engine = ReasoningEngine()
+reasoning_engine = HeavyReasoningEngine()
 
 SYSTEM_PROMPT = """You are Cerebrum AI, a construction intelligence assistant.
 Capabilities: cost estimation, BIM analysis, document analysis, code generation.
@@ -248,7 +248,7 @@ async def _handle_formula_with_orchestrator(task: str, intent_match) -> Optional
             
             if params:
                 try:
-                    result = execute_formula(formula.id, params)
+                    result = evaluate_formula_by_id(formula.id, params)
                     return {
                         "formula_used": formula.name,
                         "formula_id": formula.id,
@@ -314,38 +314,6 @@ async def _handle_reasoning_with_engine(action: str, task: str, context: Optiona
     except Exception as e:
         logger.error(f"Reasoning engine failed: {e}")
         return None
-            "layer": request.context.get("current_layer", "coding") if request.context else "coding",
-            "data": {
-                "model_used": response.get("model", "unknown"),
-                "tokens_used": response.get("tokens_used", {}),
-                "web_search_used": request.use_web_search and bool(search_results),
-            },
-            "message": response["content"],
-            "execution_time_ms": int((time.time() - start) * 1000),
-            "timestamp": datetime.utcnow().isoformat(),
-            "reasoning": {
-                "steps": [
-                    {"type": "thought", "content": "Processing task", "details": request.task[:100]},
-                    {"type": "tool", "content": "DeepSeek AI", "details": "Generated response"},
-                ],
-                "toolsConsidered": ["DeepSeek AI"],
-                "dataLookedUp": ["User query"],
-                "whyThisAnswer": "Response generated using DeepSeek AI",
-            }
-        }
-    except Exception as e:
-        logger.error(f"Agent execute error: {e}")
-        import traceback
-        logger.error(traceback.format_exc())
-        return {
-            "success": False,
-            "action": "error",
-            "layer": request.context.get("current_layer", "coding") if request.context else "coding",
-            "data": {"error": str(e)},
-            "message": f"I encountered an error processing your request: {str(e)[:100]}. Please try again.",
-            "execution_time_ms": int((time.time() - start) * 1000),
-            "timestamp": datetime.utcnow().isoformat(),
-        }
 
 
 @router.post("/chat/completions")

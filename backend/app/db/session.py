@@ -67,16 +67,25 @@ class DatabaseManager:
         async_url = self._make_async_url(db_url)
         sync_url = self._make_sync_url(db_url)
         
-        logger.info(
-            "Initializing database connection pool",
-            pool_size=POOL_CONFIG["pool_size"],
-            max_overflow=POOL_CONFIG["max_overflow"],
-        )
+        # Detect SQLite and adjust pool config
+        is_sqlite = "sqlite" in db_url.lower()
+        if is_sqlite:
+            # SQLite doesn't support pool_size/max_overflow
+            pool_config = {k: v for k, v in POOL_CONFIG.items() 
+                          if k not in ("pool_size", "max_overflow")}
+            logger.info("Using SQLite database")
+        else:
+            pool_config = POOL_CONFIG
+            logger.info(
+                "Initializing database connection pool",
+                pool_size=POOL_CONFIG["pool_size"],
+                max_overflow=POOL_CONFIG["max_overflow"],
+            )
         
         # Create async engine with connection pooling
         self._async_engine = create_async_engine(
             async_url,
-            **POOL_CONFIG,
+            **pool_config,
             future=True,
         )
         
@@ -92,7 +101,7 @@ class DatabaseManager:
         # Create sync engine for synchronous operations
         self._sync_engine = create_engine(
             sync_url,
-            **POOL_CONFIG,
+            **pool_config,
             future=True,
         )
         
