@@ -77,6 +77,16 @@ except Exception as e:
     CHAT_AVAILABLE = False
     chat = None
 
+# PROJECTS - Required for frontend
+try:
+    from app.api.v1.endpoints import stub_projects as projects
+    logger.info("Projects endpoints loaded (stub)")
+    PROJECTS_AVAILABLE = True
+except Exception as e:
+    logger.error(f"Projects import failed: {e}")
+    PROJECTS_AVAILABLE = False
+    projects = None
+
 try:
     from app.agent.enhanced_endpoints import router as agent_router
     logger.info("Agent endpoints loaded")
@@ -250,6 +260,11 @@ if CONNECTORS_AVAILABLE and connectors:
 
 if CHAT_AVAILABLE and chat:
     api_v1_router.include_router(chat.router, tags=["chat"])
+
+# PROJECTS - Required for frontend
+if PROJECTS_AVAILABLE and projects:
+    api_v1_router.include_router(projects.router, prefix="/projects", tags=["projects"])
+    logger.info("Projects router included successfully")
 
 if AGENT_AVAILABLE and agent_router:
     api_v1_router.include_router(agent_router)
