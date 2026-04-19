@@ -507,11 +507,6 @@ class PricingEngine:
     def get_building_cost_data(self, building_type: str) -> Optional[Dict[str, Any]]:
         """Get building cost data from embedded real RSMeans data."""
         return get_building_cost_data(building_type)
-                "total_labor": float(total_labor),
-                "total_equipment": float(total_equipment),
-                "total_cost": float(total_cost)
-            }
-        }
     
     def set_markup_rates(
         self,

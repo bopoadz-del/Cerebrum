@@ -274,6 +274,32 @@ if WEB_SEARCH_AVAILABLE and web_search_router:
     api_v1_router.include_router(web_search_router)
     logger.info("Web search router included successfully")
 
+# ORCHESTRATOR - Smart Orchestrator (39 actions)
+try:
+    from app.orchestrator.endpoints import router as orchestrator_router
+    ORCHESTRATOR_AVAILABLE = True
+    logger.info("Orchestrator endpoints loaded")
+except Exception as e:
+    ORCHESTRATOR_AVAILABLE = False
+    logger.warning(f"Orchestrator endpoints not available: {e}")
+
+if ORCHESTRATOR_AVAILABLE and orchestrator_router:
+    api_v1_router.include_router(orchestrator_router, prefix="/orchestrator", tags=["orchestrator"])
+    logger.info("Orchestrator router included successfully")
+
+# REASONING - Heavy Reasoning Engine (SymPy-based)
+try:
+    from app.reasoning.endpoints import router as reasoning_router
+    REASONING_AVAILABLE = True
+    logger.info("Reasoning endpoints loaded")
+except Exception as e:
+    REASONING_AVAILABLE = False
+    logger.warning(f"Reasoning endpoints not available: {e}")
+
+if REASONING_AVAILABLE and reasoning_router:
+    api_v1_router.include_router(reasoning_router, prefix="/reasoning", tags=["reasoning"])
+    logger.info("Reasoning router included successfully")
+
 # Include optional endpoints conditionally
 if DOCUMENTS_AVAILABLE:
     api_v1_router.include_router(documents.router)
