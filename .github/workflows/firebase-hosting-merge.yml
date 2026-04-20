@@ -33,3 +33,4 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SA_KEY }}
           channelId: live
           projectId: cerebrum-30d9c
+          target: frontend

@@ -1,40 +1,40 @@
 {
-  "hosting": {
-    "public": "frontend/dist",
-    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
-    "rewrites": [
-      {
-        "source": "**",
-        "destination": "/index.html"
-      }
-    ],
-    "_pendingRewrites_addWhenCloudRunIsDeployed": [
-      {
-        "source": "/api/**",
-        "run": { "serviceId": "cerebrum-backend", "region": "us-central1" }
-      },
-      {
-        "source": "/health/**",
-        "run": { "serviceId": "cerebrum-backend", "region": "us-central1" }
-      },
-      {
-        "source": "/docs",
-        "run": { "serviceId": "cerebrum-backend", "region": "us-central1" }
-      }
-    ],
-    "headers": [
-      {
-        "source": "**/*.@(js|css|woff2)",
-        "headers": [{ "key": "Cache-Control", "value": "max-age=31536000, immutable" }]
-      },
-      {
-        "source": "**",
-        "headers": [
-          { "key": "X-Frame-Options", "value": "DENY" },
-          { "key": "X-Content-Type-Options", "value": "nosniff" },
-          { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
-        ]
-      }
-    ]
-  }
+  "hosting": [
+    {
+      "target": "frontend",
+      "public": "frontend/dist",
+      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+      "rewrites": [
+        {
+          "source": "**",
+          "destination": "/index.html"
+        }
+      ],
+      "headers": [
+        {
+          "source": "**/*.@(js|css|woff2)",
+          "headers": [{ "key": "Cache-Control", "value": "max-age=31536000, immutable" }]
+        },
+        {
+          "source": "**",
+          "headers": [
+            { "key": "X-Frame-Options", "value": "DENY" },
+            { "key": "X-Content-Type-Options", "value": "nosniff" },
+            { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+          ]
+        }
+      ]
+    },
+    {
+      "target": "landing",
+      "public": "landing",
+      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+      "rewrites": [
+        {
+          "source": "**",
+          "destination": "/index.html"
+        }
+      ]
+    }
+  ]
 }
