@@ -92,10 +92,11 @@ def parse_estimate_command(message: str) -> tuple[str, int, Optional[str]]:
     zip_code = None
     
     for part in parts[2:]:
-        if part.isdigit():
-            size = int(part)
-        elif len(part) == 5 and part.isdigit():
+        # Check 5-digit ZIP first — otherwise it also matches isdigit() and gets treated as size
+        if len(part) == 5 and part.isdigit():
             zip_code = part
+        elif part.isdigit():
+            size = int(part)
     
     return building_type, size, zip_code
 
@@ -114,7 +115,9 @@ async def handle_cost_command(item: str, zip_code: Optional[str]) -> str:
         if zip_code:
             try:
                 loc_data = await engine.get_location_factor(zip_code)
-                location_factor = loc_data.get("factor", 1.0)
+                if loc_data:
+                    # LocationFactor is a dataclass; cost_index is 0-100 scale
+                    location_factor = loc_data.cost_index / 100 if hasattr(loc_data, 'cost_index') else loc_data.get("factor", 1.0)
             except:
                 pass
         
@@ -124,12 +127,16 @@ async def handle_cost_command(item: str, zip_code: Optional[str]) -> str:
         response_lines.append("")
         
         for r in results[:3]:
-            base_price = float(r.get("base_price", 0))
+            # CostItem is a dataclass — use attribute access, not .get()
+            base_price = float(r.total_cost) if hasattr(r, 'total_cost') else float(r.get("total_cost", 0))
             adjusted_price = base_price * location_factor
+            description = r.description if hasattr(r, 'description') else r.get('description', 'Unknown')
+            rsmeans_id = r.rsmeans_id if hasattr(r, 'rsmeans_id') else r.get('rsmeans_id', 'N/A')
+            unit = r.unit if hasattr(r, 'unit') else r.get('unit', 'ea')
             response_lines.append(
-                f"**{r.get('description', 'Unknown')}**\n"
-                f"• ID: {r.get('rsmeans_id', 'N/A')}\n"
-                f"• Unit: {r.get('unit', 'ea')}\n"
+                f"**{description}**\n"
+                f"• ID: {rsmeans_id}\n"
+                f"• Unit: {unit}\n"
                 f"• Base Price: ${base_price:.2f}\n"
                 f"• Adjusted: ${adjusted_price:.2f}\n"
             )
@@ -156,8 +163,10 @@ async def handle_estimate_command(building_type: str, size: int, zip_code: Optio
         if zip_code:
             try:
                 loc_data = await engine.get_location_factor(zip_code)
-                location_factor = loc_data.get("factor", 1.0)
-                location_name = loc_data.get("city", zip_code)
+                if loc_data:
+                    # LocationFactor is a dataclass; cost_index is 0-100 scale
+                    location_factor = loc_data.cost_index / 100 if hasattr(loc_data, 'cost_index') else loc_data.get("factor", 1.0)
+                    location_name = loc_data.city if hasattr(loc_data, 'city') else loc_data.get("city", zip_code)
             except:
                 location_name = zip_code
         

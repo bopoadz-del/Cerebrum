@@ -149,12 +149,31 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      - name: Inject Cloud Run service ID into firebase.json
+        run: |
+          # firebase.json uses Cloud Run serviceId rewrite — ensure it matches BACKEND_SERVICE
+          # This is already set correctly in firebase.json but confirm it's consistent
+          echo "Cloud Run service: ${{ env.BACKEND_SERVICE }} in ${{ env.REGION }}"
+          cat firebase.json | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+rewrites=d['hosting']['rewrites']
+for r in rewrites:
+    if 'run' in r:
+        r['run']['serviceId']='${{ env.BACKEND_SERVICE }}'
+        r['run']['region']='${{ env.REGION }}'
+print(json.dumps(d,indent=2))
+" > firebase.json.tmp && mv firebase.json.tmp firebase.json
+          echo "✅ firebase.json updated with Cloud Run service: ${{ env.BACKEND_SERVICE }}"
+
       - name: Build Frontend
         working-directory: frontend
         run: npm run build
         env:
-          # API calls will go through Firebase Hosting rewrites to Cloud Run
+          # Empty string = relative /api calls → Firebase Hosting rewrites to Cloud Run
           VITE_API_URL: ""
+          VITE_APP_NAME: "Cerebrum AI"
+          VITE_APP_VERSION: "2.0.0"
 
       - name: Deploy Frontend to Firebase
         uses: FirebaseExtended/action-hosting-deploy@v0
