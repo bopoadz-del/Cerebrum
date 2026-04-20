@@ -90,6 +90,23 @@ jobs:
           sleep 10
           curl -f "${{ steps.get-url.outputs.url }}/health/live" || exit 1
 
+      - name: Run DB Migrations (Alembic)
+        run: |
+          echo "Running Alembic migrations via Cloud Run job..."
+          gcloud run jobs create cerebrum-migrate-${{ github.run_number }} \
+            --image gcr.io/${{ env.GCP_PROJECT }}/${{ env.CLOUD_RUN_SERVICE }}:${{ github.sha }} \
+            --region ${{ env.GCP_REGION }} \
+            --project ${{ env.GCP_PROJECT }} \
+            --set-secrets "DATABASE_URL=database-url:latest,SECRET_KEY=secret-key:latest" \
+            --command "alembic" \
+            --args "upgrade,head" \
+            --max-retries 1 \
+            --task-timeout 300 || echo "Migration job create failed — may already exist"
+          gcloud run jobs execute cerebrum-migrate-${{ github.run_number }} \
+            --region ${{ env.GCP_REGION }} \
+            --project ${{ env.GCP_PROJECT }} \
+            --wait || echo "Migration warning — check logs but continuing deploy"
+
   # ── Frontend: Build → Deploy to Firebase Hosting ─────────────────────────
   deploy-frontend:
     name: Deploy Frontend (Firebase Hosting)
