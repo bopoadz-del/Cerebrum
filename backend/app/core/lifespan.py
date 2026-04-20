@@ -31,8 +31,6 @@ async def lifespan(app: FastAPI):
     if not settings.DATABASE_URL:
         logger.critical("FATAL: DATABASE_URL environment variable is missing")
         sys.exit(1)
-    if not settings.REDIS_URL:
-        logger.warning("REDIS_URL not set — Redis features (caching, rate-limiting) will be disabled")
     if not settings.DEBUG and not settings.CORS_ORIGINS:
         logger.warning("CORS_ORIGINS not set — defaulting to open CORS (set this in production)")
     if not settings.SECRET_KEY or len(settings.SECRET_KEY) < 32:
@@ -41,20 +39,22 @@ async def lifespan(app: FastAPI):
 
     logger.info("Security configuration validated")
 
-    try:
-        import redis.asyncio as redis
-        redis_client = redis.from_url(settings.redis_url)
-        await redis_client.ping()
-        await redis_client.close()
-        logger.info("Rate limiter storage (Redis) verified")
-        await redis_manager.initialize()
-    except Exception as e:
-        # Redis is optional — used for caching/rate-limiting only.
-        # Degrade gracefully so Cloud Run can start without a Redis instance.
-        logger.warning(
-            "Redis unavailable — rate limiting and caching disabled",
-            error=str(e),
-        )
+    # Redis is fully optional — missing or unreachable Redis never stops startup.
+    if not settings.REDIS_URL:
+        logger.warning("REDIS_URL not set — caching and rate-limiting disabled")
+    else:
+        try:
+            import redis.asyncio as redis
+            redis_client = redis.from_url(settings.REDIS_URL)
+            await redis_client.ping()
+            await redis_client.close()
+            logger.info("Rate limiter storage (Redis) verified")
+            await redis_manager.initialize()
+        except Exception as e:
+            logger.warning(
+                "Redis unavailable — caching and rate-limiting disabled",
+                error=str(e),
+            )
 
     init_sentry()
     db_manager.initialize()
