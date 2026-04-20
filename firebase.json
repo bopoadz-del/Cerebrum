@@ -4,29 +4,22 @@
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [
       {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ],
+    "_pendingRewrites_addWhenCloudRunIsDeployed": [
+      {
         "source": "/api/**",
-        "run": {
-          "serviceId": "cerebrum-backend",
-          "region": "us-central1"
-        }
+        "run": { "serviceId": "cerebrum-backend", "region": "us-central1" }
       },
       {
         "source": "/health/**",
-        "run": {
-          "serviceId": "cerebrum-backend",
-          "region": "us-central1"
-        }
+        "run": { "serviceId": "cerebrum-backend", "region": "us-central1" }
       },
       {
         "source": "/docs",
-        "run": {
-          "serviceId": "cerebrum-backend",
-          "region": "us-central1"
-        }
-      },
-      {
-        "source": "**",
-        "destination": "/index.html"
+        "run": { "serviceId": "cerebrum-backend", "region": "us-central1" }
       }
     ],
     "headers": [
