@@ -12,7 +12,7 @@ import json
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 from enum import Enum
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from contextvars import ContextVar
 
 from sqlalchemy import select, and_, or_
