@@ -18,6 +18,7 @@ from app.core.logging import get_logger
 
 if TYPE_CHECKING:
     from app.models.audit import AuditLog
+    from app.executor.models import FormulaExecutionLog
 
 logger = get_logger(__name__)
 
@@ -138,6 +139,11 @@ class User(BaseModel):
     )
     audit_logs: Mapped[List["AuditLog"]] = relationship(
         "AuditLog",
+        back_populates="user",
+        lazy="selectin",
+    )
+    formula_executions: Mapped[List["FormulaExecutionLog"]] = relationship(
+        "FormulaExecutionLog",
         back_populates="user",
         lazy="selectin",
     )
