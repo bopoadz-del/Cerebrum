@@ -145,7 +145,7 @@ class User(BaseModel):
     formula_executions: Mapped[List["FormulaExecutionLog"]] = relationship(
         "FormulaExecutionLog",
         back_populates="user",
-        lazy="selectin",
+        lazy="select",
     )
     
     def __init__(self, **kwargs):
