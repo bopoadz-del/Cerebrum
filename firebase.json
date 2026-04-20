@@ -6,6 +6,18 @@
       "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
       "rewrites": [
         {
+          "source": "/api/**",
+          "run": { "serviceId": "cerebrum-backend", "region": "us-central1" }
+        },
+        {
+          "source": "/health/**",
+          "run": { "serviceId": "cerebrum-backend", "region": "us-central1" }
+        },
+        {
+          "source": "/docs",
+          "run": { "serviceId": "cerebrum-backend", "region": "us-central1" }
+        },
+        {
           "source": "**",
           "destination": "/index.html"
         }

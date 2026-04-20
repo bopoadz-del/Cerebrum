@@ -82,22 +82,30 @@ def parse_cost_command(message: str) -> tuple[str, Optional[str]]:
 
 
 def parse_estimate_command(message: str) -> tuple[str, int, Optional[str]]:
-    """Parse /estimate command: /estimate warehouse 10000 [zip]"""
+    """Parse /estimate command: /estimate warehouse 10000 [zip]
+
+    Strategy: collect all numeric tokens. The LAST token is treated as
+    ZIP if it's exactly 5 digits AND there is at least one other number
+    (the size). Otherwise all numbers contribute to size (last one wins).
+    """
     parts = message.strip().split()
     if len(parts) < 3:
         return "", 0, None
-    
+
     building_type = parts[1]
-    size = 0
-    zip_code = None
-    
-    for part in parts[2:]:
-        # Check 5-digit ZIP first — otherwise it also matches isdigit() and gets treated as size
-        if len(part) == 5 and part.isdigit():
-            zip_code = part
-        elif part.isdigit():
-            size = int(part)
-    
+    numbers = [p for p in parts[2:] if p.isdigit()]
+
+    if not numbers:
+        return building_type, 0, None
+
+    # If last token is exactly 5 digits AND we have another number for size → it's a ZIP
+    if len(numbers) >= 2 and len(numbers[-1]) == 5:
+        zip_code = numbers[-1]
+        size = int(numbers[-2])
+    else:
+        zip_code = None
+        size = int(numbers[-1])
+
     return building_type, size, zip_code
 
 
