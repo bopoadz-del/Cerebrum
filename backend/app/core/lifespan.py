@@ -32,11 +32,9 @@ async def lifespan(app: FastAPI):
         logger.critical("FATAL: DATABASE_URL environment variable is missing")
         sys.exit(1)
     if not settings.REDIS_URL:
-        logger.critical("FATAL: REDIS_URL environment variable is missing")
-        sys.exit(1)
+        logger.warning("REDIS_URL not set — Redis features (caching, rate-limiting) will be disabled")
     if not settings.DEBUG and not settings.CORS_ORIGINS:
-        logger.critical("FATAL: CORS_ORIGINS must be set in production")
-        sys.exit(1)
+        logger.warning("CORS_ORIGINS not set — defaulting to open CORS (set this in production)")
     if not settings.SECRET_KEY or len(settings.SECRET_KEY) < 32:
         logger.critical("FATAL: SECRET_KEY must be at least 32 characters")
         sys.exit(1)
@@ -51,8 +49,12 @@ async def lifespan(app: FastAPI):
         logger.info("Rate limiter storage (Redis) verified")
         await redis_manager.initialize()
     except Exception as e:
-        logger.critical("FATAL: Rate limiter storage (Redis) unavailable", error=str(e))
-        sys.exit(1)
+        # Redis is optional — used for caching/rate-limiting only.
+        # Degrade gracefully so Cloud Run can start without a Redis instance.
+        logger.warning(
+            "Redis unavailable — rate limiting and caching disabled",
+            error=str(e),
+        )
 
     init_sentry()
     db_manager.initialize()

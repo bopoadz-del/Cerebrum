@@ -72,7 +72,7 @@ jobs:
             --min-instances 0 \
             --max-instances 10 \
             --set-env-vars "^|^ENVIRONMENT=production|DEBUG=false|CORS_ORIGINS=https://cerebrum-30d9c.web.app,https://cerebrum-30d9c.firebaseapp.com" \
-            --set-secrets "DATABASE_URL=database-url:latest,SECRET_KEY=secret-key:latest,DEEPSEEK_API_KEY=deepseek-api-key:latest" \
+            --set-secrets "DATABASE_URL=database-url:latest,SECRET_KEY=secret-key:latest,DEEPSEEK_API_KEY=deepseek-api-key:latest,REDIS_URL=redis-url:latest" \
             --project ${{ env.GCP_PROJECT }}
 
       - name: Get Cloud Run URL
