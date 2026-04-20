@@ -75,6 +75,15 @@ jobs:
             --set-secrets "DATABASE_URL=database-url:latest,SECRET_KEY=secret-key:latest,DEEPSEEK_API_KEY=deepseek-api-key:latest,REDIS_URL=redis-url:latest" \
             --project ${{ env.GCP_PROJECT }}
 
+      - name: Grant Firebase Hosting run.invoker IAM
+        run: |
+          # Firebase Hosting needs run.invoker to proxy /api/** to Cloud Run
+          gcloud run services add-iam-policy-binding ${{ env.CLOUD_RUN_SERVICE }} \
+            --region ${{ env.GCP_REGION }} \
+            --project ${{ env.GCP_PROJECT }} \
+            --member "serviceAccount:service-$(gcloud projects describe ${{ env.GCP_PROJECT }} --format='value(projectNumber)')@gcp-sa-firebasehosting.iam.gserviceaccount.com" \
+            --role "roles/run.invoker" || true
+
       - name: Get Cloud Run URL
         id: get-url
         run: |

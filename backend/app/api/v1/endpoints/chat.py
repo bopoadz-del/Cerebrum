@@ -223,7 +223,10 @@ async def call_deepseek_llm(messages: List[Dict[str, str]], temperature: float =
             temperature=temperature,
             max_tokens=2048
         )
-        return response
+        # LLMClient.chat() returns an LLMResponse object — extract the text content
+        if hasattr(response, 'choices') and response.choices:
+            return response.choices[0].message.content
+        return str(response)
     except Exception as e:
         logger.error(f"DeepSeek LLM call failed: {e}")
         return f"I encountered an error: {str(e)}. Please try again."
