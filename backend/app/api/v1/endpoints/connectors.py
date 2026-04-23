@@ -796,7 +796,7 @@ async def search_google_drive(
     if not query or not query.strip():
         return {"query": query, "results": [], "count": 0}
     
-    zvec = get_zvec_service()
+    zvec = get_chroma_service()
     
     try:
         # Search using ZVec (returns all results, we'll filter by user)

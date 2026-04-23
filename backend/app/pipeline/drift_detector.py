@@ -29,7 +29,7 @@ from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy.orm import declarative_base, Session
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.session import db_manager, get_db_context, get_sync_db_context
+from app.db.session import db_manager, get_db_context, get_sync_db_context, SessionLocal
 from app.core.config import settings
 
 Base = declarative_base()
@@ -193,7 +193,7 @@ class DriftDetector:
     async def _get_db_session(self):
         """Get database session."""
         if self._use_async:
-            async with AsyncSessionLocal() as session:
+            async with db_manager.async_session_factory() as session:
                 try:
                     yield session
                     await session.commit()
