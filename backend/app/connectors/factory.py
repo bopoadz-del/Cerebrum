@@ -228,6 +228,10 @@ def _register_builtin_connectors():
         "google_drive",
         stub_factory=GoogleDriveStub,
     )
+    register_connector(
+        "drive",
+        stub_factory=GoogleDriveStub,
+    )
 
 
 # Register built-in connectors on module load
