@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db_session
 from app.models.user import User
+from app.api.deps import get_current_user
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -121,14 +122,10 @@ async def list_users(
 
 @router.get("/me", response_model=UserResponse)
 async def get_current_user_profile(
-    db: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
 ):
-    """Placeholder — returns first active user. Wire to JWT auth for production."""
-    result = await db.execute(select(User).where(User.is_active == True).limit(1))
-    user = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=404, detail="No users found")
-    return _user_to_response(user)
+    """Return the authenticated user's profile (JWT or sleep-mode user)."""
+    return _user_to_response(current_user)
 
 
 @router.get("/{user_id}", response_model=UserResponse)
