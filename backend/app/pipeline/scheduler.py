@@ -718,7 +718,7 @@ class RetrainingScheduler:
             return True
     
     async def delete_schedule(self, schedule_id: str) -> bool:
-        """Delete a schedule.""""
+        """Delete a schedule."""
         # Disable first
         await self.disable_schedule(schedule_id)
         
