@@ -8,7 +8,7 @@ No files are downloaded to disk - everything is processed via Google Drive API.
 import os
 import asyncio
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Dict, Any
 from celery import Celery
 from celery.signals import task_prerun, task_postrun, task_failure, task_retry
@@ -190,7 +190,7 @@ def process_drive_file_batch(
                     'content_preview': text[:500]
                 }
                 
-                success = zvec.add_document(doc_id, text, metadata)
+                success = chroma.add_document(doc_id, text, metadata)
                 
                 if success:
                     # Save to SQL database

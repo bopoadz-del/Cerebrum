@@ -36,6 +36,9 @@ from app.routers import (
 )
 from app.learning.endpoints import router as learning_router
 
+configure_logging()
+logger = get_logger(__name__)
+
 # MLflow router (optional)
 try:
     from app.routers.mlflow import router as mlflow_router
@@ -63,8 +66,6 @@ except Exception as e:
 
 # Auto-register infrastructure blocks
 import app.blocks.llm_enhancer, app.blocks.cache_manager, app.blocks.async_processor, app.blocks.file_hasher  # noqa: F401, E401
-configure_logging()
-logger = get_logger(__name__)
 
 
 def create_application() -> FastAPI:
