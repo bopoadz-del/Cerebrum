@@ -1,18 +1,22 @@
 import { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  PanelLeft, 
-  PanelRight, 
-  Plus, 
-  MessageSquare, 
-  Loader2, 
+import {
+  PanelLeft,
+  PanelRight,
+  Plus,
+  MessageSquare,
+  Loader2,
   X,
   LogOut,
   Brain,
   ChevronRight,
-  Folder
+  Folder,
+  HardDrive,
+  CheckCircle,
+  AlertCircle,
 } from 'lucide-react';
+import { useGoogleDrive } from '@/hooks/useGoogleDrive';
 import { ProjectSidebar } from '@/components/ProjectSidebar';
 import { ChatInterfaceV2 } from '@/components/ChatInterfaceV2';
 import { AgentChatInterface } from '@/components/AgentChatInterface';
@@ -303,10 +307,69 @@ function NewChatModal({ onClose, onCreate }: { onClose: () => void; onCreate: (t
   );
 }
 
+// Google Drive connector panel
+function GoogleDrivePanel() {
+  const { status, loading, error, connect, disconnect } = useGoogleDrive();
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-3 p-3 border border-gray-200 rounded-xl">
+        <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+          <HardDrive className="w-5 h-5 text-blue-600" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-medium text-gray-900">Google Drive</p>
+            {status?.connected ? (
+              <CheckCircle className="w-4 h-4 text-green-500" />
+            ) : (
+              <AlertCircle className="w-4 h-4 text-gray-400" />
+            )}
+          </div>
+          {status?.connected ? (
+            <p className="text-xs text-gray-500 truncate">{status.account_email || 'Connected'}</p>
+          ) : (
+            <p className="text-xs text-gray-400">Not connected</p>
+          )}
+        </div>
+        {loading ? (
+          <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+        ) : status?.connected ? (
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-red-600 border-red-200 hover:bg-red-50 text-xs h-7 px-2"
+            onClick={disconnect}
+          >
+            Disconnect
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-7 px-2"
+            onClick={connect}
+          >
+            Connect
+          </Button>
+        )}
+      </div>
+      {error && (
+        <p className="text-xs text-red-500 px-1">{error}</p>
+      )}
+      {status?.connected && status.last_sync && (
+        <p className="text-xs text-gray-400 px-1">
+          Last sync: {new Date(status.last_sync).toLocaleString()}
+        </p>
+      )}
+    </div>
+  );
+}
+
 // Simplified Settings Modal
 function SettingsModal({ onClose }: { onClose: () => void }) {
   const { user, logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<'profile' | 'connectors'>('profile');
 
   const handleLogin = () => {
     onClose();
@@ -328,18 +391,35 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
         onClick={(e) => e.stopPropagation()}
         className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6"
       >
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-semibold text-gray-900">Settings</h2>
           <Button variant="ghost" size="icon" onClick={onClose}>
             <X className="w-5 h-5" />
           </Button>
         </div>
 
-        <div className="space-y-6">
-          {isAuthenticated ? (
-            <>
-              <div>
-                <h3 className="text-sm font-medium text-gray-900 mb-3">Profile</h3>
+        {isAuthenticated ? (
+          <>
+            {/* Tab bar */}
+            <div className="flex gap-1 mb-5 bg-gray-100 rounded-lg p-1">
+              {(['profile', 'connectors'] as const).map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={cn(
+                    'flex-1 py-1.5 text-sm font-medium rounded-md transition-colors capitalize',
+                    activeTab === tab
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  )}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+
+            {activeTab === 'profile' && (
+              <div className="space-y-4">
                 <div className="space-y-3">
                   <div>
                     <label className="text-xs text-gray-500 uppercase tracking-wide">Name</label>
@@ -358,34 +438,39 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
                     />
                   </div>
                 </div>
+                <div className="pt-3 border-t border-gray-200">
+                  <Button
+                    variant="destructive"
+                    className="w-full"
+                    onClick={() => { logout(); onClose(); }}
+                  >
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Sign Out
+                  </Button>
+                </div>
               </div>
+            )}
 
-              <div className="pt-4 border-t border-gray-200">
-                <Button 
-                  variant="destructive" 
-                  className="w-full"
-                  onClick={() => {
-                    logout();
-                    onClose();
-                  }}
-                >
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Sign Out
-                </Button>
+            {activeTab === 'connectors' && (
+              <div className="space-y-3">
+                <p className="text-xs text-gray-500 mb-3">
+                  Connect external services to import files and data into your projects.
+                </p>
+                <GoogleDrivePanel />
               </div>
-            </>
-          ) : (
-            <div className="text-center py-4">
-              <p className="text-gray-600 mb-4">Sign in to access your account and upload files</p>
-              <Button 
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white"
-                onClick={handleLogin}
-              >
-                Sign In / Register
-              </Button>
-            </div>
-          )}
-        </div>
+            )}
+          </>
+        ) : (
+          <div className="text-center py-4">
+            <p className="text-gray-600 mb-4">Sign in to access your account and upload files</p>
+            <Button
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white"
+              onClick={handleLogin}
+            >
+              Sign In / Register
+            </Button>
+          </div>
+        )}
       </motion.div>
     </motion.div>
   );
