@@ -11,6 +11,7 @@ from .aconex import AconexStub
 from .primavera import PrimaveraStub
 from .slack import SlackStub
 from .openai import OpenAIStub
+from .google_drive import GoogleDriveStub
 
 __all__ = [
     "BaseStub",
@@ -21,6 +22,7 @@ __all__ = [
     "PrimaveraStub",
     "SlackStub",
     "OpenAIStub",
+    "GoogleDriveStub",
     "get_stub",
 ]
 
@@ -32,6 +34,7 @@ _STUB_REGISTRY = {
     "primavera": PrimaveraStub,
     "slack": SlackStub,
     "openai": OpenAIStub,
+    "google_drive": GoogleDriveStub,
 }
 
 
