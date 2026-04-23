@@ -626,8 +626,8 @@ async def get_model_version(
 async def transition_stage(
     name: str = PathParam(..., description="Model name"),
     version: str = PathParam(..., description="Version number"),
-    request: StageTransitionRequest,
-    registry: MLflowModelRegistry = Depends(get_registry_dep)
+    registry: MLflowModelRegistry = Depends(get_registry_dep),
+    request: StageTransitionRequest = None
 ) -> Dict[str, Any]:
     """Transition model to a new stage."""
     try:
