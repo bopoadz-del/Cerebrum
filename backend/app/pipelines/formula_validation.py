@@ -173,42 +173,6 @@ class FormulaValidationPipeline:
             "max_deflection_ratio": 1 / 250,
             "min_elastic_modulus_gpa": 0.01,
         },
-        # ── Diriyah / Saudi Heritage Construction ────────────────────────────
-        # Covers mudbrick (adobe/earth), heritage limestone/sandstone, and
-        # Riyadh desert-climate environmental loads.
-        # References: Saudi Building Code SBC 301/303, ICOMOS earthen
-        # architecture guidelines, Diriyah Gate Development Authority specs.
-        "diriyah": {
-            # Mudbrick / Adobe
-            "mudbrick_min_compressive_mpa": 0.5,
-            "mudbrick_max_compressive_mpa": 3.0,
-            "mudbrick_min_density_kg_m3": 1400,
-            "mudbrick_max_density_kg_m3": 1900,
-            "mudbrick_max_slenderness_ratio": 10,    # wall H / thickness
-            "mudbrick_min_wall_thickness_m": 0.35,   # bearing wall min
-            "mudbrick_max_floor_height_m": 3.5,
-            "mudbrick_max_bearing_pressure_kpa": 100,
-            # Heritage stone (local limestone / sandstone)
-            "stone_min_compressive_mpa": 10,
-            "stone_max_compressive_mpa": 50,
-            "stone_min_density_kg_m3": 1800,
-            "stone_max_density_kg_m3": 2200,
-            # Safety — unreinforced masonry requires higher factors than RC
-            "min_safety_factor": 2.0,
-            "min_seismic_factor": 1.3,              # SBC moderate seismic zone
-            # Desert climate (Riyadh / Diriyah)
-            "min_temp_kelvin": 278,                  # ~5 °C winter
-            "max_temp_kelvin": 323,                  # ~50 °C summer
-            "max_solar_radiation_w_m2": 1000,        # peak irradiance
-            "max_wind_pressure_pa": 1500,            # SBC 301 basic wind
-            "max_humidity_pct": 30,                  # arid desert
-            # Thermal performance of earthen walls
-            "min_thermal_conductivity_w_mk": 0.4,
-            "max_thermal_conductivity_w_mk": 0.8,
-            # Structural limits — conservative for heritage
-            "max_deflection_ratio": 1 / 300,
-            "max_stress_mpa": 50,
-        },
     }
     
     # Operational thresholds
@@ -249,8 +213,7 @@ class FormulaValidationPipeline:
             expression:           Mathematical expression (e.g. "F = m * a").
             expected_output_unit: Expected output unit string (e.g. "N", "Pa", "MPa").
             domain:               Physical domain for Stage 3 — one of
-                                  "construction", "thermodynamics", "structural",
-                                  "diriyah".
+                                  "construction", "thermodynamics", "structural".
             benchmark_data:       Optional list of dicts for empirical testing.
             variable_units:       Mapping of variable name → unit string for real
                                   dimensional analysis, e.g.
@@ -650,70 +613,6 @@ class FormulaValidationPipeline:
                 hi = constraints.get("max_density_kg_m3", 25000)
                 warnings.append(
                     f"Density term — verify value is within [{lo}, {hi}] kg/m³."
-                )
-
-        elif domain == "diriyah":
-            metadata["constraints_checked"].extend(
-                ["mudbrick_limits", "heritage_stone_limits",
-                 "desert_climate", "safety_factors"]
-            )
-
-            # Mudbrick / Adobe
-            if any(kw in expr_lower for kw in ("mud", "adobe", "earth", "mudbrick")):
-                lo = constraints["mudbrick_min_compressive_mpa"]
-                hi = constraints["mudbrick_max_compressive_mpa"]
-                warnings.append(
-                    f"Mudbrick/adobe formula — compressive strength must be "
-                    f"within [{lo}, {hi}] MPa (SBC / ICOMOS earthen guidelines)."
-                )
-                sl = constraints["mudbrick_max_slenderness_ratio"]
-                warnings.append(
-                    f"Mudbrick wall slenderness (H/t) must not exceed {sl}."
-                )
-
-            # Heritage stone
-            if any(kw in expr_lower for kw in ("stone", "limestone", "sandstone")):
-                lo = constraints["stone_min_compressive_mpa"]
-                hi = constraints["stone_max_compressive_mpa"]
-                warnings.append(
-                    f"Heritage stone formula — compressive strength must be "
-                    f"within [{lo}, {hi}] MPa."
-                )
-
-            # Safety factor check
-            sf = constraints["min_safety_factor"]
-            if "safety" in expr_lower or "factor" in expr_lower:
-                warnings.append(
-                    f"Safety factor for unreinforced heritage masonry must be "
-                    f"≥ {sf} (higher than modern RC construction)."
-                )
-
-            # Desert climate
-            if "temp" in expr_lower or "_t" in expr_lower:
-                min_t = constraints["min_temp_kelvin"]
-                max_t = constraints["max_temp_kelvin"]
-                warnings.append(
-                    f"Diriyah climate: temperature range [{min_t} K, {max_t} K] "
-                    f"(~5 °C to 50 °C)."
-                )
-            if "wind" in expr_lower or "pressure" in expr_lower:
-                max_wp = constraints["max_wind_pressure_pa"]
-                warnings.append(
-                    f"Wind pressure must not exceed {max_wp} Pa "
-                    f"(SBC 301 basic wind load, Riyadh zone)."
-                )
-            if "solar" in expr_lower or "irradiance" in expr_lower or "radiation" in expr_lower:
-                max_sr = constraints["max_solar_radiation_w_m2"]
-                warnings.append(
-                    f"Peak solar irradiance in Diriyah is ≤ {max_sr} W/m² — "
-                    f"verify thermal model inputs."
-                )
-            if "thermal" in expr_lower or "conductiv" in expr_lower:
-                lo = constraints["min_thermal_conductivity_w_mk"]
-                hi = constraints["max_thermal_conductivity_w_mk"]
-                warnings.append(
-                    f"Earthen wall thermal conductivity must be within "
-                    f"[{lo}, {hi}] W/(m·K)."
                 )
 
         valid = len(errors) == 0
