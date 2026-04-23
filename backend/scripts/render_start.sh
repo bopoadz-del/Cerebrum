@@ -6,14 +6,21 @@ echo "Timestamp: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 echo "Environment: ${ENVIRONMENT:-production}"
 echo
 
-echo "[1/3] Validating environment..."
+echo "[1/4] Validating environment..."
 : "${DATABASE_URL:?FATAL: DATABASE_URL not set}"
 : "${SECRET_KEY:?FATAL: SECRET_KEY not set}"
 : "${REDIS_URL:?FATAL: REDIS_URL not set}"
 echo "OK: Environment variables validated"
 echo
 
-echo "[2/3] Verifying Redis connection..."
+echo "[2/4] Running database migrations..."
+# Alembic requires a sync driver. Strip +asyncpg so it uses plain psycopg2.
+SYNC_DB_URL="${DATABASE_URL/+asyncpg/}"
+DATABASE_URL="$SYNC_DB_URL" alembic upgrade head
+echo "OK: Migrations complete"
+echo
+
+echo "[3/4] Verifying Redis connection..."
 python3 << 'PY'
 import os, sys, redis
 try:
@@ -26,7 +33,7 @@ except Exception as e:
 PY
 echo
 
-echo "[3/3] Starting Uvicorn server..."
+echo "[4/4] Starting Uvicorn server..."
 exec uvicorn app.main:app \
   --host 0.0.0.0 \
   --port "${PORT:-8000}" \

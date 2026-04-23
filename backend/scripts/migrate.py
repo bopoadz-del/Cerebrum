@@ -27,7 +27,7 @@ logger = get_logger(__name__)
 app = typer.Typer(help="Migration management utility")
 
 # Alembic configuration
-ALEMBIC_INI = Path(__file__).parent.parent / "app" / "db" / "migrations" / "alembic.ini"
+ALEMBIC_INI = Path(__file__).parent.parent / "alembic.ini"
 
 
 def get_alembic_config() -> Config:
