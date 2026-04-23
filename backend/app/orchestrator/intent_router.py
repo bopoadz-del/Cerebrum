@@ -402,6 +402,72 @@ class IntentRouter:
             reasoning="Fallback to Self-Coding Agent - no matching intent patterns found"
         )
     
+    async def route_multi(
+        self,
+        user_message: str,
+        context: Optional[Dict[str, Any]] = None,
+        min_confidence: float = 0.45,
+        max_actions: int = 3,
+    ) -> List["IntentMatch"]:
+        """
+        Return up to max_actions distinct high-confidence matches sorted by
+        (priority, confidence) descending.
+
+        Used when a request could plausibly trigger multiple independent
+        analyses. Guarantees at least one result — falls back to
+        self_coding_agent when nothing qualifies.
+
+        The best match is enriched with extracted params (same as route());
+        secondary matches carry their raw scores so callers can read
+        action_name, confidence, and reasoning.
+        """
+        context = context or {}
+        self._update_context(user_message, context)
+
+        candidates: List[IntentMatch] = []
+
+        exact = self._check_exact_match(user_message)
+        if exact:
+            candidates.append(exact)
+
+        candidates.extend(self._check_pattern_match(user_message))
+
+        schema = self._check_schema_match(user_message, context)
+        if schema:
+            candidates.append(schema)
+
+        chaining = self._check_goal_chaining(user_message)
+        if chaining:
+            candidates.append(chaining)
+
+        # Deduplicate: keep highest-confidence entry per action_name
+        seen: Dict[str, IntentMatch] = {}
+        for m in candidates:
+            if m.action_name not in seen or m.confidence > seen[m.action_name].confidence:
+                seen[m.action_name] = m
+
+        # Filter and sort by (priority value, confidence) descending
+        qualified = sorted(
+            (m for m in seen.values() if m.confidence >= min_confidence),
+            key=lambda m: (m.priority.value, m.confidence),
+            reverse=True,
+        )
+
+        if not qualified:
+            return [self._fallback_to_agent(user_message, context)]
+
+        # Enrich the best match with extracted params
+        best = qualified[0]
+        params = self._extract_params(user_message, context, best.action_name)
+        best.extracted_params.update(params)
+        self.session_memory.update(
+            action=best.action_name,
+            params=best.extracted_params,
+            outcome="routed",
+        )
+
+        return qualified[:max_actions]
+
     def get_action_info(self, action_name: str) -> Optional[Dict[str, Any]]:
         """Get information about a specific action."""
         definition = ACTION_MAP.get(action_name)
