@@ -52,7 +52,7 @@ class ViaBTCClient:
     API Documentation: https://www.viabtc.com/support/api_doc
     """
     
-    BASE_URL = "https://pool.viabtc.com/res/openapi/v1"
+    BASE_URL = "https://pool.viabtc.com/api"
     
     def __init__(self, api_key: str, api_secret: str = ""):
         self.api_key = api_key
@@ -66,33 +66,36 @@ class ViaBTCClient:
             }
         )
     
-    def _generate_signature(self, query_string: str) -> str:
-        """Generate HMAC-SHA256 signature for API requests."""
+    def _generate_signature(self, params: Dict) -> str:
+        """Generate HMAC signature for API requests."""
         if not self.api_secret:
+            # If no secret, return empty signature (some endpoints don't require it)
             return ""
+        
+        # Sort parameters alphabetically
+        sorted_params = sorted(params.items())
+        query_string = "&".join([f"{k}={v}" for k, v in sorted_params])
+        
+        # Generate HMAC-SHA256
         signature = hmac.new(
             self.api_secret.encode('utf-8'),
             query_string.encode('utf-8'),
             hashlib.sha256
         ).hexdigest()
+        
         return signature
     
-    def _make_request(self, endpoint: str, params: Optional[Dict] = None, signed: bool = False) -> Dict:
+    def _make_request(self, endpoint: str, params: Optional[Dict] = None) -> Dict:
         """Make authenticated request to ViaBTC API."""
         url = f"{self.BASE_URL}{endpoint}"
+        
         params = params or {}
+        params['access_id'] = self.api_key
+        params['timestamp'] = str(int(time.time()))
         
-        headers = {
-            "Content-Type": "application/json",
-            "User-Agent": "Cerebrum-Miner-Monitor/1.0",
-            "X-API-KEY": self.api_key
-        }
-        
-        if signed and self.api_secret:
-            # For signed endpoints, use tonce parameter
-            params['tonce'] = int(time.time() * 1000)
-            query_string = "&".join([f"{k}={v}" for k, v in sorted(params.items())])
-            headers['X-SIGNATURE'] = self._generate_signature(query_string)
+        # Add signature if we have a secret
+        if self.api_secret:
+            params['signature'] = self._generate_signature(params)
         
         try:
             response = self.client.get(url, params=params)
@@ -108,11 +111,21 @@ class ViaBTCClient:
     def get_mining_status(self, coin: str = "BTC") -> MiningStatus:
         """
         Get mining status for a specific coin.
-        Uses /hashrate endpoint which returns active/unactive worker counts.
+        
+        Args:
+            coin: Coin type (BTC, BCH, BSV, etc.)
+            
+        Returns:
+            MiningStatus with all miner details
         """
         try:
-            # ViaBTC API v1: /hashrate endpoint returns summary data
-            response = self._make_request("/hashrate", {"coin": coin}, signed=False)
+            # Get worker list - ViaBTC Pool API endpoint
+            # Try miner/worker/list endpoint
+            response = self._make_request("/miner/worker/list", {
+                "coin": coin,
+                "page": 1,
+                "limit": 100
+            })
             
             if response.get("code") != 0:
                 error_msg = response.get("message", "Unknown error")
@@ -120,55 +133,46 @@ class ViaBTCClient:
                 raise Exception(f"ViaBTC API error: {error_msg}")
             
             data = response.get("data", {})
-            active = int(data.get("active_workers", 0))
-            inactive = int(data.get("unactive_workers", 0))
-            total = active + inactive
+            workers = data.get("workers", [])
             
-            # Convert hashrate from H/s to TH/s
-            hash_10min = float(data.get("hashrate_10min", 0)) / 1e12
-            
-            # Try to get subaccount list for more details (signed endpoint)
             miners = []
-            try:
-                sub_resp = self._make_request("/account/sub", {}, signed=True)
-                if sub_resp.get("code") == 0:
-                    sub_data = sub_resp.get("data", {})
-                    # Note: Individual worker details not available in public API v1
-                    # We create summary miners from subaccount data if available
-                    sub_list = sub_data.get("data", [])
-                    for sub in sub_list:
-                        miners.append(MinerStatus(
-                            worker_id=sub.get("name", "unknown"),
-                            status="active" if active > 0 else "unknown",
-                            hash_rate=hash_10min / max(len(sub_list), 1),
-                            accept_count=0,
-                            reject_count=0,
-                            last_share_time=None,
-                            uptime_minutes=0
-                        ))
-            except Exception as e:
-                logger.warning(f"Could not fetch subaccount details: {e}")
+            active = 0
+            inactive = 0
+            dead = 0
+            total_hash = 0.0
             
-            # If no subaccount data, create a single summary entry
-            if not miners:
-                miners.append(MinerStatus(
-                    worker_id=f"{coin}_workers",
-                    status="active" if active > 0 else "unknown",
-                    hash_rate=hash_10min,
-                    accept_count=0,
-                    reject_count=0,
-                    last_share_time=None,
-                    uptime_minutes=0
-                ))
+            for worker in workers:
+                status = worker.get("status", "unknown")
+                hash_rate = float(worker.get("hash_rate", 0)) / 1e12  # Convert to TH/s
+                
+                miner = MinerStatus(
+                    worker_id=worker.get("worker_id", "unknown"),
+                    status=status,
+                    hash_rate=hash_rate,
+                    accept_count=worker.get("accept_count", 0),
+                    reject_count=worker.get("reject_count", 0),
+                    last_share_time=datetime.fromtimestamp(worker.get("last_share_time", 0)) if worker.get("last_share_time") else None,
+                    uptime_minutes=worker.get("uptime", 0)
+                )
+                miners.append(miner)
+                
+                if status == "active":
+                    active += 1
+                elif status == "inactive":
+                    inactive += 1
+                else:
+                    dead += 1
+                
+                total_hash += hash_rate
             
             return MiningStatus(
                 account_id=self.api_key[:8] + "...",
                 coin=coin,
-                total_workers=total,
+                total_workers=len(miners),
                 active_workers=active,
                 inactive_workers=inactive,
-                dead_workers=0,
-                total_hash_rate=hash_10min,
+                dead_workers=dead,
+                total_hash_rate=total_hash,
                 miners=miners,
                 updated_at=datetime.utcnow()
             )
@@ -235,8 +239,8 @@ def get_viabtc_client() -> ViaBTCClient:
     global _viabtc_client
     if _viabtc_client is None:
         # API credentials loaded from environment or settings
-        api_key = getattr(settings, 'VIABTC_API_KEY', None) or "3fe4de232925307307611c973225eddb"
-        api_secret = getattr(settings, 'VIABTC_API_SECRET', None) or "231c5f2b7f68d50b23204b6f6300ff3f0ad342fbcbf36076b4831bd733b9753c"
+        api_key = getattr(settings, 'VIABTC_API_KEY', None) or "57c66210d1442a6615833b1e470a7cdd"
+        api_secret = getattr(settings, 'VIABTC_API_SECRET', None) or "f67e6fc9f46555e60f1720643aa1065973ee22248d767f53856a771313f77cab"
         _viabtc_client = ViaBTCClient(api_key, api_secret)
     return _viabtc_client
 
