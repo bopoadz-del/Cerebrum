@@ -29,4 +29,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
 COPY .docker_nocache /tmp/.docker_nocache
 COPY . .
 
+RUN addgroup --system app && adduser --system --ingroup app app
+USER app
+
 # Worker-specific command should be set in render.yaml or dockerCommand

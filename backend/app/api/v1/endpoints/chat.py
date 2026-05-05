@@ -4,7 +4,7 @@ OpenAI-compatible chat completions with DeepSeek LLM and live RSMeans data
 """
 
 import os
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
 from typing import List, Optional, Literal, Dict, Any
 import time
@@ -14,6 +14,8 @@ from app.core.logging import get_logger
 from app.llm.client import LLMClient
 from app.api.v1.endpoints.economics import router as economics_router
 from app.economics.pricing_engine import get_pricing_engine
+from app.api.deps import get_current_user
+from app.models.user import User
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -233,7 +235,10 @@ async def call_deepseek_llm(messages: List[Dict[str, str]], temperature: float =
 
 
 @router.post("/completions", response_model=ChatCompletionResponse)
-async def chat_completions(request: ChatCompletionRequest):
+async def chat_completions(
+    request: ChatCompletionRequest,
+    current_user: User = Depends(get_current_user),
+):
     """
     OpenAI-compatible chat completions endpoint.
     Uses REAL DeepSeek LLM and RSMeans data - NO TEMPLATES.
@@ -337,7 +342,7 @@ For complex tasks, just ask naturally - I'll use AI to help!"""
 
 
 @router.get("/models")
-async def list_models():
+async def list_models(current_user: User = Depends(get_current_user)):
     """List available models."""
     return {
         "object": "list",
