@@ -1,4 +1,4 @@
-run #!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 Local Drive and Smartphone Connector Demo
 
