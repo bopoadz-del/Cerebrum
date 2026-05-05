@@ -1,7 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Message, Attachment, ReasoningStep } from '@/types';
-import { STORAGE_KEYS } from '@/context/AuthContext';
 import { processAndIndexFile, validateFileOnSelect, type FileValidationResult } from '@/lib/fileProcessing';
 
 // API Configuration - fallback to production URL
@@ -45,9 +44,6 @@ interface PrioritizedFile {
   file: string;
   total_issues: number;
 }
-
-// Get auth token from localStorage
-const getAuthToken = () => localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN) || '';
 
 export function useAgentChat(options: UseAgentChatOptions = {}) {
   const { 
@@ -118,9 +114,9 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
 
       const response = await fetch(`${apiBaseUrl}/agent/v2/execute`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': getAuthToken() ? `Bearer ${getAuthToken()}` : '',
         },
         body: JSON.stringify({
           task,
@@ -157,9 +153,7 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
   const searchMemory = async (query: string): Promise<string> => {
     try {
       const response = await fetch(`${apiBaseUrl}/agent/v2/memory/search?q=${encodeURIComponent(query)}&limit=5`, {
-        headers: {
-          'Authorization': getAuthToken() ? `Bearer ${getAuthToken()}` : '',
-        },
+        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -188,9 +182,7 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
   const getAgentLayers = async (): Promise<string> => {
     try {
       const response = await fetch(`${apiBaseUrl}/agent/v2/layer/list`, {
-        headers: {
-          'Authorization': getAuthToken() ? `Bearer ${getAuthToken()}` : '',
-        },
+        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -215,9 +207,9 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
     try {
       const response = await fetch(`${apiBaseUrl}/agent/v2/layer/navigate`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': getAuthToken() ? `Bearer ${getAuthToken()}` : '',
         },
         body: JSON.stringify({ layer: layerName }),
       });
@@ -243,18 +235,14 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
       const scope = target || 'backend/app/agent';
       
       const response = await fetch(`${apiBaseUrl}/agent/enhance/scan`, {
-        headers: {
-          'Authorization': getAuthToken() ? `Bearer ${getAuthToken()}` : '',
-        },
+        credentials: 'include',
       });
 
       if (!response.ok) {
         // Fallback: try autonomous enhancement
         const autoResponse = await fetch(`${apiBaseUrl}/agent/enhance/autonomous?target=error+handling&scope=${encodeURIComponent(scope)}`, {
           method: 'POST',
-          headers: {
-            'Authorization': getAuthToken() ? `Bearer ${getAuthToken()}` : '',
-          },
+          credentials: 'include',
         });
 
         if (!autoResponse.ok) {
@@ -325,7 +313,7 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
         }
         try {
           const response = await fetch(`${apiBaseUrl}/agent/v2/memory/working/${sessionId}/${args[0]}`, {
-            headers: { 'Authorization': getAuthToken() ? `Bearer ${getAuthToken()}` : '' }
+            credentials: 'include',
           });
           
           if (!response.ok) {
@@ -362,7 +350,7 @@ ${data.steps_remaining.map((s: string) => `  • ${s}`).join('\n') || '  None - 
         try {
           const response = await fetch(`${apiBaseUrl}/agent/v2/memory/working/${sessionId}/${args[0]}`, {
             method: 'DELETE',
-            headers: { 'Authorization': getAuthToken() ? `Bearer ${getAuthToken()}` : '' }
+            credentials: 'include',
           });
           
           const data = await response.json();
@@ -409,9 +397,9 @@ Just type your request and I'll route it to the appropriate layer!`;
     try {
       const response = await fetch(`${apiBaseUrl}/agent/web-search/search`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': getAuthToken() ? `Bearer ${getAuthToken()}` : '',
         },
         body: JSON.stringify({
           query,
@@ -742,13 +730,9 @@ Just type your request and I'll route it to the appropriate layer!`;
         const formData = new FormData();
         formData.append('file', file);
         
-        const token = getAuthToken();
-        
         const response = await fetch(`${getApiUrl()}/documents/upload/chat`, {
           method: 'POST',
-          headers: {
-            'Authorization': token ? `Bearer ${token}` : '',
-          },
+          credentials: 'include',
           body: formData,
         });
         
