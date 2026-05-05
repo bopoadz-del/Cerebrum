@@ -6,10 +6,10 @@ Uses the Project model with meta JSON for extended fields.
 
 import uuid
 from typing import Optional, List, Any, Dict
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, status, Depends, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -54,8 +54,7 @@ class ProjectResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ProjectListResponse(BaseModel):
@@ -188,8 +187,7 @@ async def update_project(
     if data.status is not None:
         meta["status"] = data.status
     project.meta = meta
-    project.updated_at = datetime.utcnow()
-
+    project.updated_at = datetime.now(timezone.utc)
     await db.commit()
     await db.refresh(project)
     return _project_to_response(project)

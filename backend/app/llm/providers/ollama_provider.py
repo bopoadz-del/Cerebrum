@@ -15,6 +15,7 @@ from app.llm.providers.base import BaseLLMProvider
 logger = get_logger(__name__)
 
 
+
 class OllamaProvider(BaseLLMProvider):
     """Ollama local inference provider."""
 
@@ -30,14 +31,21 @@ class OllamaProvider(BaseLLMProvider):
         self._available = None
 
     def is_available(self) -> bool:
+        # Return cached result if we already probed; otherwise optimistic True.
+        # Sync I/O (requests.get) must not run inside the async event loop.
+        # The real liveness check happens implicitly: chat() raises on connection error.
         if self._available is not None:
             return self._available
+        return True
+
+    async def probe(self) -> bool:
+        """Async liveness check — safe to call from async context."""
         try:
-            import requests
-            response = requests.get(f"{self.host}/api/tags", timeout=5)
-            self._available = response.status_code == 200
+            async with httpx.AsyncClient(timeout=5.0) as c:
+                r = await c.get(f"{self.host}/api/tags")
+                self._available = r.status_code == 200
         except Exception as e:
-            logger.warning(f"Ollama not available: {e}")
+            logger.warning("Ollama not available: %s", e)
             self._available = False
         return self._available
 

@@ -23,8 +23,11 @@ from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
-# SLEEP MODE: Set to True to disable authentication (for development only)
-AUTH_SLEEP_MODE = os.environ.get('AUTH_SLEEP_MODE', 'true').lower() in ('true', '1', 'yes')
+# SLEEP MODE: development-only bypass — MUST be explicitly opt-in (default OFF)
+# In production set AUTH_SLEEP_MODE=false (or leave unset)
+_sleep_mode_env = os.environ.get('AUTH_SLEEP_MODE', 'false').lower()
+_is_production = os.environ.get('ENVIRONMENT', 'development').lower() == 'production'
+AUTH_SLEEP_MODE = (not _is_production) and (_sleep_mode_env in ('true', '1', 'yes'))
 # Hardcoded sleep mode user ID (consistent fake user)
 SLEEP_MODE_USER_ID = uuid.UUID('00000000-0000-0000-0000-000000000001')
 

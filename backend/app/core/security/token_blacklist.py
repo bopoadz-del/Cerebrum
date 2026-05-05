@@ -5,7 +5,7 @@ Manages revoked tokens using Redis for distributed token invalidation.
 Provides immediate token revocation capability.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from redis.asyncio.client import Redis
@@ -70,7 +70,11 @@ class TokenBlacklist:
             redis = await self._get_redis()
             
             # Calculate TTL until token expiration
-            ttl = int((expires_at - datetime.utcnow()).total_seconds())
+            now = datetime.now(timezone.utc)
+            # Ensure expires_at is timezone-aware for comparison
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
+            ttl = int((expires_at - now).total_seconds())
             
             if ttl <= 0:
                 # Token already expired, no need to blacklist
@@ -79,7 +83,7 @@ class TokenBlacklist:
             
             key = f"{self.KEY_PREFIX}{jti}"
             value = {
-                "blacklisted_at": datetime.utcnow().isoformat(),
+                "blacklisted_at": now.isoformat(),
                 "user_id": user_id,
                 "reason": reason,
                 "expires_at": expires_at.isoformat(),

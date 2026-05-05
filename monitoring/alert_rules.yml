@@ -234,6 +234,20 @@ groups:
           summary: "Security issues detected"
           description: "Critical or high severity security issues found"
 
+      # Brute-force / credential stuffing detection (M-4 fix)
+      - alert: BruteForceAttemptDetected
+        expr: |
+          sum by (client_ip) (
+            rate(cerebrum_http_requests_total{status_code="401"}[5m])
+          ) > 10
+        for: 1m
+        labels:
+          severity: warning
+          team: security
+        annotations:
+          summary: "High 401 rate from single IP — possible brute-force attack"
+          description: "IP {{ $labels.client_ip }} has {{ $value | humanize }} 401 responses/sec over the last 5 minutes"
+
   # ---------------------------------------------------------------------------
   # Resource Alerts
   # ---------------------------------------------------------------------------

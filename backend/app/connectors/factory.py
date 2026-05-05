@@ -193,7 +193,8 @@ def _register_builtin_connectors():
     """Register all built-in connector stubs."""
     from app.stubs import (
         ProcoreStub, AconexStub, PrimaveraStub,
-        SlackStub, OpenAIStub, GoogleDriveStub
+        SlackStub, OpenAIStub, GoogleDriveStub,
+        LocalDriveStub, SmartphoneStub,
     )
 
     register_connector(
@@ -231,6 +232,14 @@ def _register_builtin_connectors():
     register_connector(
         "drive",
         stub_factory=GoogleDriveStub,
+    )
+    register_connector(
+        "local_drive",
+        stub_factory=LocalDriveStub,
+    )
+    register_connector(
+        "smartphone",
+        stub_factory=SmartphoneStub,
     )
 
 

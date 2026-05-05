@@ -4,7 +4,7 @@ Authentication Endpoints
 Provides login, registration, token refresh, and MFA endpoints.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -230,8 +230,8 @@ async def register(
         tenant_id=uuid.UUID(data.tenant_id) if data.tenant_id else uuid.uuid4(),
         is_active=True,
         is_verified=False,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
     )
     
     db.add(user)
@@ -574,7 +574,7 @@ async def verify_mfa_setup(
     
     # Enable MFA
     current_user.mfa_enabled = True
-    current_user.mfa_verified_at = datetime.utcnow()
+    current_user.mfa_verified_at = datetime.now(timezone.utc)
     await db.commit()
     
     logger.info(

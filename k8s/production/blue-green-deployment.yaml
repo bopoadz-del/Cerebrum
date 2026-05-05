@@ -235,3 +235,13 @@ spec:
     ports:
     - protocol: TCP
       port: 6379
+  # M-3 fix: allow DNS resolution
+  - ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  # M-3 fix: allow external HTTPS for Google Drive, OpenAI, Stripe, Sentry, etc.
+  - ports:
+    - protocol: TCP
+      port: 443

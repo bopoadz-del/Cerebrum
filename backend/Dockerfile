@@ -24,6 +24,10 @@ RUN pip install --no-cache-dir --upgrade pip && \
 COPY .docker_nocache /tmp/.docker_nocache
 COPY . .
 
+# M-2 fix: run as non-root to limit blast radius of container compromise
+RUN addgroup --system app && adduser --system --ingroup app app
+USER app
+
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \

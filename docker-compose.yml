@@ -5,7 +5,7 @@ services:
     container_name: cerebrum-postgres
     environment:
       POSTGRES_USER: cerebrum
-      POSTGRES_PASSWORD: cerebrum_password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cerebrum_dev_password}
       POSTGRES_DB: cerebrum
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -53,13 +53,13 @@ services:
   # Backend API
   backend:
     environment:
-      - GOOGLE_CLIENT_ID=382554705937-v3s8kpvl7h0em2aekud73fro8rig0cvu.apps.googleusercontent.com
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-      - GOOGLE_REDIRECT_URI=https://silver-couscous-7v45rj6qg6qvcwqxw-8000.app.github.dev/api/v1/connectors/google-drive/callback
-      - DATABASE_URL=postgresql+asyncpg://cerebrum:cerebrum_password@postgres:5432/cerebrum
+      - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI:-http://localhost:8000/api/v1/connectors/google-drive/callback}
+      - DATABASE_URL=postgresql+asyncpg://cerebrum:${POSTGRES_PASSWORD:-cerebrum_dev_password}@postgres:5432/cerebrum
       - REDIS_URL=redis://redis:6379/0
-      - SECRET_KEY=your-secret-key-change-in-production
-      - DEBUG=true
+      - SECRET_KEY=${SECRET_KEY}
+      - DEBUG=false
       - CORS_ORIGINS=http://localhost:5173,http://localhost:3000
       - CHROMA_HOST=chroma
       - CHROMA_PORT=8000
@@ -88,9 +88,9 @@ services:
       dockerfile: Dockerfile
     container_name: cerebrum-worker-fast
     environment:
-      - DATABASE_URL=postgresql+asyncpg://cerebrum:cerebrum_password@postgres:5432/cerebrum
+      - DATABASE_URL=postgresql+asyncpg://cerebrum:${POSTGRES_PASSWORD:-cerebrum_dev_password}@postgres:5432/cerebrum
       - REDIS_URL=redis://redis:6379/0
-      - SECRET_KEY=your-secret-key-change-in-production
+      - SECRET_KEY=${SECRET_KEY}
       - CHROMA_HOST=chroma
       - CHROMA_PORT=8000
     volumes:
@@ -108,9 +108,9 @@ services:
       dockerfile: Dockerfile
     container_name: cerebrum-worker-slow
     environment:
-      - DATABASE_URL=postgresql+asyncpg://cerebrum:cerebrum_password@postgres:5432/cerebrum
+      - DATABASE_URL=postgresql+asyncpg://cerebrum:${POSTGRES_PASSWORD:-cerebrum_dev_password}@postgres:5432/cerebrum
       - REDIS_URL=redis://redis:6379/0
-      - SECRET_KEY=your-secret-key-change-in-production
+      - SECRET_KEY=${SECRET_KEY}
       - CHROMA_HOST=chroma
       - CHROMA_PORT=8000
     volumes:
@@ -128,9 +128,9 @@ services:
       dockerfile: Dockerfile
     container_name: cerebrum-scheduler
     environment:
-      - DATABASE_URL=postgresql+asyncpg://cerebrum:cerebrum_password@postgres:5432/cerebrum
+      - DATABASE_URL=postgresql+asyncpg://cerebrum:${POSTGRES_PASSWORD:-cerebrum_dev_password}@postgres:5432/cerebrum
       - REDIS_URL=redis://redis:6379/0
-      - SECRET_KEY=your-secret-key-change-in-production
+      - SECRET_KEY=${SECRET_KEY}
     volumes:
       - ./backend:/app
       - /app/__pycache__

@@ -91,12 +91,25 @@ def create_application() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins_list,
+        allow_origin_regex=settings.CORS_ORIGINS_REGEX,
         allow_credentials=settings.CORS_ALLOW_CREDENTIALS,
         allow_methods=settings.cors_methods_list,
         allow_headers=settings.cors_headers_list,
         expose_headers=["X-Request-ID"],
     )
-    app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*.onrender.com", "localhost", "127.0.0.1", "*.web.app", "*.run.app", "*.firebaseapp.com"])
+    app.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=[
+            "*.onrender.com",
+            "localhost",
+            "127.0.0.1",
+            "*.web.app",
+            "*.run.app",
+            "*.firebaseapp.com",
+            "cerebrum.ai",
+            "*.cerebrum.ai",
+        ],
+    )
 
     setup_exception_handlers(app)
 

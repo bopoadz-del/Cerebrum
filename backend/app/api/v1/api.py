@@ -77,15 +77,55 @@ except Exception as e:
     CHAT_AVAILABLE = False
     chat = None
 
+# USERS - Required for frontend
+try:
+    from app.api.v1.endpoints import stub_users as users
+    logger.info("Users endpoints loaded")
+    USERS_AVAILABLE = True
+except Exception as e:
+    logger.error(f"Users import failed: {e}")
+    USERS_AVAILABLE = False
+    users = None
+
 # PROJECTS - Required for frontend
 try:
     from app.api.v1.endpoints import stub_projects as projects
-    logger.info("Projects endpoints loaded (stub)")
+    logger.info("Projects endpoints loaded")
     PROJECTS_AVAILABLE = True
 except Exception as e:
     logger.error(f"Projects import failed: {e}")
     PROJECTS_AVAILABLE = False
     projects = None
+
+# REGISTRY
+try:
+    from app.api.v1.endpoints import stub_registry as registry
+    logger.info("Registry endpoints loaded")
+    REGISTRY_AVAILABLE = True
+except Exception as e:
+    logger.error(f"Registry import failed: {e}")
+    REGISTRY_AVAILABLE = False
+    registry = None
+
+# QUALITY
+try:
+    from app.api.v1.endpoints import stub_quality as quality
+    logger.info("Quality endpoints loaded")
+    QUALITY_AVAILABLE = True
+except Exception as e:
+    logger.error(f"Quality import failed: {e}")
+    QUALITY_AVAILABLE = False
+    quality = None
+
+# CODING
+try:
+    from app.api.v1.endpoints import stub_coding as coding
+    logger.info("Coding endpoints loaded")
+    CODING_AVAILABLE = True
+except Exception as e:
+    logger.error(f"Coding import failed: {e}")
+    CODING_AVAILABLE = False
+    coding = None
 
 try:
     from app.agent.enhanced_endpoints import router as agent_router
@@ -233,6 +273,14 @@ except Exception as e:
     RECOMMENDATIONS_AVAILABLE = False
     logger.warning(f"Recommendations endpoints not available: {e}")
 
+try:
+    from app.executor.endpoints import router as executor_router
+    EXECUTOR_AVAILABLE = True
+    logger.info("Formula executor endpoints loaded")
+except Exception as e:
+    EXECUTOR_AVAILABLE = False
+    logger.warning(f"Formula executor endpoints not available: {e}")
+
 
 # Create main router - MUST BE NAMED api_v1_router for main.py
 api_v1_router = APIRouter()
@@ -260,6 +308,11 @@ if CONNECTORS_AVAILABLE and connectors:
 
 if CHAT_AVAILABLE and chat:
     api_v1_router.include_router(chat.router, tags=["chat"])
+
+# USERS - Required for frontend
+if USERS_AVAILABLE and users:
+    api_v1_router.include_router(users.router, prefix="/users", tags=["users"])
+    logger.info("Users router included successfully")
 
 # PROJECTS - Required for frontend
 if PROJECTS_AVAILABLE and projects:
@@ -345,6 +398,22 @@ if CONSTRUCTION_AVAILABLE:
 
 if RECOMMENDATIONS_AVAILABLE:
     api_v1_router.include_router(recommendations_router, tags=["recommendations"])
+
+if REGISTRY_AVAILABLE and registry:
+    api_v1_router.include_router(registry.router, prefix="/registry", tags=["registry"])
+    logger.info("Registry router included successfully")
+
+if QUALITY_AVAILABLE and quality:
+    api_v1_router.include_router(quality.router, prefix="/quality", tags=["quality"])
+    logger.info("Quality router included successfully")
+
+if CODING_AVAILABLE and coding:
+    api_v1_router.include_router(coding.router, prefix="/coding", tags=["coding"])
+    logger.info("Coding router included successfully")
+
+if EXECUTOR_AVAILABLE:
+    api_v1_router.include_router(executor_router, tags=["executor"])
+    logger.info("Formula executor router included successfully")
 
 # Log all registered routes
 logger.info(f"All registered routes: {[r.path for r in api_v1_router.routes]}")

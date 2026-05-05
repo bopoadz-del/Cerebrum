@@ -83,26 +83,54 @@ class ETLPipeline:
 
 class Extractor:
     """Data extraction utilities"""
-    
+
+    # Allowlist: only SELECT queries are permitted (H-2 fix — NL-to-SQL injection)
+    _FORBIDDEN_SQL_KEYWORDS = frozenset([
+        "insert", "update", "delete", "drop", "truncate", "alter",
+        "create", "replace", "grant", "revoke", "execute", "exec",
+        "call", "merge", "upsert", "load", "copy",
+    ])
+
+    @staticmethod
+    def _validate_query(query: str) -> None:
+        """Raise ValueError if the query contains non-SELECT statements."""
+        stripped = query.strip().lower()
+        if not stripped.startswith("select"):
+            raise ValueError(
+                "Only SELECT statements are allowed in ETL extraction queries."
+            )
+        for keyword in Extractor._FORBIDDEN_SQL_KEYWORDS:
+            # Check for keyword as a whole word to avoid false positives
+            import re as _re
+            if _re.search(rf"\b{keyword}\b", stripped):
+                raise ValueError(
+                    f"Forbidden SQL keyword '{keyword}' detected in query. "
+                    "Only read-only SELECT queries are permitted."
+                )
+
     async def extract_from_database(
         self,
         connection_string: str,
         query: str,
         batch_size: int = 1000
     ) -> List[Dict[str, Any]]:
-        """Extract data from database"""
+        """Extract data from database — SELECT queries only (H-2 fix)."""
         from sqlalchemy import create_engine, text
-        
+
+        self._validate_query(query)
+
         engine = create_engine(connection_string)
-        
+
         with engine.connect() as conn:
+            # Execute in a read-only transaction to enforce intent at the DB level
+            conn.execute(text("SET TRANSACTION READ ONLY"))
             result = conn.execute(text(query))
             columns = result.keys()
-            
+
             rows = []
             for row in result:
                 rows.append(dict(zip(columns, row)))
-            
+
             return rows
     
     async def extract_from_api(

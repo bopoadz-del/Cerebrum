@@ -11,6 +11,19 @@ from slowapi.util import get_remote_address
 from app.core.config import settings
 
 
+def get_rate_limit_key(request: Request) -> str:
+    """Use authenticated user ID when available, fall back to IP address.
+    
+    This prevents shared IPs (NAT, mobile networks) from triggering false
+    rate-limit hits across multiple users.
+    """
+    # JWT sub is decoded into request.state by the auth middleware
+    user_id = getattr(request.state, "user_id", None)
+    if user_id:
+        return f"user:{user_id}"
+    return get_remote_address(request)
+
+
 def safe_rate_limit_handler(request: Request, exc: Exception):
     if isinstance(exc, RateLimitExceeded):
         return JSONResponse(
@@ -29,7 +42,7 @@ slowapi.extension._rate_limit_exceeded_handler = safe_rate_limit_handler
 slowapi.middleware._rate_limit_exceeded_handler = safe_rate_limit_handler
 
 limiter = Limiter(
-    key_func=get_remote_address,
+    key_func=get_rate_limit_key,
     default_limits=["100/minute", "1000/hour"],
     storage_uri=settings.redis_url,
 )

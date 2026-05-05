@@ -76,20 +76,16 @@ class AgentResult:
 
 
 async def call_llm(messages: List[Dict[str, str]], temperature: float = 0.7) -> str:
-    """Call REAL DeepSeek LLM - no templates."""
-    from app.core.config import settings
-    api_key = settings.DEEPSEEK_API_KEY
-    if not api_key:
-        return "DeepSeek API key not configured. Please set DEEPSEEK_API_KEY in environment."
-    
+    """Call LLM via the shared singleton LLMClient (DeepSeek if key present, Ollama otherwise)."""
+    from app.llm.models import LLMMessage, Role
+    from app.llm.client import get_default_client
     try:
-        client = LLMClient(api_key=api_key)
-        response = await client.chat(
-            messages=[{"role": m["role"], "content": m["content"]} for m in messages],
-            temperature=temperature,
-            max_tokens=2048
-        )
-        return response.content if hasattr(response, 'content') else str(response)
+        client = get_default_client()
+        llm_messages = [
+            LLMMessage(role=Role(m["role"]), content=m["content"]) for m in messages
+        ]
+        response = await client.chat(messages=llm_messages, temperature=temperature, max_tokens=2048)
+        return response.choices[0].message.content if response.choices else ""
     except Exception as e:
         logger.error(f"LLM call failed: {e}")
         return f"I encountered an error processing your request: {str(e)}"

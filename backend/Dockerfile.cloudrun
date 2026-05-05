@@ -30,6 +30,10 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy application code
 COPY . .
 
+# M-2 fix: run as non-root to limit blast radius of container compromise
+RUN addgroup --system app && adduser --system --ingroup app app
+USER app
+
 # Cloud Run requires the app to listen on $PORT
 EXPOSE 8080
 
