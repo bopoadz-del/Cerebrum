@@ -85,7 +85,7 @@ class Settings(BaseSettings):
         description="Access token expiration in minutes",
     )
     REFRESH_TOKEN_EXPIRE_DAYS: int = Field(
-        default=365,  # 1 year - effectively "never" expires for most users
+        default=30,  # 30 days — rotate on each use (H-3 fix)
         description="Refresh token expiration in days",
     )
     JWT_ALGORITHM: str = Field(default="HS256", description="JWT algorithm")
@@ -156,17 +156,21 @@ class Settings(BaseSettings):
     # Note: CORS_ORIGINS is a comma-separated string in env vars
     # It gets parsed into a list by the cors_origins_list property
     CORS_ORIGINS: str = Field(
-        default="http://localhost:3000,https://cerebrum-frontend.onrender.com",
+        default="http://localhost:3000,https://cerebrum-frontend.onrender.com,https://cerebrum.ai,https://www.cerebrum.ai",
         description="Allowed CORS origins (comma-separated)",
+    )
+    CORS_ORIGINS_REGEX: Optional[str] = Field(
+        default=r"https://.*\.onrender\.com",
+        description="Regex pattern for dynamic CORS origins (e.g. Render preview URLs)",
     )
     CORS_ALLOW_CREDENTIALS: bool = Field(default=True, description="Allow CORS credentials")
     CORS_ALLOW_METHODS: str = Field(
-        default="*",
-        description="Allowed CORS methods (comma-separated)",
+        default="GET,POST,PUT,PATCH,DELETE,OPTIONS",
+        description="Allowed CORS methods (comma-separated) — M-1 fix: no wildcard",
     )
     CORS_ALLOW_HEADERS: str = Field(
-        default="*",
-        description="Allowed CORS headers (comma-separated)",
+        default="Authorization,Content-Type,X-Request-ID,X-Requested-With",
+        description="Allowed CORS headers (comma-separated) — M-1 fix: no wildcard",
     )
     
     # =================================================================
@@ -324,6 +328,19 @@ class Settings(BaseSettings):
         if environment == Environment.PRODUCTION:
             return False
         return v
+
+    @field_validator("GOOGLE_REDIRECT_URI", mode="after")
+    @classmethod
+    def validate_google_redirect_uri(cls, v: str, info) -> str:
+        """Prevent localhost redirect URI leaking into production (M-5 fix)."""
+        data = info.data
+        environment = data.get("ENVIRONMENT", "development")
+        if environment == Environment.PRODUCTION and v.startswith("http://localhost"):
+            raise ValueError(
+                "GOOGLE_REDIRECT_URI must not point to localhost in production. "
+                "Set GOOGLE_REDIRECT_URI to the production callback URL."
+            )
+        return v
     
     # =================================================================
     # Properties
@@ -346,13 +363,9 @@ class Settings(BaseSettings):
     @property
     def cors_origins_list(self) -> List[str]:
         """Parse CORS_ORIGINS string into list."""
-        # Always include production frontend URL
-        default_origins = ["http://localhost:3000", "https://cerebrum-frontend.onrender.com"]
         if not self.CORS_ORIGINS:
-            return default_origins
-        env_origins = [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
-        # Merge env origins with defaults, removing duplicates
-        return list(dict.fromkeys(env_origins + default_origins))
+            return []
+        return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
     
     @property
     def cors_methods_list(self) -> List[str]:

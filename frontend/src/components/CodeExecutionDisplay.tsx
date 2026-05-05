@@ -32,21 +32,28 @@ export function CodeExecutionDisplay({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Simple syntax highlighting for common keywords
-  const highlightCode = (code: string) => {
+  // Escape HTML then apply syntax highlighting spans
+  const highlightCode = (rawCode: string) => {
+    // HTML-escape first so user code can never inject markup (C-4 fix)
+    const escaped = rawCode
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+
     const keywords = ['def', 'class', 'if', 'else', 'elif', 'for', 'while', 'return', 'import', 'from', 'try', 'except', 'with', 'as'];
-    const strings = /(".*?"|'.*?')/g;
+    const strings = /(&quot;.*?&quot;|&#039;.*?&#039;)/g;
     const comments = /(#.*$)/gm;
-    
-    let highlighted = code
+
+    let highlighted = escaped
       .replace(strings, '<span class="text-green-400">$1</span>')
       .replace(comments, '<span class="text-gray-500">$1</span>');
-    
+
     keywords.forEach(keyword => {
       const regex = new RegExp(`\\b(${keyword})\\b`, 'g');
       highlighted = highlighted.replace(regex, '<span class="text-purple-400">$1</span>');
     });
-    
+
     return highlighted;
   };
 

@@ -22,6 +22,14 @@ _PROVIDER_REGISTRY: Dict[str, Type[BaseLLMProvider]] = {
     "ollama": OllamaProvider,
 }
 
+# Fallback chain: if the primary provider fails, try the next one.
+_FALLBACK_CHAIN: Dict[str, str] = {
+    "deepseek": "ollama",
+}
+
+# Module-level singleton — prevents re-creating httpx.AsyncClient on every call.
+_default_client: Optional["LLMClient"] = None
+
 
 class LLMClient:
     """
@@ -110,6 +118,27 @@ class LLMClient:
                 if attempt < retries:
                     await asyncio.sleep(1.5 * (attempt + 1))
 
+        # All retries exhausted — try the fallback provider once if the caller
+        # didn't pin a specific provider.
+        if provider is None:
+            fallback_name = _FALLBACK_CHAIN.get(provider_name)
+            if fallback_name:
+                try:
+                    fallback_provider = self._get_provider(fallback_name)
+                    if isinstance(fallback_provider, OllamaProvider):
+                        available = await fallback_provider.probe()
+                    else:
+                        available = fallback_provider.is_available()
+                    if available:
+                        logger.warning(
+                            "Primary provider '%s' failed; falling back to '%s'",
+                            provider_name,
+                            fallback_name,
+                        )
+                        return await fallback_provider.chat(request)
+                except Exception as fb_e:
+                    logger.error("Fallback provider '%s' also failed: %s", fallback_name, fb_e)
+
         logger.error("All LLM request attempts failed for provider %s", provider_name)
         raise last_error or RuntimeError("LLM request failed")
 
@@ -147,3 +176,15 @@ class LLMClient:
 def get_llm_client(default_provider: Optional[str] = None) -> LLMClient:
     """Factory for getting a configured LLM client."""
     return LLMClient(default_provider=default_provider)
+
+
+def get_default_client() -> LLMClient:
+    """Return the module-level singleton LLMClient, creating it once.
+
+    Reusing the singleton keeps the DeepSeekProvider's httpx.AsyncClient alive
+    across requests instead of leaking a new connection pool per call.
+    """
+    global _default_client
+    if _default_client is None:
+        _default_client = LLMClient()
+    return _default_client

@@ -12,6 +12,8 @@ from .primavera import PrimaveraStub
 from .slack import SlackStub
 from .openai import OpenAIStub
 from .google_drive import GoogleDriveStub
+from .local_drive import LocalDriveStub
+from .smartphone import SmartphoneStub
 
 __all__ = [
     "BaseStub",
@@ -23,6 +25,8 @@ __all__ = [
     "SlackStub",
     "OpenAIStub",
     "GoogleDriveStub",
+    "LocalDriveStub",
+    "SmartphoneStub",
     "get_stub",
 ]
 
@@ -35,6 +39,8 @@ _STUB_REGISTRY = {
     "slack": SlackStub,
     "openai": OpenAIStub,
     "google_drive": GoogleDriveStub,
+    "local_drive": LocalDriveStub,
+    "smartphone": SmartphoneStub,
 }
 
 

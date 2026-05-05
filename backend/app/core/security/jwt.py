@@ -7,7 +7,7 @@ Supports access tokens (15 min) and refresh tokens (7 days).
 
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
 import jwt
@@ -89,7 +89,7 @@ class JWTManager:
         Returns:
             Encoded JWT access token
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         jti = str(uuid.uuid4())
         
         payload = {
@@ -131,7 +131,7 @@ class JWTManager:
         Returns:
             Encoded JWT refresh token
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         jti = str(uuid.uuid4())
         
         payload = {

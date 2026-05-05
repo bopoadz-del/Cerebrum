@@ -10,6 +10,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base_class import BaseModel
+from app.core.security.encrypted_field import EncryptedText
 
 
 class IntegrationToken(BaseModel):
@@ -18,11 +19,11 @@ class IntegrationToken(BaseModel):
     token_id: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     service: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
-    access_token: Mapped[str] = mapped_column(Text, nullable=False)
-    refresh_token: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    access_token: Mapped[str] = mapped_column(EncryptedText, nullable=False)
+    refresh_token: Mapped[Optional[str]] = mapped_column(EncryptedText, nullable=True)
     token_uri: Mapped[str] = mapped_column(String(255), nullable=False, default="https://oauth2.googleapis.com/token")
     client_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    client_secret: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    client_secret: Mapped[Optional[str]] = mapped_column(EncryptedText, nullable=True)
     scopes: Mapped[str] = mapped_column(Text, nullable=False, default="")
     expiry: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     rotation_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)

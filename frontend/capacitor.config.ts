@@ -7,7 +7,7 @@ const config: CapacitorConfig = {
   server: {
     androidScheme: 'https',
     iosScheme: 'https',
-    cleartext: true,
+    cleartext: false,          // H-4 fix: disallow plaintext HTTP on Android
     hostname: 'app.cerebrum.local',
   },
   loggingBehavior: 'production',
@@ -60,7 +60,7 @@ const config: CapacitorConfig = {
       keystorePath: undefined,
       keystoreAlias: undefined,
     },
-    allowMixedContent: true,
+    allowMixedContent: false,  // H-4 fix: disallow mixed HTTP/HTTPS content
     captureInput: true,
   },
   ios: {
