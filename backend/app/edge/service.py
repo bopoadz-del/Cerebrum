@@ -282,7 +282,8 @@ class EdgeControlPlaneService:
         deployment.latest_drift_score = drift_score
 
         retrain_job_id = None
-        if drift_score is not None and drift_score >= self.drift_threshold:
+        drift_detected = drift_score is not None and drift_score >= self.drift_threshold
+        if drift_detected and deployment.retrain_requested_at is None:
             retrain_job_id = await self.retrain_hook.request_retrain(
                 model_name=deployment.model_name,
                 model_version=deployment.model_version,
@@ -294,7 +295,7 @@ class EdgeControlPlaneService:
         await self.repository.commit()
         return {
             "deployment": deployment,
-            "drift_detected": drift_score is not None and drift_score >= self.drift_threshold,
+            "drift_detected": drift_detected,
             "retrain_job_id": retrain_job_id,
         }
 

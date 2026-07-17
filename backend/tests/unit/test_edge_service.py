@@ -116,6 +116,64 @@ async def test_edge_service_tracks_health_deployment_and_drift():
 
 
 @pytest.mark.asyncio
+async def test_retrain_hook_fires_once_while_drift_persists():
+    tenant_id = uuid.uuid4()
+    repository = InMemoryEdgeRepository()
+    hook = RecordingRetrainHook()
+    service = EdgeControlPlaneService(repository, retrain_hook=hook, drift_threshold=0.2)
+
+    device = await service.register_device(
+        tenant_id=tenant_id,
+        external_id="jetson-b1",
+        name="Yard camera",
+        device_type="jetson_orin",
+        software_version="1.0.0",
+        capabilities=["vision"],
+        hardware={"gpu": "orin"},
+        heartbeat_interval_seconds=30,
+    )
+    deployment = await service.create_deployment(
+        tenant_id=tenant_id,
+        external_id=device.external_id,
+        model_name="site-safety",
+        model_version="2026.07",
+        adapter="mock",
+        artifact_uri=None,
+        artifact_sha256=None,
+    )
+
+    first = await service.report_inference(
+        tenant_id=tenant_id,
+        deployment_id=deployment.id,
+        sample_count=5,
+        error_count=0,
+        average_latency_ms=10.0,
+        drift_score=0.35,
+    )
+    second = await service.report_inference(
+        tenant_id=tenant_id,
+        deployment_id=deployment.id,
+        sample_count=5,
+        error_count=0,
+        average_latency_ms=10.0,
+        drift_score=0.4,
+    )
+
+    assert first["retrain_job_id"] == "retrain-test-1"
+    assert second["retrain_job_id"] is None
+    assert len(hook.calls) == 1
+
+
+def test_inference_metrics_rejects_error_count_above_samples():
+    from pydantic import ValidationError
+
+    from app.edge.schemas import InferenceMetricsReport
+
+    with pytest.raises(ValidationError):
+        InferenceMetricsReport(sample_count=5, error_count=6, average_latency_ms=1.0)
+
+
+@pytest.mark.asyncio
 async def test_mock_inference_adapter_is_deterministic():
     adapter = MockInferenceAdapter()
     await adapter.load("memory://site-safety", "v1")

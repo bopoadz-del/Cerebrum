@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class DeviceRegistration(BaseModel):
@@ -85,6 +85,12 @@ class InferenceMetricsReport(BaseModel):
     error_count: int = Field(default=0, ge=0)
     average_latency_ms: float = Field(ge=0)
     drift_score: float | None = Field(default=None, ge=0)
+
+    @model_validator(mode="after")
+    def error_count_within_samples(self) -> "InferenceMetricsReport":
+        if self.error_count > self.sample_count:
+            raise ValueError("error_count cannot exceed sample_count")
+        return self
 
 
 class InferenceMetricsResponse(BaseModel):
