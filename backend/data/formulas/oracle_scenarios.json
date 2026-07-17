@@ -1,0 +1,514 @@
+{
+  "version": "1.0.0",
+  "description": "Hand-derived oracle scenarios for Cerebrum initial_library.json. Expected values lock the library expression to a cited clause.",
+  "scenarios": [
+    {
+      "formula_id": "concrete_volume",
+      "inputs": {
+        "length": 10,
+        "width": 5,
+        "height": 0.3
+      },
+      "expected_output": 15.0,
+      "clause": "geometry",
+      "code_family": "geometry",
+      "kind": "derived",
+      "derivation_note": "Hand-checked against library expression and geometry"
+    },
+    {
+      "formula_id": "rebar_weight",
+      "inputs": {
+        "diameter": 16,
+        "length": 12
+      },
+      "expected_output": 18.93888,
+      "clause": "BS 8666 bar mass approx d^2*0.006165",
+      "code_family": "BS 8666",
+      "kind": "derived",
+      "derivation_note": "Hand-checked against library expression and BS 8666 bar mass approx d^2*0.006165"
+    },
+    {
+      "formula_id": "beam_moment_simple",
+      "inputs": {
+        "load": 20,
+        "span": 6
+      },
+      "expected_output": 90.0,
+      "clause": "statics wL^2/8",
+      "code_family": "statics",
+      "kind": "derived",
+      "derivation_note": "Hand-checked against library expression and statics wL^2/8"
+    },
+    {
+      "formula_id": "beam_moment_point_load",
+      "inputs": {
+        "load": 50,
+        "span": 6
+      },
+      "expected_output": 75.0,
+      "clause": "statics PL/4",
+      "code_family": "statics",
+      "kind": "derived",
+      "derivation_note": "Hand-checked against library expression and statics PL/4"
+    },
+    {
+      "formula_id": "beam_shear_simple",
+      "inputs": {
+        "load": 20,
+        "span": 6
+      },
+      "expected_output": 60.0,
+      "clause": "statics wL/2",
+      "code_family": "statics",
+      "kind": "derived",
+      "derivation_note": "Hand-checked against library expression and statics wL/2"
+    },
+    {
+      "formula_id": "beam_deflection_simple",
+      "inputs": {
+        "load": 10,
+        "span": 5000,
+        "E": 200000,
+        "I": 83300000.0
+      },
+      "expected_output": 4.884766,
+      "clause": "5wL^4/(384EI) consistent mm units",
+      "code_family": "statics",
+      "kind": "derived",
+      "derivation_note": "Hand-checked against library expression and 5wL^4/(384EI) consistent mm units"
+    },
+    {
+      "formula_id": "column_axial_capacity",
+      "inputs": {
+        "f_prime_c": 30,
+        "Ag": 90000,
+        "Ast": 3600,
+        "fy": 420,
+        "phi": 0.65,
+        "k": 1.0,
+        "lu": 3000,
+        "r": 150
+      },
+      "expected_output": 1448.928,
+      "clause": "ACI 318-19 \u00a722.4 + slenderness (k lu/r)/40",
+      "code_family": "ACI",
+      "kind": "derived",
+      "derivation_note": "Hand-checked against library expression and ACI 318-19 \u00a722.4 + slenderness (k lu/r)/40"
+    },
+    {
+      "formula_id": "footing_area",
+      "inputs": {
+        "total_load": 2000,
+        "soil_pressure": 200
+      },
+      "expected_output": 10.0,
+      "clause": "A = P / q_allow",
+      "code_family": "IBC",
+      "kind": "derived",
+      "derivation_note": "Hand-checked against library expression and A = P / q_allow"
+    },
+    {
+      "formula_id": "slab_thickness_min",
+      "inputs": {
+        "span": 5600
+      },
+      "expected_output": 200.0,
+      "clause": "ACI 318-19 Tbl 7.3.1.1 L/28 (SS fy60)",
+      "code_family": "ACI",
+      "kind": "derived",
+      "derivation_note": "Hand-checked against library expression and ACI 318-19 Tbl 7.3.1.1 L/28 (SS fy60)"
+    },
+    {
+      "formula_id": "steel_tension_capacity",
+      "inputs": {
+        "Fy": 345,
+        "Ag": 3000
+      },
+      "expected_output": 1035.0,
+      "clause": "AISC 360 Ch D yield Fy Ag",
+      "code_family": "AISC",
+      "kind": "derived",
+      "derivation_note": "Hand-checked against library expression and AISC 360 Ch D yield Fy Ag"
+    },
+    {
+      "formula_id": "bolt_shear_capacity",
+      "inputs": {
+        "Fnv": 372,
+        "Ab": 380
+      },
+      "expected_output": 84.816,
+      "clause": "AISC 360 \u00a7J3.6 0.6 Fnv Ab",
+      "code_family": "AISC",
+      "kind": "derived",
+      "derivation_note": "Hand-checked against library expression and AISC 360 \u00a7J3.6 0.6 Fnv Ab"
+    },
+    {
+      "formula_id": "weld_capacity",
+      "inputs": {
+        "Fexx": 490,
+        "size": 6
+      },
+      "expected_output": 1.247148,
+      "clause": "AISC 360 \u00a7J2.4 fillet throat",
+      "code_family": "AISC",
+      "kind": "derived",
+      "derivation_note": "Hand-checked against library expression and AISC 360 \u00a7J2.4 fillet throat"
+    },
+    {
+      "formula_id": "wind_pressure",
+      "inputs": {
+        "q": 1500,
+        "G": 0.85,
+        "Cp": 0.8,
+        "qi": 1500,
+        "GCpi": 0.18
+      },
+      "expected_output": 750.0,
+      "clause": "ASCE 7 Ch 27 form",
+      "code_family": "ASCE",
+      "kind": "derived",
+      "derivation_note": "Hand-checked against library expression and ASCE 7 Ch 27 form"
+    },
+    {
+      "formula_id": "seismic_base_shear",
+      "inputs": {
+        "Cs": 0.125,
+        "W": 10000
+      },
+      "expected_output": 1250.0,
+      "clause": "ASCE 7 \u00a712.8 V=Cs W",
+      "code_family": "ASCE",
+      "kind": "derived",
+      "derivation_note": "Hand-checked against library expression and ASCE 7 \u00a712.8 V=Cs W"
+    },
+    {
+      "formula_id": "live_load_reduction",
+      "inputs": {
+        "L0": 4.79,
+        "K_LL": 4,
+        "At": 40
+      },
+      "expected_output": 4.79,
+      "clause": "ASCE 7 \u00a74.7",
+      "code_family": "ASCE",
+      "kind": "derived",
+      "derivation_note": "Hand-checked against library expression and ASCE 7 \u00a74.7"
+    },
+    {
+      "formula_id": "roi_calculator",
+      "inputs": {
+        "gain": 150000,
+        "cost": 100000
+      },
+      "expected_output": 50.0,
+      "clause": "ROI definition",
+      "code_family": "finance",
+      "kind": "derived",
+      "derivation_note": "Hand-checked against library expression and ROI definition"
+    },
+    {
+      "formula_id": "unit_cost_total",
+      "inputs": {
+        "unit_price": 125.5,
+        "quantity": 40
+      },
+      "expected_output": 5020.0,
+      "clause": "unit pricing",
+      "code_family": "cost",
+      "kind": "derived",
+      "derivation_note": "Hand-checked against library expression and unit pricing"
+    },
+    {
+      "formula_id": "cost_per_sf",
+      "inputs": {
+        "total_cost": 2500000,
+        "area": 10000
+      },
+      "expected_output": 250.0,
+      "clause": "cost / area",
+      "code_family": "cost",
+      "kind": "derived",
+      "derivation_note": "Hand-checked against library expression and cost / area"
+    },
+    {
+      "formula_id": "earned_value_cv",
+      "inputs": {
+        "EV": 100000,
+        "AC": 95000
+      },
+      "expected_output": 5000.0,
+      "clause": "PMBOK CV=EV-AC",
+      "code_family": "PMBOK",
+      "kind": "derived",
+      "derivation_note": "Hand-checked against library expression and PMBOK CV=EV-AC"
+    },
+    {
+      "formula_id": "earned_value_sv",
+      "inputs": {
+        "EV": 100000,
+        "PV": 110000
+      },
+      "expected_output": -10000.0,
+      "clause": "PMBOK SV=EV-PV",
+      "code_family": "PMBOK",
+      "kind": "derived",
+      "derivation_note": "Hand-checked against library expression and PMBOK SV=EV-PV"
+    },
+    {
+      "formula_id": "earned_value_spi",
+      "inputs": {
+        "EV": 100000,
+        "PV": 110000
+      },
+      "expected_output": 0.909091,
+      "clause": "PMBOK SPI=EV/PV",
+      "code_family": "PMBOK",
+      "kind": "derived",
+      "derivation_note": "Hand-checked against library expression and PMBOK SPI=EV/PV"
+    },
+    {
+      "formula_id": "earned_value_cpi",
+      "inputs": {
+        "EV": 100000,
+        "AC": 95000
+      },
+      "expected_output": 1.052632,
+      "clause": "PMBOK CPI=EV/AC",
+      "code_family": "PMBOK",
+      "kind": "derived",
+      "derivation_note": "Hand-checked against library expression and PMBOK CPI=EV/AC"
+    },
+    {
+      "formula_id": "critical_path_float",
+      "inputs": {
+        "LS": 12,
+        "ES": 8
+      },
+      "expected_output": 4.0,
+      "clause": "CPM TF=LS-ES",
+      "code_family": "CPM",
+      "kind": "derived",
+      "derivation_note": "Hand-checked against library expression and CPM TF=LS-ES"
+    },
+    {
+      "formula_id": "productivity_rate",
+      "inputs": {
+        "quantity": 80,
+        "crew_size": 4,
+        "hours": 8
+      },
+      "expected_output": 2.5,
+      "clause": "output per worker-hour",
+      "code_family": "productivity",
+      "kind": "derived",
+      "derivation_note": "Hand-checked against library expression and output per worker-hour"
+    },
+    {
+      "formula_id": "concrete_cylinders",
+      "inputs": {
+        "cylinders": [
+          32.1,
+          33.0,
+          31.5
+        ]
+      },
+      "expected_output": 32.2,
+      "clause": "ASTM C39 average",
+      "code_family": "ASTM",
+      "kind": "derived",
+      "derivation_note": "Hand-checked against library expression and ASTM C39 average"
+    },
+    {
+      "formula_id": "soil_bearing_pressure",
+      "inputs": {
+        "load": 2000,
+        "area": 10
+      },
+      "expected_output": 200.0,
+      "clause": "q = P/A",
+      "code_family": "IBC",
+      "kind": "derived",
+      "derivation_note": "Hand-checked against library expression and q = P/A"
+    },
+    {
+      "formula_id": "rebar_lap_length",
+      "inputs": {
+        "fy": 420,
+        "db": 16,
+        "f_prime_c": 30
+      },
+      "expected_output": 584.237395,
+      "clause": "ACI 318-19 \u00a725.5 simplified",
+      "code_family": "ACI",
+      "kind": "derived",
+      "derivation_note": "Hand-checked against library expression and ACI 318-19 \u00a725.5 simplified"
+    },
+    {
+      "formula_id": "concrete_shrinkage",
+      "inputs": {
+        "f_prime_c": 35
+      },
+      "expected_output": 0.00078,
+      "clause": "ACI 209R form",
+      "code_family": "ACI",
+      "kind": "derived",
+      "derivation_note": "Hand-checked against library expression and ACI 209R form"
+    },
+    {
+      "formula_id": "masonry_wall_capacity",
+      "inputs": {
+        "fm": 13.8,
+        "An": 76000,
+        "fy": 420,
+        "As": 600,
+        "h": 2800,
+        "r": 50
+      },
+      "expected_output": 733.17888,
+      "clause": "TMS 402 with [1-(h/140r)^2]",
+      "code_family": "TMS",
+      "kind": "derived",
+      "derivation_note": "Hand-checked against library expression and TMS 402 with [1-(h/140r)^2]"
+    },
+    {
+      "formula_id": "excavation_volume",
+      "inputs": {
+        "length": 20,
+        "width": 10,
+        "depth": 3
+      },
+      "expected_output": 600.0,
+      "clause": "geometry",
+      "code_family": "geometry",
+      "kind": "derived",
+      "derivation_note": "Hand-checked against library expression and geometry"
+    },
+    {
+      "formula_id": "backfill_volume",
+      "inputs": {
+        "loose_volume": 480,
+        "shrinkage_factor": 0.15
+      },
+      "expected_output": 417.391304,
+      "clause": "compaction shrink",
+      "code_family": "earthwork",
+      "kind": "derived",
+      "derivation_note": "Hand-checked against library expression and compaction shrink"
+    },
+    {
+      "formula_id": "concrete_curing_time",
+      "inputs": {
+        "f_prime_c_target": 30,
+        "f_prime_c_7day": 21
+      },
+      "expected_output": 14.285714,
+      "clause": "ACI 308 estimate",
+      "code_family": "ACI",
+      "kind": "derived",
+      "derivation_note": "Hand-checked against library expression and ACI 308 estimate"
+    },
+    {
+      "formula_id": "crane_lift_capacity",
+      "inputs": {
+        "rated_capacity": 200,
+        "load_weight": 120,
+        "rigging": 5,
+        "hook_block": 10
+      },
+      "expected_output": 65.0,
+      "clause": "OSHA capacity remainder",
+      "code_family": "OSHA",
+      "kind": "derived",
+      "derivation_note": "Hand-checked against library expression and OSHA capacity remainder"
+    },
+    {
+      "formula_id": "scaffold_load_capacity",
+      "inputs": {
+        "duty_rating": 2.4,
+        "platform_area": 12
+      },
+      "expected_output": 28.8,
+      "clause": "OSHA 1926.451 duty x area",
+      "code_family": "OSHA",
+      "kind": "derived",
+      "derivation_note": "Hand-checked against library expression and OSHA 1926.451 duty x area"
+    },
+    {
+      "formula_id": "fall_arrest_force",
+      "inputs": {
+        "mass": 100,
+        "fall_factor": 2.0
+      },
+      "expected_output": 1.962,
+      "clause": "ANSI Z359 F=mg*FF (kN)",
+      "code_family": "OSHA",
+      "kind": "derived",
+      "derivation_note": "Hand-checked against library expression and ANSI Z359 F=mg*FF (kN)"
+    },
+    {
+      "formula_id": "bim_clash_tolerance",
+      "inputs": {
+        "distance": 20,
+        "tolerance": 25
+      },
+      "expected_output": true,
+      "clause": "BEP clash rule (reference_table)",
+      "code_family": "ISO 19650",
+      "kind": "reference_table",
+      "derivation_note": "Hand-checked against library expression and BEP clash rule (reference_table)"
+    },
+    {
+      "formula_id": "laser_scan_accuracy",
+      "inputs": {
+        "distance": 10,
+        "angular_resolution": 0.0003
+      },
+      "expected_output": 3.0,
+      "clause": "spacing = d*theta (reference_table)",
+      "code_family": "ASPRS",
+      "kind": "reference_table",
+      "derivation_note": "Hand-checked against library expression and spacing = d*theta (reference_table)"
+    },
+    {
+      "formula_id": "prefab_module_weight",
+      "inputs": {
+        "volume": 12,
+        "density": 2400
+      },
+      "expected_output": 28800.0,
+      "clause": "mass = V rho",
+      "code_family": "logistics",
+      "kind": "derived",
+      "derivation_note": "Hand-checked against library expression and mass = V rho"
+    },
+    {
+      "formula_id": "carbon_footprint_concrete",
+      "inputs": {
+        "volume": 100,
+        "cement_content": 350,
+        "emission_factor": 0.9
+      },
+      "expected_output": 31500.0,
+      "clause": "EPD factor lookup (reference_table)",
+      "code_family": "ISO 14040",
+      "kind": "reference_table",
+      "derivation_note": "Hand-checked against library expression and EPD factor lookup (reference_table)"
+    },
+    {
+      "formula_id": "leed_points_estimate",
+      "inputs": {
+        "ss_points": 8,
+        "we_points": 6,
+        "ea_points": 12,
+        "mr_points": 6,
+        "iq_points": 8,
+        "ip_points": 4
+      },
+      "expected_output": 44.0,
+      "clause": "LEED category sum (reference_table)",
+      "code_family": "LEED",
+      "kind": "reference_table",
+      "derivation_note": "Hand-checked against library expression and LEED category sum (reference_table)"
+    }
+  ]
+}
