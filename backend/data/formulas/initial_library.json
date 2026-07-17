@@ -93,24 +93,28 @@
       "id": "column_axial_capacity",
       "name": "Column Axial Capacity",
       "domain": "structural",
-      "description": "Axial load capacity of reinforced concrete column",
-      "formula_expression": "0.8 * (0.85 * f_prime_c * (Ag - Ast) + fy * Ast)",
+      "description": "Tied RC column φ·0.80·Pn0 with ACI-style slenderness reduction (k·lu/r). Result in kN.",
+      "formula_expression": "phi * 0.80 * (0.85 * f_prime_c * (Ag - Ast) + fy * Ast) / 1000.0 * max(0.0, 1.0 - ((k * lu / r) / 40.0) ** 2)",
       "inputs": [
         {"name": "f_prime_c", "type": "float", "unit": "MPa", "required": true, "description": "Concrete compressive strength"},
         {"name": "Ag", "type": "float", "unit": "mm²", "required": true, "description": "Gross column area"},
         {"name": "Ast", "type": "float", "unit": "mm²", "required": true, "description": "Total steel reinforcement area"},
-        {"name": "fy", "type": "float", "unit": "MPa", "required": true, "description": "Steel yield strength"}
+        {"name": "fy", "type": "float", "unit": "MPa", "required": true, "description": "Steel yield strength"},
+        {"name": "phi", "type": "float", "unit": "", "required": false, "default": 0.65, "description": "Strength reduction factor (tied=0.65)"},
+        {"name": "k", "type": "float", "unit": "", "required": true, "description": "Effective length factor"},
+        {"name": "lu", "type": "float", "unit": "mm", "required": true, "description": "Unsupported length"},
+        {"name": "r", "type": "float", "unit": "mm", "required": true, "description": "Radius of gyration"}
       ],
       "outputs": [{"name": "result", "type": "float", "unit": "kN"}],
-      "references": ["ACI 318-19", "Chapter 22"],
-      "tags": ["column", "concrete", "axial", "capacity"]
+      "references": ["ACI 318-19 §22.4", "ACI 318-19 §6.2.5"],
+      "tags": ["column", "concrete", "axial", "capacity", "slenderness"]
     },
     {
       "id": "footing_area",
       "name": "Footing Area Required",
       "domain": "structural",
-      "description": "Required footing area based on load and soil capacity",
-      "formula_expression": "total_load / (soil_pressure * 1000)",
+      "description": "Required footing area based on load and allowable soil pressure (kN / kPa → m²)",
+      "formula_expression": "total_load / soil_pressure",
       "inputs": [
         {"name": "total_load", "type": "float", "unit": "kN", "required": true},
         {"name": "soil_pressure", "type": "float", "unit": "kPa", "required": true}
@@ -210,7 +214,7 @@
       "name": "Live Load Reduction",
       "domain": "structural",
       "description": "Reduced live load per ASCE 7 for large tributary areas",
-      "formula_expression": "L0 * (0.25 + 15 / sqrt(K_LL * At))",
+      "formula_expression": "L0 * min(1.0, 0.25 + 15 / sqrt(K_LL * At))",
       "inputs": [
         {"name": "L0", "type": "float", "unit": "kPa", "required": true, "description": "Unreduced live load"},
         {"name": "K_LL", "type": "float", "unit": "", "required": true, "description": "Live load element factor"},
@@ -406,17 +410,19 @@
       "id": "masonry_wall_capacity",
       "name": "Masonry Wall Axial Capacity",
       "domain": "structural",
-      "description": "Axial capacity of CMU wall per TMS 402",
-      "formula_expression": "0.8 * (0.8 * fm * An + fy * As)",
+      "description": "CMU wall axial capacity per TMS 402 with slenderness [1−(h/140r)²]. Result in kN.",
+      "formula_expression": "0.80 * (0.80 * fm * An + fy * As) / 1000.0 * max(0.0, 1.0 - (h / (140.0 * r)) ** 2)",
       "inputs": [
         {"name": "fm", "type": "float", "unit": "MPa", "required": true, "description": "Masonry compressive strength"},
         {"name": "An", "type": "float", "unit": "mm²", "required": true, "description": "Net area"},
         {"name": "fy", "type": "float", "unit": "MPa", "required": true, "description": "Steel yield strength"},
-        {"name": "As", "type": "float", "unit": "mm²", "required": true, "description": "Steel area"}
+        {"name": "As", "type": "float", "unit": "mm²", "required": true, "description": "Steel area"},
+        {"name": "h", "type": "float", "unit": "mm", "required": true, "description": "Effective wall height"},
+        {"name": "r", "type": "float", "unit": "mm", "required": true, "description": "Radius of gyration"}
       ],
       "outputs": [{"name": "result", "type": "float", "unit": "kN"}],
-      "references": ["TMS 402", "ACI 530"],
-      "tags": ["masonry", "cmu", "wall", "capacity"]
+      "references": ["TMS 402/602", "ACI 530"],
+      "tags": ["masonry", "cmu", "wall", "capacity", "slenderness"]
     },
     {
       "id": "excavation_volume",
@@ -495,8 +501,8 @@
       "id": "fall_arrest_force",
       "name": "Fall Arrest Impact Force",
       "domain": "safety",
-      "description": "Maximum arrest force on worker in fall",
-      "formula_expression": "mass * 9.81 * fall_factor",
+      "description": "Maximum arrest force on worker in fall (compare to MAF ≤ 8 kN)",
+      "formula_expression": "mass * 9.81 * fall_factor / 1000.0",
       "inputs": [
         {"name": "mass", "type": "float", "unit": "kg", "required": true, "description": "Worker mass with tools"},
         {"name": "fall_factor", "type": "float", "unit": "", "required": true, "default": 2.0}
@@ -509,7 +515,8 @@
       "id": "bim_clash_tolerance",
       "name": "BIM Clash Tolerance Check",
       "domain": "vdc",
-      "description": "Check if elements are within clash tolerance",
+      "kind": "reference_table",
+      "description": "Project/BEP clash tolerance check (lookup rule, not a code derivation). Caveat: tolerance is project-specific.",
       "formula_expression": "distance <= tolerance",
       "inputs": [
         {"name": "distance", "type": "float", "unit": "mm", "required": true},
@@ -517,21 +524,22 @@
       ],
       "outputs": [{"name": "result", "type": "bool", "unit": ""}],
       "references": ["BIM Execution Plan", "ISO 19650"],
-      "tags": ["bim", "clash detection", "tolerance"]
+      "tags": ["bim", "clash detection", "tolerance", "reference_table"]
     },
     {
       "id": "laser_scan_accuracy",
       "name": "Laser Scan Point Spacing",
       "domain": "vdc",
-      "description": "Expected point spacing at distance",
-      "formula_expression": "distance * angular_resolution",
+      "kind": "reference_table",
+      "description": "Expected point spacing from vendor angular resolution (lookup estimate). Caveat: scanner-specific.",
+      "formula_expression": "distance * angular_resolution * 1000.0",
       "inputs": [
         {"name": "distance", "type": "float", "unit": "m", "required": true},
         {"name": "angular_resolution", "type": "float", "unit": "rad", "required": true, "default": 0.0003}
       ],
       "outputs": [{"name": "result", "type": "float", "unit": "mm"}],
       "references": ["ASPRS", "3D Imaging"],
-      "tags": ["laser scan", "bim", "accuracy"]
+      "tags": ["laser scan", "bim", "accuracy", "reference_table"]
     },
     {
       "id": "prefab_module_weight",
@@ -551,7 +559,8 @@
       "id": "carbon_footprint_concrete",
       "name": "Concrete Carbon Footprint",
       "domain": "sustainability",
-      "description": "CO2 emissions from concrete production",
+      "kind": "reference_table",
+      "description": "CO2 estimate from cement content × emission factor (EPD/lookup). Caveat: factors are vendor/region specific.",
       "formula_expression": "volume * cement_content * emission_factor",
       "inputs": [
         {"name": "volume", "type": "float", "unit": "m³", "required": true},
@@ -560,13 +569,14 @@
       ],
       "outputs": [{"name": "result", "type": "float", "unit": "kgCO2"}],
       "references": ["EPD", "ISO 14040", "NRMCA"],
-      "tags": ["carbon", "concrete", "sustainability"]
+      "tags": ["carbon", "concrete", "sustainability", "reference_table"]
     },
     {
       "id": "leed_points_estimate",
       "name": "LEED Points Estimate",
       "domain": "sustainability",
-      "description": "Quick estimate of achievable LEED points",
+      "kind": "reference_table",
+      "description": "Quick sum of category points (planning estimate, not a certification oracle). Caveat: project-specific.",
       "formula_expression": "ss_points + we_points + ea_points + mr_points + iq_points + ip_points",
       "inputs": [
         {"name": "ss_points", "type": "float", "unit": "", "required": false, "default": 8},
@@ -578,7 +588,7 @@
       ],
       "outputs": [{"name": "result", "type": "float", "unit": "points"}],
       "references": ["LEED v4.1 BD+C"],
-      "tags": ["leed", "sustainability", "certification"]
+      "tags": ["leed", "sustainability", "certification", "reference_table"]
     }
   ]
 }

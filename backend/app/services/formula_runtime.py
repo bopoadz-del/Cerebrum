@@ -60,14 +60,18 @@ class FormulaDefinition:
     references: List[str] = field(default_factory=list)
     tags: List[str] = field(default_factory=list)
     version: str = "1.0.0"
+    kind: str = "derived"  # derived | reference_table
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> FormulaDefinition:
         """Create FormulaDefinition from dictionary."""
-        inputs = [
-            FormulaInput(**inp) if isinstance(inp, dict) else inp
-            for inp in data.get("inputs", [])
-        ]
+        inputs = []
+        for inp in data.get("inputs", []):
+            if isinstance(inp, dict):
+                allowed = set(FormulaInput.__dataclass_fields__.keys())
+                inputs.append(FormulaInput(**{k: v for k, v in inp.items() if k in allowed}))
+            else:
+                inputs.append(inp)
         outputs = [
             FormulaOutput(**out) if isinstance(out, dict) else out
             for out in data.get("outputs", [])
@@ -84,6 +88,7 @@ class FormulaDefinition:
             references=data.get("references", []),
             tags=data.get("tags", []),
             version=data.get("version", "1.0.0"),
+            kind=data.get("kind", "derived"),
         )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -93,6 +98,7 @@ class FormulaDefinition:
             "name": self.name,
             "domain": self.domain,
             "description": self.description,
+            "kind": self.kind,
             "inputs": [
                 {
                     "name": inp.name,
@@ -407,9 +413,12 @@ def evaluate_formula_by_id(
             "formula_id": formula_id,
         }
     
-    # Validate required inputs
+    # Apply defaults, then validate required inputs
+    merged_inputs: Dict[str, Any] = dict(inputs)
     for inp in formula.inputs:
-        if inp.required and inp.name not in inputs:
+        if inp.name not in merged_inputs and inp.default is not None:
+            merged_inputs[inp.name] = inp.default
+        if inp.required and inp.name not in merged_inputs:
             domain = formula.domain if formula else "unknown"
             FormulaMetrics.record_validation_error("missing_input", domain)
             return {
@@ -418,4 +427,4 @@ def evaluate_formula_by_id(
             }
     
     domain = formula.domain if formula else "unknown"
-    return eval_formula(formula.formula_expression, inputs, formula_id, domain)
+    return eval_formula(formula.formula_expression, merged_inputs, formula_id, domain)
