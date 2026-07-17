@@ -44,6 +44,15 @@ class HeartbeatResponse(BaseModel):
     status: str
 
 
+class HeartbeatDetail(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    received_at: datetime
+    metrics: dict[str, Any]
+    active_model_version: str | None
+
+
 class DeploymentCreate(BaseModel):
     external_id: str = Field(min_length=3, max_length=128)
     model_name: str = Field(min_length=1, max_length=255)

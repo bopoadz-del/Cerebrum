@@ -38,11 +38,17 @@ class EdgeRepository(Protocol):
 
     async def save_heartbeat(self, heartbeat: EdgeHeartbeat) -> EdgeHeartbeat: ...
 
+    async def list_heartbeats(
+        self, device_id: uuid.UUID, *, limit: int = 20
+    ) -> list[EdgeHeartbeat]: ...
+
     async def get_deployment(
         self, tenant_id: uuid.UUID, deployment_id: uuid.UUID
     ) -> EdgeDeployment | None: ...
 
     async def save_deployment(self, deployment: EdgeDeployment) -> EdgeDeployment: ...
+
+    async def list_deployments(self, device_id: uuid.UUID) -> list[EdgeDeployment]: ...
 
     async def commit(self) -> None: ...
 
@@ -99,6 +105,17 @@ class SQLAlchemyEdgeRepository:
         await self.session.flush()
         return heartbeat
 
+    async def list_heartbeats(
+        self, device_id: uuid.UUID, *, limit: int = 20
+    ) -> list[EdgeHeartbeat]:
+        result = await self.session.execute(
+            select(EdgeHeartbeat)
+            .where(EdgeHeartbeat.device_id == device_id)
+            .order_by(EdgeHeartbeat.received_at.desc())
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
     async def get_deployment(
         self, tenant_id: uuid.UUID, deployment_id: uuid.UUID
     ) -> EdgeDeployment | None:
@@ -116,6 +133,14 @@ class SQLAlchemyEdgeRepository:
         self.session.add(deployment)
         await self.session.flush()
         return deployment
+
+    async def list_deployments(self, device_id: uuid.UUID) -> list[EdgeDeployment]:
+        result = await self.session.execute(
+            select(EdgeDeployment)
+            .where(EdgeDeployment.device_id == device_id)
+            .order_by(EdgeDeployment.created_at.desc())
+        )
+        return list(result.scalars().all())
 
     async def commit(self) -> None:
         await self.session.commit()
@@ -192,6 +217,18 @@ class EdgeControlPlaneService:
             if age > device.heartbeat_interval_seconds * 3:
                 device.status = EdgeDeviceStatus.OFFLINE.value
         return devices
+
+    async def list_device_heartbeats(
+        self, tenant_id: uuid.UUID, external_id: str, *, limit: int = 20
+    ) -> list[EdgeHeartbeat]:
+        device = await self._require_device(tenant_id, external_id)
+        return await self.repository.list_heartbeats(device.id, limit=limit)
+
+    async def list_device_deployments(
+        self, tenant_id: uuid.UUID, external_id: str
+    ) -> list[EdgeDeployment]:
+        device = await self._require_device(tenant_id, external_id)
+        return await self.repository.list_deployments(device.id)
 
     async def create_deployment(
         self,

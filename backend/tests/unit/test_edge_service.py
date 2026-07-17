@@ -32,6 +32,11 @@ class InMemoryEdgeRepository:
         self.heartbeats.append(heartbeat)
         return heartbeat
 
+    async def list_heartbeats(self, device_id, *, limit=20):
+        rows = [h for h in self.heartbeats if h.device_id == device_id]
+        rows.sort(key=lambda h: h.received_at or "", reverse=True)
+        return rows[:limit]
+
     async def get_deployment(self, tenant_id, deployment_id):
         deployment = self.deployments.get(deployment_id)
         if deployment is None:
@@ -44,6 +49,9 @@ class InMemoryEdgeRepository:
             deployment.id = uuid.uuid4()
         self.deployments[deployment.id] = deployment
         return deployment
+
+    async def list_deployments(self, device_id):
+        return [d for d in self.deployments.values() if d.device_id == device_id]
 
     async def commit(self):
         return None

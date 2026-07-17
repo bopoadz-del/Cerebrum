@@ -46,6 +46,11 @@ def test_edge_api_happy_path():
         assert devices.status_code == 200
         assert devices.json()[0]["external_id"] == "jetson-a1"
 
+        heartbeats = client.get("/api/v1/edge/devices/jetson-a1/heartbeats")
+        assert heartbeats.status_code == 200
+        assert len(heartbeats.json()) == 1
+        assert heartbeats.json()[0]["metrics"]["temperature_c"] == 52.0
+
         deployment = client.post(
             "/api/v1/edge/deployments",
             json={
@@ -57,6 +62,10 @@ def test_edge_api_happy_path():
         )
         assert deployment.status_code == 201
         deployment_id = deployment.json()["id"]
+
+        listed = client.get("/api/v1/edge/devices/jetson-a1/deployments")
+        assert listed.status_code == 200
+        assert listed.json()[0]["id"] == deployment_id
 
         metrics = client.post(
             f"/api/v1/edge/deployments/{deployment_id}/inference-metrics",

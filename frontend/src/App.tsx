@@ -15,6 +15,7 @@ import {
   HardDrive,
   CheckCircle,
   AlertCircle,
+  Cpu,
 } from 'lucide-react';
 import { useGoogleDrive } from '@/hooks/useGoogleDrive';
 import { ProjectSidebar } from '@/components/ProjectSidebar';
@@ -25,6 +26,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
 import Login from '@/pages/Login';
 import ImagePage from '@/pages/ImagePage';
+import EdgePage from '@/pages/EdgePage';
 import { useProjects } from "@/hooks/useProjects";
 import { MobileLayout } from '@/components/mobile';
 import { cn } from '@/lib/utils';
@@ -36,6 +38,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 // Kimi-style Layout
 function DesktopLayout() {
+  const navigate = useNavigate();
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>('1');
   const [selectedChatId, setSelectedChatId] = useState<string | null>('c1');
   const [showSettings, setShowSettings] = useState(false);
@@ -170,6 +173,17 @@ function DesktopLayout() {
 
           {/* Right controls */}
           <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate('/edge')}
+              className="gap-1.5 text-gray-600"
+              title="Edge devices"
+            >
+              <Cpu className="w-4 h-4" />
+              Edge
+            </Button>
+
             <button
               onClick={() => setRightPanelOpen(!rightPanelOpen)}
               className={cn(
@@ -490,6 +504,14 @@ function AppContent() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/image" element={<ImagePage />} />
+        <Route
+          path="/edge"
+          element={
+            <ProtectedRoute>
+              <EdgePage />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/*"
           element={

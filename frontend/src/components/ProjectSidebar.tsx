@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronRight,
@@ -12,7 +13,8 @@ import {
   Brain,
   Settings,
   LogOut,
-  User
+  User,
+  Cpu,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
@@ -103,6 +105,7 @@ export function ProjectSidebar({
   onOpenSettings,
   getProjectFiles,
 }: ProjectSidebarProps) {
+  const navigate = useNavigate();
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set(['1']));
   const [projectFiles, setProjectFiles] = useState<Record<string, DriveFile[]>>({});
   const [loadingFiles, setLoadingFiles] = useState<Record<string, boolean>>({});
@@ -349,6 +352,15 @@ export function ProjectSidebar({
               <span className="text-xs">Connect Local Drive</span>
             </>
           )}
+        </button>
+
+        {/* Edge devices */}
+        <button
+          onClick={() => navigate('/edge')}
+          className="w-full flex items-center gap-2 px-2 py-2 rounded-md hover:bg-cyan-50 text-gray-700 hover:text-cyan-700 transition-colors"
+        >
+          <Cpu className="w-4 h-4" />
+          <span className="text-xs">Edge devices</span>
         </button>
 
         {/* Settings */}

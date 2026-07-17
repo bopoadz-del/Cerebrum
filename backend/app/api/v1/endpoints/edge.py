@@ -14,6 +14,7 @@ from app.edge.schemas import (
     DeploymentResponse,
     DeviceRegistration,
     DeviceResponse,
+    HeartbeatDetail,
     HeartbeatReport,
     HeartbeatResponse,
     InferenceMetricsReport,
@@ -83,6 +84,43 @@ async def list_devices(
     service: EdgeControlPlaneService = Depends(get_edge_service),
 ) -> list[DeviceResponse]:
     return await service.list_devices(current_user.tenant_id)
+
+
+@router.get(
+    "/devices/{external_id}/heartbeats",
+    response_model=list[HeartbeatDetail],
+)
+async def list_device_heartbeats(
+    external_id: str,
+    limit: int = 20,
+    current_user: User = Depends(get_current_user),
+    service: EdgeControlPlaneService = Depends(get_edge_service),
+) -> list[HeartbeatDetail]:
+    if limit < 1 or limit > 100:
+        raise HTTPException(status_code=400, detail="limit must be between 1 and 100")
+    try:
+        return await service.list_device_heartbeats(
+            current_user.tenant_id, external_id, limit=limit
+        )
+    except DeviceNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Edge device not found") from exc
+
+
+@router.get(
+    "/devices/{external_id}/deployments",
+    response_model=list[DeploymentResponse],
+)
+async def list_device_deployments(
+    external_id: str,
+    current_user: User = Depends(get_current_user),
+    service: EdgeControlPlaneService = Depends(get_edge_service),
+) -> list[DeploymentResponse]:
+    try:
+        return await service.list_device_deployments(
+            current_user.tenant_id, external_id
+        )
+    except DeviceNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Edge device not found") from exc
 
 
 @router.post(
