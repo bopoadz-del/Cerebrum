@@ -3,25 +3,85 @@ Oracle gating tests for the construction formula library.
 
 Every formula in initial_library.json must have a hand-derived scenario in
 oracle_scenarios.json. Coverage guard fails CI if any library ID is missing.
+
+Imports formula_runtime via an isolated loader to avoid app.services side effects.
 """
 
 from __future__ import annotations
 
+import importlib.util
 import json
+import sys
 from pathlib import Path
 from typing import Any, Dict, List
 
 import pytest
 
-from app.services.formula_runtime import (
-    clear_formula_cache,
-    evaluate_formula_by_id,
-    get_formulas,
-)
-
 BACKEND = Path(__file__).resolve().parents[2]
 LIBRARY_PATH = BACKEND / "data" / "formulas" / "initial_library.json"
 ORACLE_PATH = BACKEND / "data" / "formulas" / "oracle_scenarios.json"
+RUNTIME_PATH = BACKEND / "app" / "services" / "formula_runtime.py"
+
+
+def _load_runtime():
+    """Load formula_runtime without importing app.services.__init__."""
+    if "app.services.formula_runtime" in sys.modules:
+        return sys.modules["app.services.formula_runtime"]
+
+    import types
+
+    sys.path.insert(0, str(BACKEND))
+
+    if "app" not in sys.modules or not getattr(sys.modules["app"], "__path__", None):
+        app_pkg = types.ModuleType("app")
+        app_pkg.__path__ = [str(BACKEND / "app")]
+        sys.modules["app"] = app_pkg
+    if "app.monitoring" not in sys.modules:
+        mon = types.ModuleType("app.monitoring")
+        mon.__path__ = [str(BACKEND / "app" / "monitoring")]
+        sys.modules["app.monitoring"] = mon
+    if "app.monitoring.metrics" not in sys.modules:
+        try:
+            import importlib
+
+            sys.modules["app.monitoring.metrics"] = importlib.import_module(
+                "app.monitoring.metrics"
+            )
+        except Exception:
+            metrics_mod = types.ModuleType("app.monitoring.metrics")
+
+            class FormulaMetrics:
+                @staticmethod
+                def record_validation_error(*_a, **_k):
+                    pass
+
+                @staticmethod
+                def record_execution(*_a, **_k):
+                    pass
+
+            metrics_mod.FormulaMetrics = FormulaMetrics
+            sys.modules["app.monitoring.metrics"] = metrics_mod
+
+    if "app.services" not in sys.modules:
+        pkg = types.ModuleType("app.services")
+        pkg.__path__ = [str(BACKEND / "app" / "services")]
+        sys.modules["app.services"] = pkg
+
+    spec = importlib.util.spec_from_file_location(
+        "app.services.formula_runtime",
+        RUNTIME_PATH,
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["app.services.formula_runtime"] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+fr = _load_runtime()
+clear_formula_cache = fr.clear_formula_cache
+evaluate_formula_by_id = fr.evaluate_formula_by_id
+get_formulas = fr.get_formulas
 
 
 @pytest.fixture(autouse=True)
