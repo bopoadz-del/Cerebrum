@@ -1,64 +1,54 @@
-# Formula Verification Table — Cerebrum
+# Formula Verification Table
 
-One row per formula in `backend/data/formulas/initial_library.json` for operator
-one-by-one sign-off. Each row lists the exact oracle inputs, the hand-derived
-expected value, the governing clause, and the status of the CI gate.
+One row per library formula for operator one-by-one sign-off.
+Each row lists the oracle inputs, hand-derived expected value, governing clause, and status.
 
-Oracle scenarios live in `backend/data/formulas/oracle_scenarios.json`.
-Tests: `backend/tests/unit/test_formula_oracles.py` (coverage guard + per-formula oracles).
+Status legend: **GATED** = implemented + oracle test green + covered by the coverage guard.
+Sign-off column is for the operator (`OK` / notes).
 
-**Status legend:** **GATED** = implemented + oracle test green + covered by the
-coverage guard. **Sign-off** is for the operator (`OK` / notes).
+Library: `backend/data/formulas/initial_library.json` v2.1.0
+Oracles: `backend/data/formulas/oracle_scenarios.json`
+Tests: `backend/tests/unit/test_formula_oracles.py`
 
-**Kind:** `derived` = engineering expression; `reference_table` = cited lookup /
-planning estimate (not a code derivation). Caveats are in the library description.
-
-| Formula | Code | Kind | Inputs | Oracle | Clause | Status | Sign-off |
+| Formula | Kind | Code | Inputs | Oracle | Clause | Status | Sign-off |
 |---------|------|------|--------|--------|--------|--------|----------|
-| concrete_volume | geometry | derived | L=10, W=5, H=0.3 m | **15.0 m³** | geometry | GATED | |
-| rebar_weight | BS 8666 | derived | d=16 mm, L=12 m | **18.93888 kg** | d²·0.006165 | GATED | |
-| beam_moment_simple | statics | derived | w=20 kN/m, L=6 m | **90.0 kN·m** | wL²/8 | GATED | |
-| beam_moment_point_load | statics | derived | P=50 kN, L=6 m | **75.0 kN·m** | PL/4 | GATED | |
-| beam_shear_simple | statics | derived | w=20 kN/m, L=6 m | **60.0 kN** | wL/2 | GATED | |
-| beam_deflection_simple | statics | derived | w=10, L=5000, E=200000, I=8.33e7 (mm units) | **4.884766** | 5wL⁴/(384EI) | GATED | |
-| column_axial_capacity | ACI | derived | fc=30, Ag=90000, Ast=3600, fy=420, φ=0.65, k=1, lu=3000, r=150 | **1448.928 kN** | ACI 318-19 §22.4 + (k·lu/r)/40 | GATED | |
-| footing_area | IBC | derived | P=2000 kN, q=200 kPa | **10.0 m²** | A=P/q | GATED | |
-| slab_thickness_min | ACI | derived | span=5600 mm | **200.0 mm** | ACI 318-19 Tbl 7.3.1.1 L/28 | GATED | |
-| steel_tension_capacity | AISC | derived | Fy=345, Ag=3000 | **1035.0 kN** | AISC 360 Ch D | GATED | |
-| bolt_shear_capacity | AISC | derived | Fnv=372, Ab=380 | **84.816 kN** | AISC 360 §J3.6 | GATED | |
-| weld_capacity | AISC | derived | Fexx=490, size=6 | **1.247148 kN/mm** | AISC 360 §J2.4 | GATED | |
-| wind_pressure | ASCE | derived | q=1500, G=0.85, Cp=0.8, qi=1500, GCpi=0.18 | **750.0 Pa** | ASCE 7 Ch 27 | GATED | |
-| seismic_base_shear | ASCE | derived | Cs=0.125, W=10000 | **1250.0 kN** | ASCE 7 §12.8 | GATED | |
-| live_load_reduction | ASCE | derived | L0=4.79, KLL=4, At=40 | **4.79 kPa** (capped ≤ L0) | ASCE 7 §4.7 | GATED | |
-| roi_calculator | finance | derived | gain=150000, cost=100000 | **50.0 %** | ROI definition | GATED | |
-| unit_cost_total | cost | derived | unit_price=125.5, qty=40 | **5020.0** | unit pricing | GATED | |
-| cost_per_sf | cost | derived | total=2.5e6, area=10000 | **250.0** | cost/area | GATED | |
-| earned_value_cv | PMBOK | derived | EV=100000, AC=95000 | **5000.0** | CV=EV−AC | GATED | |
-| earned_value_sv | PMBOK | derived | EV=100000, PV=110000 | **-10000.0** | SV=EV−PV | GATED | |
-| earned_value_spi | PMBOK | derived | EV=100000, PV=110000 | **0.909091** | SPI=EV/PV | GATED | |
-| earned_value_cpi | PMBOK | derived | EV=100000, AC=95000 | **1.052632** | CPI=EV/AC | GATED | |
-| critical_path_float | CPM | derived | LS=12, ES=8 | **4.0 days** | TF=LS−ES | GATED | |
-| productivity_rate | productivity | derived | qty=80, crew=4, hours=8 | **2.5** | qty/(crew·hours) | GATED | |
-| concrete_cylinders | ASTM | derived | [32.1, 33.0, 31.5] MPa | **32.2 MPa** | ASTM C39 average | GATED | |
-| soil_bearing_pressure | IBC | derived | load=2000 kN, area=10 m² | **200.0 kPa** | q=P/A | GATED | |
-| rebar_lap_length | ACI | derived | fy=420, db=16, fc=30 | **584.237395 mm** | ACI 318-19 §25.5 simplified | GATED | |
-| concrete_shrinkage | ACI | derived | fc=35 | **0.00078** | ACI 209R form | GATED | |
-| masonry_wall_capacity | TMS | derived | fm=13.8, An=76000, fy=420, As=600, h=2800, r=50 | **733.17888 kN** | TMS 402 [1−(h/140r)²] | GATED | |
-| excavation_volume | geometry | derived | 20×10×3 m | **600.0 m³** | geometry | GATED | |
-| backfill_volume | earthwork | derived | loose=480, shrink=0.15 | **417.391304 m³** | compaction shrink | GATED | |
-| concrete_curing_time | ACI | derived | target=30, 7day=21 | **14.285714 days** | ACI 308 estimate | GATED | |
-| crane_lift_capacity | OSHA | derived | rated=200, load=120, rigging=5, hook=10 | **65.0 kN** | capacity remainder | GATED | |
-| scaffold_load_capacity | OSHA | derived | duty=2.4 kPa, area=12 m² | **28.8 kN** | OSHA 1926.451 | GATED | |
-| fall_arrest_force | OSHA | derived | mass=100 kg, FF=2 | **1.962 kN** | ANSI Z359 F=mg·FF | GATED | |
-| bim_clash_tolerance | ISO 19650 | reference_table | distance=20, tol=25 mm | **True** | BEP clash rule | GATED | |
-| laser_scan_accuracy | ASPRS | reference_table | d=10 m, θ=0.0003 rad | **3.0 mm** | spacing=d·θ | GATED | |
-| prefab_module_weight | logistics | derived | V=12 m³, ρ=2400 | **28800 kg** | m=Vρ | GATED | |
-| carbon_footprint_concrete | ISO 14040 | reference_table | V=100, cement=350, EF=0.9 | **31500 kgCO2** | EPD factor | GATED | |
-| leed_points_estimate | LEED | reference_table | SS8+WE6+EA12+MR6+IQ8+IP4 | **44 points** | category sum | GATED | |
-
-## Gate checklist
-
-1. Oracle scenario exists for every `initial_library.json` id.
-2. `pytest backend/tests/unit/test_formula_oracles.py` green.
-3. Column / masonry expressions include slenderness inputs (not short-column-only fakes).
-4. Reference-table formulas carry `kind: reference_table` plus caveat in description.
+| concrete_volume | derived | geometry | length=10, width=5, height=0.3 | **15** | geometry | GATED | |
+| rebar_weight | derived | bs | diameter=16, length=12 | **18.9389** | BS 8666 bar mass (approx) | GATED | |
+| beam_moment_simple | derived | statics | load=20, span=6 | **90** | statics wL^2/8 | GATED | |
+| beam_moment_point_load | derived | statics | load=50, span=6 | **75** | statics PL/4 | GATED | |
+| beam_shear_simple | derived | statics | load=20, span=6 | **60** | statics wL/2 | GATED | |
+| beam_deflection_simple | derived | statics | load=20.0, span=6.0, E=200000.0, I=150000000.0 | **11.25** | elastic UDL deflection (consistent mm units) | GATED | |
+| column_axial_capacity | derived | aci | f_prime_c=30.0, Ag=90000.0, Ast=1800.0, fy=420.0, k=1.0, lu=3000.0, r=75.0 | **1435.09** | ACI 318-19 §22.4 + slenderness R=1-(k·lu/(140r))^2 | GATED | |
+| footing_area | derived | aci | total_load=1500, soil_pressure=200 | **7.5** | A=P/q | GATED | |
+| slab_thickness_min | derived | aci | span=8400 | **300** | ACI 318-19 Table 7.3.1.1 L/28 (SS one-way) | GATED | |
+| steel_tension_capacity | derived | aisc | Fy=345, Ag=3000 | **1035** | AISC 360 Ch. D (yield on Ag) | GATED | |
+| bolt_shear_capacity | derived | aisc | Fnv=372, Ab=380 | **84.816** | AISC 360 §J3.6 (simplified Rn=Fn*Ab) | GATED | |
+| weld_capacity | derived | aisc | Fexx=490, size=6 | **1.24715** | AISC 360 §J2.4 fillet throat | GATED | |
+| wind_pressure | derived | asce | q=1200, G=0.85, Cp=0.8, qi=1000, GCpi=0.18 | **636** | ASCE 7 Ch. 27 form p=qGCp-qi(GCpi) | GATED | |
+| seismic_base_shear | derived | asce | Cs=0.125, W=10000 | **1250** | ASCE 7 §12.8.1 V=CsW | GATED | |
+| live_load_reduction | derived | asce | L0=4.79, K_LL=4.0, At=400.0 | **2.99375** | ASCE 7 §4.7.2 (factor capped at 1.0) | GATED | |
+| roi_calculator | derived | finance | gain=150000, cost=100000 | **50** | ROI=((gain-cost)/cost)*100 | GATED | |
+| unit_cost_total | derived | cost | unit_price=125.5, quantity=40 | **5020** | unit×qty | GATED | |
+| cost_per_sf | derived | cost | total_cost=2500000, area=12500 | **200** | total/area | GATED | |
+| earned_value_cv | derived | pmbok | EV=500000, AC=520000 | **-20000** | PMBOK CV=EV-AC | GATED | |
+| earned_value_sv | derived | pmbok | EV=500000, PV=480000 | **20000** | PMBOK SV=EV-PV | GATED | |
+| earned_value_spi | derived | pmbok | EV=500000, PV=480000 | **1.04167** | PMBOK SPI=EV/PV | GATED | |
+| earned_value_cpi | derived | pmbok | EV=500000, AC=520000 | **0.961538** | PMBOK CPI=EV/AC | GATED | |
+| critical_path_float | derived | pmbok | LS=12, ES=8 | **4** | CPM TF=LS-ES | GATED | |
+| productivity_rate | derived | cost | quantity=120, crew_size=4, hours=8 | **3.75** | qty/(crew*hours) | GATED | |
+| concrete_cylinders | derived | astm | cylinders=[32.1, 33.4, 31.8] | **32.4333** | ASTM C39 average | GATED | |
+| soil_bearing_pressure | derived | aci | load=1500, area=7.5 | **200** | q=P/A | GATED | |
+| rebar_lap_length | derived | aci | fy=420.0, db=16.0, f_prime_c=30.0 | **584.237** | ACI 318-19 §25.5 (simplified ld form) | GATED | |
+| concrete_shrinkage | derived | aci | f_prime_c=30 | **0.00072214** | ACI 209R shrinkage strain form | GATED | |
+| masonry_wall_capacity | derived | tms | fm=13.8, An=100000.0, As=0.0, Fs=0.0, h=3000.0, thickness=200.0 | **297.474** | TMS 402 §8.2/§8.3 with R=1-(h/140r)^2 | GATED | |
+| excavation_volume | derived | geometry | length=20, width=10, depth=3 | **600** | geometry | GATED | |
+| backfill_volume | derived | geometry | loose_volume=480, shrinkage_factor=0.2 | **400** | compacted=loose/(1+shrink) | GATED | |
+| concrete_curing_time | derived | aci | f_prime_c_target=30, f_prime_c_7day=21 | **14.2857** | ACI 308 strength-time estimate | GATED | |
+| crane_lift_capacity | derived | osha | rated_capacity=200, load_weight=120, rigging=5, hook_block=10 | **65** | OSHA/CPCS net capacity | GATED | |
+| scaffold_load_capacity | derived | osha | duty_rating=2.4, platform_area=10 | **24** | OSHA 1926.451 duty×area | GATED | |
+| fall_arrest_force | derived | osha | mass=100, fall_factor=2.0 | **1.962** | ANSI Z359 / OSHA MAF context | GATED | |
+| bim_clash_tolerance | reference_table | reference_table | distance=20, tolerance=25 | **True** | BIM Execution Plan clash rule | GATED | |
+| laser_scan_accuracy | reference_table | reference_table | distance=50, angular_resolution=0.0003 | **15** | ASPRS / scanner datasheet | GATED | |
+| prefab_module_weight | derived | geometry | volume=12, density=2400 | **28800** | mass=V*rho | GATED | |
+| carbon_footprint_concrete | reference_table | reference_table | volume=10, cement_content=350, emission_factor=0.9 | **3150** | EPD / ISO 14040 factor lookup | GATED | |
+| leed_points_estimate | reference_table | reference_table | ss_points=8, we_points=6, ea_points=12, mr_points=6, iq_points=8, ip_points=4 | **44** | LEED v4.1 BD+C category sum | GATED | |
