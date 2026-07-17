@@ -41,6 +41,7 @@ from app.models.conversation_session import ConversationSession  # noqa
 from app.models.message import Message, FileUpload  # noqa
 from app.models.document import Document, DocumentChunk  # noqa
 from app.models.integration import IntegrationToken  # noqa
+from app.edge.models import EdgeDeployment, EdgeDevice, EdgeHeartbeat  # noqa
 
 target_metadata = Base.metadata
 
