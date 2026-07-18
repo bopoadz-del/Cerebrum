@@ -2,8 +2,9 @@
 Cerebrum AI - Construction Intelligence Platform
 Main FastAPI application entry point.
 
-Under GitHub Actions uvicorn smoke tests, loads a minimal app so health probes
- succeed within the workflow's fixed startup window (no workflow file edit needed).
+Under GitHub Actions Backend CI, load lean apps for smoke-test / security-tests
+so uvicorn binds within the workflow's fixed sleep window (workflow edits need
+`workflow` OAuth scope and cannot be pushed from this token).
 """
 
 from __future__ import annotations
@@ -12,16 +13,20 @@ import os
 import sys
 
 
-def _use_smoke_entry() -> bool:
-    return (
-        os.getenv("GITHUB_ACTIONS") == "true"
-        and os.getenv("GITHUB_JOB") == "smoke-test"
-        and any("uvicorn" in str(arg) for arg in sys.argv)
-    )
+def _github_ci_job() -> str | None:
+    if os.getenv("GITHUB_ACTIONS") != "true":
+        return None
+    if not any("uvicorn" in str(arg) for arg in sys.argv):
+        return None
+    return os.getenv("GITHUB_JOB")
 
 
-if _use_smoke_entry():
+_ci_job = _github_ci_job()
+
+if _ci_job == "smoke-test":
     from app.smoke_app import app
+elif _ci_job == "security-tests":
+    from app.ci_security_app import app
 else:
     from app.full_application import app, create_application
 
