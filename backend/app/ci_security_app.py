@@ -12,6 +12,7 @@ from app.api.v1.endpoints import admin, auth, dejavu
 from app.core.config import settings
 from app.core.logging import configure_logging, get_logger
 from app.db.base_class import Base
+from app.db.redis import redis_manager
 from app.db.session import db_manager
 from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.models.audit import AuditLog  # noqa: F401 — User.audit_logs relationship
@@ -29,8 +30,17 @@ async def ci_security_lifespan(app: FastAPI):
         await conn.run_sync(Base.metadata.create_all)
     async with db_manager.async_session_factory() as session:
         await session.execute(text("SELECT 1"))
+    try:
+        await redis_manager.initialize()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("CI security Redis init failed", error=str(exc))
+        raise
     logger.info("CI security app ready", version=settings.APP_VERSION)
     yield
+    try:
+        await redis_manager.close()
+    except Exception:  # noqa: BLE001
+        pass
     await db_manager.close()
 
 
