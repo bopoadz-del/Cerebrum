@@ -13,8 +13,10 @@ import sys
 
 
 def _use_smoke_entry() -> bool:
-    return os.getenv("GITHUB_ACTIONS") == "true" and any(
-        "uvicorn" in str(arg) for arg in sys.argv
+    return (
+        os.getenv("GITHUB_ACTIONS") == "true"
+        and os.getenv("GITHUB_JOB") == "smoke-test"
+        and any("uvicorn" in str(arg) for arg in sys.argv)
     )
 
 
