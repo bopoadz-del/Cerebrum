@@ -14,7 +14,9 @@ from app.core.logging import configure_logging, get_logger
 from app.db.base_class import Base
 from app.db.session import db_manager
 from app.middleware.security_headers import SecurityHeadersMiddleware
+from app.models.audit import AuditLog  # noqa: F401 — User.audit_logs relationship
 from app.models.user import User  # noqa: F401 — register metadata
+from app.executor.models import FormulaExecutionLog  # noqa: F401 — User.formula_executions
 
 configure_logging()
 logger = get_logger(__name__)
