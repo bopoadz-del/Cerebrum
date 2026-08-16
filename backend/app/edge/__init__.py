@@ -1,8 +1,4 @@
-"""Compatibility surface for the edge control plane.
-
-The previous in-memory registry defined SQLAlchemy tables that collided with the
-persistent control-plane schema. Callers should use `EdgeControlPlaneService`.
-"""
+"""Edge control plane package."""
 
 from app.edge.models import EdgeDeployment, EdgeDevice, EdgeDeviceStatus, EdgeDeploymentStatus
 from app.edge.service import EdgeControlPlaneService

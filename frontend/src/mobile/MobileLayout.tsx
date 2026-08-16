@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Folder, 
   MessageSquare, 
   BarChart3,
   Brain,
-  Settings
+  Settings,
+  Cpu,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ProjectsTab } from './ProjectsTab';
@@ -29,6 +31,7 @@ const TABS: Tab[] = [
 ];
 
 export function MobileLayout() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TabId>('chat');
   const [showSettings, setShowSettings] = useState(false);
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
@@ -216,6 +219,21 @@ export function MobileLayout() {
                     </div>
                   </div>
                   
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowSettings(false);
+                      navigate('/edge');
+                    }}
+                    className="w-full p-4 bg-gray-50 rounded-xl flex items-center justify-between active:bg-gray-100 transition-colors"
+                  >
+                    <span className="font-medium text-gray-900 inline-flex items-center gap-2">
+                      <Cpu className="w-4 h-4 text-cyan-600" />
+                      Edge devices
+                    </span>
+                    <span className="text-gray-400">→</span>
+                  </button>
+
                   <button className="w-full p-4 bg-gray-50 rounded-xl flex items-center justify-between active:bg-gray-100 transition-colors">
                     <span className="font-medium text-gray-900">Account</span>
                     <span className="text-gray-400">→</span>
