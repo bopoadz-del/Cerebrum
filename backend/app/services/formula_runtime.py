@@ -61,6 +61,7 @@ class FormulaDefinition:
     tags: List[str] = field(default_factory=list)
     version: str = "1.0.0"
     kind: str = "derived"  # derived | reference_table
+    note: str = ""
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> FormulaDefinition:
@@ -76,7 +77,7 @@ class FormulaDefinition:
             FormulaOutput(**out) if isinstance(out, dict) else out
             for out in data.get("outputs", [])
         ]
-        
+
         return cls(
             id=data["id"],
             name=data["name"],
@@ -89,11 +90,12 @@ class FormulaDefinition:
             tags=data.get("tags", []),
             version=data.get("version", "1.0.0"),
             kind=data.get("kind", "derived"),
+            note=data.get("note", ""),
         )
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary (excludes expression for security if needed)."""
-        return {
+        payload = {
             "id": self.id,
             "name": self.name,
             "domain": self.domain,
@@ -117,6 +119,9 @@ class FormulaDefinition:
             "tags": self.tags,
             "version": self.version,
         }
+        if self.note:
+            payload["note"] = self.note
+        return payload
 
 
 # =============================================================================
