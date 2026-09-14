@@ -1,6 +1,6 @@
 {
-  "version": "2.0.0",
-  "description": "Complete Construction Engineering Formula Library for Cerebrum AI",
+  "version": "2.1.0",
+  "description": "Construction engineering formula library for Cerebrum AI (gated oracles in oracle_scenarios.json)",
   "formulas": [
     {
       "id": "concrete_volume",
@@ -9,13 +9,41 @@
       "description": "Calculate concrete volume for rectangular elements",
       "formula_expression": "length * width * height",
       "inputs": [
-        {"name": "length", "type": "float", "unit": "m", "required": true},
-        {"name": "width", "type": "float", "unit": "m", "required": true},
-        {"name": "height", "type": "float", "unit": "m", "required": true}
+        {
+          "name": "length",
+          "type": "float",
+          "unit": "m",
+          "required": true
+        },
+        {
+          "name": "width",
+          "type": "float",
+          "unit": "m",
+          "required": true
+        },
+        {
+          "name": "height",
+          "type": "float",
+          "unit": "m",
+          "required": true
+        }
       ],
-      "outputs": [{"name": "result", "type": "float", "unit": "m³"}],
-      "references": ["ACI 318", "ASTM C94"],
-      "tags": ["concrete", "volume", "materials"]
+      "outputs": [
+        {
+          "name": "result",
+          "type": "float",
+          "unit": "m³"
+        }
+      ],
+      "references": [
+        "ACI 318",
+        "ASTM C94"
+      ],
+      "tags": [
+        "concrete",
+        "volume",
+        "materials"
+      ]
     },
     {
       "id": "rebar_weight",
@@ -24,12 +52,36 @@
       "description": "Calculate weight of reinforcing steel bars",
       "formula_expression": "(diameter ** 2) * 0.006165 * length",
       "inputs": [
-        {"name": "diameter", "type": "float", "unit": "mm", "required": true},
-        {"name": "length", "type": "float", "unit": "m", "required": true}
+        {
+          "name": "diameter",
+          "type": "float",
+          "unit": "mm",
+          "required": true
+        },
+        {
+          "name": "length",
+          "type": "float",
+          "unit": "m",
+          "required": true
+        }
       ],
-      "outputs": [{"name": "result", "type": "float", "unit": "kg"}],
-      "references": ["ASTM A615", "BS 4449"],
-      "tags": ["steel", "rebar", "weight", "materials"]
+      "outputs": [
+        {
+          "name": "result",
+          "type": "float",
+          "unit": "kg"
+        }
+      ],
+      "references": [
+        "ASTM A615",
+        "BS 4449"
+      ],
+      "tags": [
+        "steel",
+        "rebar",
+        "weight",
+        "materials"
+      ]
     },
     {
       "id": "beam_moment_simple",
@@ -38,12 +90,36 @@
       "description": "Maximum bending moment for simply supported beam with uniform load",
       "formula_expression": "(load * span ** 2) / 8",
       "inputs": [
-        {"name": "load", "type": "float", "unit": "kN/m", "required": true},
-        {"name": "span", "type": "float", "unit": "m", "required": true}
+        {
+          "name": "load",
+          "type": "float",
+          "unit": "kN/m",
+          "required": true
+        },
+        {
+          "name": "span",
+          "type": "float",
+          "unit": "m",
+          "required": true
+        }
       ],
-      "outputs": [{"name": "result", "type": "float", "unit": "kN·m"}],
-      "references": ["AISC Steel Construction Manual", "Timoshenko"],
-      "tags": ["beam", "moment", "structural", "load"]
+      "outputs": [
+        {
+          "name": "result",
+          "type": "float",
+          "unit": "kN·m"
+        }
+      ],
+      "references": [
+        "AISC Steel Construction Manual",
+        "Timoshenko"
+      ],
+      "tags": [
+        "beam",
+        "moment",
+        "structural",
+        "load"
+      ]
     },
     {
       "id": "beam_moment_point_load",
@@ -52,12 +128,35 @@
       "description": "Maximum moment for simply supported beam with center point load",
       "formula_expression": "(load * span) / 4",
       "inputs": [
-        {"name": "load", "type": "float", "unit": "kN", "required": true},
-        {"name": "span", "type": "float", "unit": "m", "required": true}
+        {
+          "name": "load",
+          "type": "float",
+          "unit": "kN",
+          "required": true
+        },
+        {
+          "name": "span",
+          "type": "float",
+          "unit": "m",
+          "required": true
+        }
       ],
-      "outputs": [{"name": "result", "type": "float", "unit": "kN·m"}],
-      "references": ["AISC Manual", "ASCE 7"],
-      "tags": ["beam", "moment", "point load"]
+      "outputs": [
+        {
+          "name": "result",
+          "type": "float",
+          "unit": "kN·m"
+        }
+      ],
+      "references": [
+        "AISC Manual",
+        "ASCE 7"
+      ],
+      "tags": [
+        "beam",
+        "moment",
+        "point load"
+      ]
     },
     {
       "id": "beam_shear_simple",
@@ -66,62 +165,199 @@
       "description": "Maximum shear force for simply supported beam with UDL",
       "formula_expression": "(load * span) / 2",
       "inputs": [
-        {"name": "load", "type": "float", "unit": "kN/m", "required": true},
-        {"name": "span", "type": "float", "unit": "m", "required": true}
+        {
+          "name": "load",
+          "type": "float",
+          "unit": "kN/m",
+          "required": true
+        },
+        {
+          "name": "span",
+          "type": "float",
+          "unit": "m",
+          "required": true
+        }
       ],
-      "outputs": [{"name": "result", "type": "float", "unit": "kN"}],
-      "references": ["AISC Manual"],
-      "tags": ["beam", "shear", "force"]
+      "outputs": [
+        {
+          "name": "result",
+          "type": "float",
+          "unit": "kN"
+        }
+      ],
+      "references": [
+        "AISC Manual"
+      ],
+      "tags": [
+        "beam",
+        "shear",
+        "force"
+      ]
     },
     {
       "id": "beam_deflection_simple",
       "name": "Beam Deflection (UDL)",
       "domain": "structural",
-      "description": "Maximum deflection for simply supported beam with uniform load",
-      "formula_expression": "(5 * load * span ** 4) / (384 * E * I)",
+      "description": "Max UDL deflection; load in kN/m, span in m, E in MPa, I in mm^4 → mm",
+      "formula_expression": "(5 * load * (span * 1000) ** 4) / (384 * E * I)",
       "inputs": [
-        {"name": "load", "type": "float", "unit": "kN/m", "required": true},
-        {"name": "span", "type": "float", "unit": "m", "required": true},
-        {"name": "E", "type": "float", "unit": "MPa", "required": true, "description": "Modulus of elasticity"},
-        {"name": "I", "type": "float", "unit": "mm⁴", "required": true, "description": "Moment of inertia"}
+        {
+          "name": "load",
+          "type": "float",
+          "unit": "kN/m",
+          "required": true
+        },
+        {
+          "name": "span",
+          "type": "float",
+          "unit": "m",
+          "required": true
+        },
+        {
+          "name": "E",
+          "type": "float",
+          "unit": "MPa",
+          "required": true,
+          "description": "Modulus of elasticity"
+        },
+        {
+          "name": "I",
+          "type": "float",
+          "unit": "mm⁴",
+          "required": true,
+          "description": "Moment of inertia"
+        }
       ],
-      "outputs": [{"name": "result", "type": "float", "unit": "mm"}],
-      "references": ["AISC Manual", "ASCE 7"],
-      "tags": ["beam", "deflection", "serviceability"]
+      "outputs": [
+        {
+          "name": "result",
+          "type": "float",
+          "unit": "mm"
+        }
+      ],
+      "references": [
+        "AISC Manual",
+        "ASCE 7"
+      ],
+      "tags": [
+        "beam",
+        "deflection",
+        "serviceability"
+      ]
     },
     {
       "id": "column_axial_capacity",
       "name": "Column Axial Capacity",
       "domain": "structural",
-      "description": "Tied RC column φ·0.80·Pn0 with ACI-style slenderness reduction (k·lu/r). Result in kN.",
-      "formula_expression": "phi * 0.80 * (0.85 * f_prime_c * (Ag - Ast) + fy * Ast) / 1000.0 * max(0.0, 1.0 - ((k * lu / r) / 40.0) ** 2)",
+      "description": "Tied RC column axial design capacity (ACI 318-19) with slenderness reduction R=1-(k*lu/(140*r))^2; result in kN",
+      "formula_expression": "0.65 * 0.80 * (0.85 * f_prime_c * (Ag - Ast) + fy * Ast) / 1000 * max(0.0, 1.0 - (k * lu / (140.0 * r)) ** 2)",
       "inputs": [
-        {"name": "f_prime_c", "type": "float", "unit": "MPa", "required": true, "description": "Concrete compressive strength"},
-        {"name": "Ag", "type": "float", "unit": "mm²", "required": true, "description": "Gross column area"},
-        {"name": "Ast", "type": "float", "unit": "mm²", "required": true, "description": "Total steel reinforcement area"},
-        {"name": "fy", "type": "float", "unit": "MPa", "required": true, "description": "Steel yield strength"},
-        {"name": "phi", "type": "float", "unit": "", "required": false, "default": 0.65, "description": "Strength reduction factor (tied=0.65)"},
-        {"name": "k", "type": "float", "unit": "", "required": true, "description": "Effective length factor"},
-        {"name": "lu", "type": "float", "unit": "mm", "required": true, "description": "Unsupported length"},
-        {"name": "r", "type": "float", "unit": "mm", "required": true, "description": "Radius of gyration"}
+        {
+          "name": "f_prime_c",
+          "type": "float",
+          "unit": "MPa",
+          "required": true,
+          "description": "Concrete compressive strength"
+        },
+        {
+          "name": "Ag",
+          "type": "float",
+          "unit": "mm^2",
+          "required": true,
+          "description": "Gross column area"
+        },
+        {
+          "name": "Ast",
+          "type": "float",
+          "unit": "mm^2",
+          "required": true,
+          "description": "Total longitudinal steel area"
+        },
+        {
+          "name": "fy",
+          "type": "float",
+          "unit": "MPa",
+          "required": true,
+          "description": "Steel yield strength"
+        },
+        {
+          "name": "k",
+          "type": "float",
+          "unit": "",
+          "required": true,
+          "description": "Effective length factor",
+          "default": 1.0
+        },
+        {
+          "name": "lu",
+          "type": "float",
+          "unit": "mm",
+          "required": true,
+          "description": "Unsupported length"
+        },
+        {
+          "name": "r",
+          "type": "float",
+          "unit": "mm",
+          "required": true,
+          "description": "Radius of gyration"
+        }
       ],
-      "outputs": [{"name": "result", "type": "float", "unit": "kN"}],
-      "references": ["ACI 318-19 §22.4", "ACI 318-19 §6.2.5"],
-      "tags": ["column", "concrete", "axial", "capacity", "slenderness"]
+      "outputs": [
+        {
+          "name": "result",
+          "type": "float",
+          "unit": "kN"
+        }
+      ],
+      "references": [
+        "ACI 318-19 §22.4",
+        "ACI 318-19 §6.2 (slenderness)"
+      ],
+      "tags": [
+        "column",
+        "concrete",
+        "axial",
+        "capacity",
+        "slenderness"
+      ]
     },
     {
       "id": "footing_area",
       "name": "Footing Area Required",
       "domain": "structural",
-      "description": "Required footing area based on load and allowable soil pressure (kN / kPa → m²)",
+      "description": "Required footing area = total_load(kN) / soil_pressure(kPa) → m^2",
       "formula_expression": "total_load / soil_pressure",
       "inputs": [
-        {"name": "total_load", "type": "float", "unit": "kN", "required": true},
-        {"name": "soil_pressure", "type": "float", "unit": "kPa", "required": true}
+        {
+          "name": "total_load",
+          "type": "float",
+          "unit": "kN",
+          "required": true
+        },
+        {
+          "name": "soil_pressure",
+          "type": "float",
+          "unit": "kPa",
+          "required": true
+        }
       ],
-      "outputs": [{"name": "result", "type": "float", "unit": "m²"}],
-      "references": ["ACI 318", "IBC Chapter 18"],
-      "tags": ["footing", "foundation", "soil"]
+      "outputs": [
+        {
+          "name": "result",
+          "type": "float",
+          "unit": "m²"
+        }
+      ],
+      "references": [
+        "ACI 318",
+        "IBC Chapter 18"
+      ],
+      "tags": [
+        "footing",
+        "foundation",
+        "soil"
+      ]
     },
     {
       "id": "slab_thickness_min",
@@ -130,11 +366,29 @@
       "description": "Minimum slab thickness per ACI 318 for deflection control",
       "formula_expression": "span / 28",
       "inputs": [
-        {"name": "span", "type": "float", "unit": "mm", "required": true, "description": "Clear span length"}
+        {
+          "name": "span",
+          "type": "float",
+          "unit": "mm",
+          "required": true,
+          "description": "Clear span length"
+        }
       ],
-      "outputs": [{"name": "result", "type": "float", "unit": "mm"}],
-      "references": ["ACI 318-19 Table 7.3.1.1"],
-      "tags": ["slab", "thickness", "deflection"]
+      "outputs": [
+        {
+          "name": "result",
+          "type": "float",
+          "unit": "mm"
+        }
+      ],
+      "references": [
+        "ACI 318-19 Table 7.3.1.1"
+      ],
+      "tags": [
+        "slab",
+        "thickness",
+        "deflection"
+      ]
     },
     {
       "id": "steel_tension_capacity",
@@ -143,12 +397,36 @@
       "description": "Tensile capacity of steel member",
       "formula_expression": "Fy * Ag / 1000",
       "inputs": [
-        {"name": "Fy", "type": "float", "unit": "MPa", "required": true, "description": "Yield strength"},
-        {"name": "Ag", "type": "float", "unit": "mm²", "required": true, "description": "Gross area"}
+        {
+          "name": "Fy",
+          "type": "float",
+          "unit": "MPa",
+          "required": true,
+          "description": "Yield strength"
+        },
+        {
+          "name": "Ag",
+          "type": "float",
+          "unit": "mm²",
+          "required": true,
+          "description": "Gross area"
+        }
       ],
-      "outputs": [{"name": "result", "type": "float", "unit": "kN"}],
-      "references": ["AISC 360 Chapter D"],
-      "tags": ["steel", "tension", "capacity"]
+      "outputs": [
+        {
+          "name": "result",
+          "type": "float",
+          "unit": "kN"
+        }
+      ],
+      "references": [
+        "AISC 360 Chapter D"
+      ],
+      "tags": [
+        "steel",
+        "tension",
+        "capacity"
+      ]
     },
     {
       "id": "bolt_shear_capacity",
@@ -157,12 +435,36 @@
       "description": "Nominal shear capacity of single bolt",
       "formula_expression": "0.6 * Fnv * Ab / 1000",
       "inputs": [
-        {"name": "Fnv", "type": "float", "unit": "MPa", "required": true, "description": "Nominal shear stress"},
-        {"name": "Ab", "type": "float", "unit": "mm²", "required": true, "description": "Bolt cross-sectional area"}
+        {
+          "name": "Fnv",
+          "type": "float",
+          "unit": "MPa",
+          "required": true,
+          "description": "Nominal shear stress"
+        },
+        {
+          "name": "Ab",
+          "type": "float",
+          "unit": "mm²",
+          "required": true,
+          "description": "Bolt cross-sectional area"
+        }
       ],
-      "outputs": [{"name": "result", "type": "float", "unit": "kN"}],
-      "references": ["AISC 360 Chapter J"],
-      "tags": ["bolt", "shear", "connection"]
+      "outputs": [
+        {
+          "name": "result",
+          "type": "float",
+          "unit": "kN"
+        }
+      ],
+      "references": [
+        "AISC 360 Chapter J"
+      ],
+      "tags": [
+        "bolt",
+        "shear",
+        "connection"
+      ]
     },
     {
       "id": "weld_capacity",
@@ -171,12 +473,36 @@
       "description": "Strength of fillet weld per unit length",
       "formula_expression": "0.6 * Fexx * 0.707 * size / 1000",
       "inputs": [
-        {"name": "Fexx", "type": "float", "unit": "MPa", "required": true, "description": "Electrode strength"},
-        {"name": "size", "type": "float", "unit": "mm", "required": true, "description": "Weld leg size"}
+        {
+          "name": "Fexx",
+          "type": "float",
+          "unit": "MPa",
+          "required": true,
+          "description": "Electrode strength"
+        },
+        {
+          "name": "size",
+          "type": "float",
+          "unit": "mm",
+          "required": true,
+          "description": "Weld leg size"
+        }
       ],
-      "outputs": [{"name": "result", "type": "float", "unit": "kN/mm"}],
-      "references": ["AISC 360 Chapter J"],
-      "tags": ["weld", "connection", "strength"]
+      "outputs": [
+        {
+          "name": "result",
+          "type": "float",
+          "unit": "kN/mm"
+        }
+      ],
+      "references": [
+        "AISC 360 Chapter J"
+      ],
+      "tags": [
+        "weld",
+        "connection",
+        "strength"
+      ]
     },
     {
       "id": "wind_pressure",
@@ -185,15 +511,59 @@
       "description": "Design wind pressure on building surfaces",
       "formula_expression": "q * G * Cp - qi * (GCpi)",
       "inputs": [
-        {"name": "q", "type": "float", "unit": "Pa", "required": true, "description": "Velocity pressure"},
-        {"name": "G", "type": "float", "unit": "", "required": true, "description": "Gust factor", "default": 0.85},
-        {"name": "Cp", "type": "float", "unit": "", "required": true, "description": "External pressure coefficient"},
-        {"name": "qi", "type": "float", "unit": "Pa", "required": true, "description": "Internal velocity pressure"},
-        {"name": "GCpi", "type": "float", "unit": "", "required": true, "description": "Internal pressure coefficient", "default": 0.18}
+        {
+          "name": "q",
+          "type": "float",
+          "unit": "Pa",
+          "required": true,
+          "description": "Velocity pressure"
+        },
+        {
+          "name": "G",
+          "type": "float",
+          "unit": "",
+          "required": true,
+          "description": "Gust factor",
+          "default": 0.85
+        },
+        {
+          "name": "Cp",
+          "type": "float",
+          "unit": "",
+          "required": true,
+          "description": "External pressure coefficient"
+        },
+        {
+          "name": "qi",
+          "type": "float",
+          "unit": "Pa",
+          "required": true,
+          "description": "Internal velocity pressure"
+        },
+        {
+          "name": "GCpi",
+          "type": "float",
+          "unit": "",
+          "required": true,
+          "description": "Internal pressure coefficient",
+          "default": 0.18
+        }
       ],
-      "outputs": [{"name": "result", "type": "float", "unit": "Pa"}],
-      "references": ["ASCE 7-22 Chapter 27"],
-      "tags": ["wind", "pressure", "loads"]
+      "outputs": [
+        {
+          "name": "result",
+          "type": "float",
+          "unit": "Pa"
+        }
+      ],
+      "references": [
+        "ASCE 7-22 Chapter 27"
+      ],
+      "tags": [
+        "wind",
+        "pressure",
+        "loads"
+      ]
     },
     {
       "id": "seismic_base_shear",
@@ -202,27 +572,81 @@
       "description": "Total seismic base shear per ASCE 7",
       "formula_expression": "Cs * W",
       "inputs": [
-        {"name": "Cs", "type": "float", "unit": "", "required": true, "description": "Seismic response coefficient"},
-        {"name": "W", "type": "float", "unit": "kN", "required": true, "description": "Total seismic weight"}
+        {
+          "name": "Cs",
+          "type": "float",
+          "unit": "",
+          "required": true,
+          "description": "Seismic response coefficient"
+        },
+        {
+          "name": "W",
+          "type": "float",
+          "unit": "kN",
+          "required": true,
+          "description": "Total seismic weight"
+        }
       ],
-      "outputs": [{"name": "result", "type": "float", "unit": "kN"}],
-      "references": ["ASCE 7-22 Chapter 12"],
-      "tags": ["seismic", "earthquake", "shear"]
+      "outputs": [
+        {
+          "name": "result",
+          "type": "float",
+          "unit": "kN"
+        }
+      ],
+      "references": [
+        "ASCE 7-22 Chapter 12"
+      ],
+      "tags": [
+        "seismic",
+        "earthquake",
+        "shear"
+      ]
     },
     {
       "id": "live_load_reduction",
       "name": "Live Load Reduction",
       "domain": "structural",
-      "description": "Reduced live load per ASCE 7 for large tributary areas",
+      "description": "ASCE 7 live-load reduction; factor capped at 1.0",
       "formula_expression": "L0 * min(1.0, 0.25 + 15 / sqrt(K_LL * At))",
       "inputs": [
-        {"name": "L0", "type": "float", "unit": "kPa", "required": true, "description": "Unreduced live load"},
-        {"name": "K_LL", "type": "float", "unit": "", "required": true, "description": "Live load element factor"},
-        {"name": "At", "type": "float", "unit": "m²", "required": true, "description": "Tributary area"}
+        {
+          "name": "L0",
+          "type": "float",
+          "unit": "kPa",
+          "required": true,
+          "description": "Unreduced live load"
+        },
+        {
+          "name": "K_LL",
+          "type": "float",
+          "unit": "",
+          "required": true,
+          "description": "Live load element factor"
+        },
+        {
+          "name": "At",
+          "type": "float",
+          "unit": "m²",
+          "required": true,
+          "description": "Tributary area"
+        }
       ],
-      "outputs": [{"name": "result", "type": "float", "unit": "kPa"}],
-      "references": ["ASCE 7-22 Section 4.7"],
-      "tags": ["live load", "reduction", "loads"]
+      "outputs": [
+        {
+          "name": "result",
+          "type": "float",
+          "unit": "kPa"
+        }
+      ],
+      "references": [
+        "ASCE 7-22 Section 4.7"
+      ],
+      "tags": [
+        "live load",
+        "reduction",
+        "loads"
+      ]
     },
     {
       "id": "roi_calculator",
@@ -231,12 +655,35 @@
       "description": "Return on investment percentage",
       "formula_expression": "((gain - cost) / cost) * 100",
       "inputs": [
-        {"name": "gain", "type": "float", "unit": "currency", "required": true},
-        {"name": "cost", "type": "float", "unit": "currency", "required": true}
+        {
+          "name": "gain",
+          "type": "float",
+          "unit": "currency",
+          "required": true
+        },
+        {
+          "name": "cost",
+          "type": "float",
+          "unit": "currency",
+          "required": true
+        }
       ],
-      "outputs": [{"name": "result", "type": "float", "unit": "%"}],
-      "references": ["GAAP", "IFRS"],
-      "tags": ["finance", "roi", "investment"]
+      "outputs": [
+        {
+          "name": "result",
+          "type": "float",
+          "unit": "%"
+        }
+      ],
+      "references": [
+        "GAAP",
+        "IFRS"
+      ],
+      "tags": [
+        "finance",
+        "roi",
+        "investment"
+      ]
     },
     {
       "id": "unit_cost_total",
@@ -245,12 +692,35 @@
       "description": "Total cost from unit price and quantity",
       "formula_expression": "unit_price * quantity",
       "inputs": [
-        {"name": "unit_price", "type": "float", "unit": "currency", "required": true},
-        {"name": "quantity", "type": "float", "unit": "ea", "required": true}
+        {
+          "name": "unit_price",
+          "type": "float",
+          "unit": "currency",
+          "required": true
+        },
+        {
+          "name": "quantity",
+          "type": "float",
+          "unit": "ea",
+          "required": true
+        }
       ],
-      "outputs": [{"name": "result", "type": "float", "unit": "currency"}],
-      "references": ["RS Means", "CostWorks"],
-      "tags": ["cost", "estimation", "pricing"]
+      "outputs": [
+        {
+          "name": "result",
+          "type": "float",
+          "unit": "currency"
+        }
+      ],
+      "references": [
+        "RS Means",
+        "CostWorks"
+      ],
+      "tags": [
+        "cost",
+        "estimation",
+        "pricing"
+      ]
     },
     {
       "id": "cost_per_sf",
@@ -259,12 +729,34 @@
       "description": "Building cost per square foot",
       "formula_expression": "total_cost / area",
       "inputs": [
-        {"name": "total_cost", "type": "float", "unit": "currency", "required": true},
-        {"name": "area", "type": "float", "unit": "SF", "required": true}
+        {
+          "name": "total_cost",
+          "type": "float",
+          "unit": "currency",
+          "required": true
+        },
+        {
+          "name": "area",
+          "type": "float",
+          "unit": "SF",
+          "required": true
+        }
       ],
-      "outputs": [{"name": "result", "type": "float", "unit": "currency/SF"}],
-      "references": ["RS Means Building Cost Data"],
-      "tags": ["cost", "sf", "building"]
+      "outputs": [
+        {
+          "name": "result",
+          "type": "float",
+          "unit": "currency/SF"
+        }
+      ],
+      "references": [
+        "RS Means Building Cost Data"
+      ],
+      "tags": [
+        "cost",
+        "sf",
+        "building"
+      ]
     },
     {
       "id": "earned_value_cv",
@@ -273,12 +765,37 @@
       "description": "Earned value cost variance",
       "formula_expression": "EV - AC",
       "inputs": [
-        {"name": "EV", "type": "float", "unit": "currency", "required": true, "description": "Earned Value"},
-        {"name": "AC", "type": "float", "unit": "currency", "required": true, "description": "Actual Cost"}
+        {
+          "name": "EV",
+          "type": "float",
+          "unit": "currency",
+          "required": true,
+          "description": "Earned Value"
+        },
+        {
+          "name": "AC",
+          "type": "float",
+          "unit": "currency",
+          "required": true,
+          "description": "Actual Cost"
+        }
       ],
-      "outputs": [{"name": "result", "type": "float", "unit": "currency"}],
-      "references": ["PMBOK", "Earned Value Management"],
-      "tags": ["evm", "earned value", "variance"]
+      "outputs": [
+        {
+          "name": "result",
+          "type": "float",
+          "unit": "currency"
+        }
+      ],
+      "references": [
+        "PMBOK",
+        "Earned Value Management"
+      ],
+      "tags": [
+        "evm",
+        "earned value",
+        "variance"
+      ]
     },
     {
       "id": "earned_value_sv",
@@ -287,12 +804,37 @@
       "description": "Earned value schedule variance",
       "formula_expression": "EV - PV",
       "inputs": [
-        {"name": "EV", "type": "float", "unit": "currency", "required": true, "description": "Earned Value"},
-        {"name": "PV", "type": "float", "unit": "currency", "required": true, "description": "Planned Value"}
+        {
+          "name": "EV",
+          "type": "float",
+          "unit": "currency",
+          "required": true,
+          "description": "Earned Value"
+        },
+        {
+          "name": "PV",
+          "type": "float",
+          "unit": "currency",
+          "required": true,
+          "description": "Planned Value"
+        }
       ],
-      "outputs": [{"name": "result", "type": "float", "unit": "currency"}],
-      "references": ["PMBOK", "Earned Value Management"],
-      "tags": ["evm", "schedule", "variance"]
+      "outputs": [
+        {
+          "name": "result",
+          "type": "float",
+          "unit": "currency"
+        }
+      ],
+      "references": [
+        "PMBOK",
+        "Earned Value Management"
+      ],
+      "tags": [
+        "evm",
+        "schedule",
+        "variance"
+      ]
     },
     {
       "id": "earned_value_spi",
@@ -301,12 +843,34 @@
       "description": "SPI = EV / PV",
       "formula_expression": "EV / PV",
       "inputs": [
-        {"name": "EV", "type": "float", "unit": "currency", "required": true},
-        {"name": "PV", "type": "float", "unit": "currency", "required": true}
+        {
+          "name": "EV",
+          "type": "float",
+          "unit": "currency",
+          "required": true
+        },
+        {
+          "name": "PV",
+          "type": "float",
+          "unit": "currency",
+          "required": true
+        }
       ],
-      "outputs": [{"name": "result", "type": "float", "unit": ""}],
-      "references": ["PMBOK"],
-      "tags": ["evm", "spi", "performance"]
+      "outputs": [
+        {
+          "name": "result",
+          "type": "float",
+          "unit": ""
+        }
+      ],
+      "references": [
+        "PMBOK"
+      ],
+      "tags": [
+        "evm",
+        "spi",
+        "performance"
+      ]
     },
     {
       "id": "earned_value_cpi",
@@ -315,12 +879,34 @@
       "description": "CPI = EV / AC",
       "formula_expression": "EV / AC",
       "inputs": [
-        {"name": "EV", "type": "float", "unit": "currency", "required": true},
-        {"name": "AC", "type": "float", "unit": "currency", "required": true}
+        {
+          "name": "EV",
+          "type": "float",
+          "unit": "currency",
+          "required": true
+        },
+        {
+          "name": "AC",
+          "type": "float",
+          "unit": "currency",
+          "required": true
+        }
       ],
-      "outputs": [{"name": "result", "type": "float", "unit": ""}],
-      "references": ["PMBOK"],
-      "tags": ["evm", "cpi", "performance"]
+      "outputs": [
+        {
+          "name": "result",
+          "type": "float",
+          "unit": ""
+        }
+      ],
+      "references": [
+        "PMBOK"
+      ],
+      "tags": [
+        "evm",
+        "cpi",
+        "performance"
+      ]
     },
     {
       "id": "critical_path_float",
@@ -329,12 +915,37 @@
       "description": "Activity total float in CPM schedule",
       "formula_expression": "LS - ES",
       "inputs": [
-        {"name": "LS", "type": "float", "unit": "days", "required": true, "description": "Late Start"},
-        {"name": "ES", "type": "float", "unit": "days", "required": true, "description": "Early Start"}
+        {
+          "name": "LS",
+          "type": "float",
+          "unit": "days",
+          "required": true,
+          "description": "Late Start"
+        },
+        {
+          "name": "ES",
+          "type": "float",
+          "unit": "days",
+          "required": true,
+          "description": "Early Start"
+        }
       ],
-      "outputs": [{"name": "result", "type": "float", "unit": "days"}],
-      "references": ["PMBOK", "CPM Scheduling"],
-      "tags": ["cpm", "float", "schedule"]
+      "outputs": [
+        {
+          "name": "result",
+          "type": "float",
+          "unit": "days"
+        }
+      ],
+      "references": [
+        "PMBOK",
+        "CPM Scheduling"
+      ],
+      "tags": [
+        "cpm",
+        "float",
+        "schedule"
+      ]
     },
     {
       "id": "productivity_rate",
@@ -343,13 +954,42 @@
       "description": "Work output per labor hour",
       "formula_expression": "quantity / (crew_size * hours)",
       "inputs": [
-        {"name": "quantity", "type": "float", "unit": "ea", "required": true, "description": "Work completed"},
-        {"name": "crew_size", "type": "float", "unit": "workers", "required": true},
-        {"name": "hours", "type": "float", "unit": "hours", "required": true}
+        {
+          "name": "quantity",
+          "type": "float",
+          "unit": "ea",
+          "required": true,
+          "description": "Work completed"
+        },
+        {
+          "name": "crew_size",
+          "type": "float",
+          "unit": "workers",
+          "required": true
+        },
+        {
+          "name": "hours",
+          "type": "float",
+          "unit": "hours",
+          "required": true
+        }
       ],
-      "outputs": [{"name": "result", "type": "float", "unit": "ea/worker-hour"}],
-      "references": ["RS Means", "Construction Productivity"],
-      "tags": ["productivity", "labor", "efficiency"]
+      "outputs": [
+        {
+          "name": "result",
+          "type": "float",
+          "unit": "ea/worker-hour"
+        }
+      ],
+      "references": [
+        "RS Means",
+        "Construction Productivity"
+      ],
+      "tags": [
+        "productivity",
+        "labor",
+        "efficiency"
+      ]
     },
     {
       "id": "concrete_cylinders",
@@ -358,11 +998,30 @@
       "description": "Average of concrete cylinder breaks",
       "formula_expression": "sum(cylinders) / len(cylinders)",
       "inputs": [
-        {"name": "cylinders", "type": "array", "unit": "MPa", "required": true, "description": "Array of break strengths"}
+        {
+          "name": "cylinders",
+          "type": "array",
+          "unit": "MPa",
+          "required": true,
+          "description": "Array of break strengths"
+        }
       ],
-      "outputs": [{"name": "result", "type": "float", "unit": "MPa"}],
-      "references": ["ASTM C39", "ACI 318"],
-      "tags": ["concrete", "testing", "strength"]
+      "outputs": [
+        {
+          "name": "result",
+          "type": "float",
+          "unit": "MPa"
+        }
+      ],
+      "references": [
+        "ASTM C39",
+        "ACI 318"
+      ],
+      "tags": [
+        "concrete",
+        "testing",
+        "strength"
+      ]
     },
     {
       "id": "soil_bearing_pressure",
@@ -371,12 +1030,37 @@
       "description": "Actual bearing pressure under footing",
       "formula_expression": "load / area",
       "inputs": [
-        {"name": "load", "type": "float", "unit": "kN", "required": true, "description": "Total applied load"},
-        {"name": "area", "type": "float", "unit": "m²", "required": true, "description": "Footing area"}
+        {
+          "name": "load",
+          "type": "float",
+          "unit": "kN",
+          "required": true,
+          "description": "Total applied load"
+        },
+        {
+          "name": "area",
+          "type": "float",
+          "unit": "m²",
+          "required": true,
+          "description": "Footing area"
+        }
       ],
-      "outputs": [{"name": "result", "type": "float", "unit": "kPa"}],
-      "references": ["IBC 1807", "ACI 318"],
-      "tags": ["soil", "bearing", "foundation"]
+      "outputs": [
+        {
+          "name": "result",
+          "type": "float",
+          "unit": "kPa"
+        }
+      ],
+      "references": [
+        "IBC 1807",
+        "ACI 318"
+      ],
+      "tags": [
+        "soil",
+        "bearing",
+        "foundation"
+      ]
     },
     {
       "id": "rebar_lap_length",
@@ -385,13 +1069,43 @@
       "description": "Required lap length for rebar splicing",
       "formula_expression": "(fy * db) / (2.1 * sqrt(f_prime_c))",
       "inputs": [
-        {"name": "fy", "type": "float", "unit": "MPa", "required": true, "description": "Steel yield strength"},
-        {"name": "db", "type": "float", "unit": "mm", "required": true, "description": "Bar diameter"},
-        {"name": "f_prime_c", "type": "float", "unit": "MPa", "required": true, "description": "Concrete strength"}
+        {
+          "name": "fy",
+          "type": "float",
+          "unit": "MPa",
+          "required": true,
+          "description": "Steel yield strength"
+        },
+        {
+          "name": "db",
+          "type": "float",
+          "unit": "mm",
+          "required": true,
+          "description": "Bar diameter"
+        },
+        {
+          "name": "f_prime_c",
+          "type": "float",
+          "unit": "MPa",
+          "required": true,
+          "description": "Concrete strength"
+        }
       ],
-      "outputs": [{"name": "result", "type": "float", "unit": "mm"}],
-      "references": ["ACI 318-19 Section 25.5"],
-      "tags": ["rebar", "lap", "splice"]
+      "outputs": [
+        {
+          "name": "result",
+          "type": "float",
+          "unit": "mm"
+        }
+      ],
+      "references": [
+        "ACI 318-19 Section 25.5"
+      ],
+      "tags": [
+        "rebar",
+        "lap",
+        "splice"
+      ]
     },
     {
       "id": "concrete_shrinkage",
@@ -400,29 +1114,100 @@
       "description": "Drying shrinkage strain per ACI 209",
       "formula_expression": "780e-6 * (f_prime_c / 35) ** 0.5",
       "inputs": [
-        {"name": "f_prime_c", "type": "float", "unit": "MPa", "required": true, "description": "28-day concrete strength"}
+        {
+          "name": "f_prime_c",
+          "type": "float",
+          "unit": "MPa",
+          "required": true,
+          "description": "28-day concrete strength"
+        }
       ],
-      "outputs": [{"name": "result", "type": "float", "unit": "mm/mm"}],
-      "references": ["ACI 209R", "ACI 318-19"],
-      "tags": ["concrete", "shrinkage", "strain"]
+      "outputs": [
+        {
+          "name": "result",
+          "type": "float",
+          "unit": "mm/mm"
+        }
+      ],
+      "references": [
+        "ACI 209R",
+        "ACI 318-19"
+      ],
+      "tags": [
+        "concrete",
+        "shrinkage",
+        "strain"
+      ]
     },
     {
       "id": "masonry_wall_capacity",
       "name": "Masonry Wall Axial Capacity",
       "domain": "structural",
-      "description": "CMU wall axial capacity per TMS 402 with slenderness [1−(h/140r)²]. Result in kN.",
-      "formula_expression": "0.80 * (0.80 * fm * An + fy * As) / 1000.0 * max(0.0, 1.0 - (h / (140.0 * r)) ** 2)",
+      "description": "CMU wall axial capacity per TMS 402 with slenderness R=1-(h/(140*r))^2 where r=t/sqrt(12)",
+      "formula_expression": "(0.25 * fm * An + 0.65 * As * Fs) / 1000 * max(0.0, 1.0 - (h / (140.0 * (thickness / (12 ** 0.5)))) ** 2)",
       "inputs": [
-        {"name": "fm", "type": "float", "unit": "MPa", "required": true, "description": "Masonry compressive strength"},
-        {"name": "An", "type": "float", "unit": "mm²", "required": true, "description": "Net area"},
-        {"name": "fy", "type": "float", "unit": "MPa", "required": true, "description": "Steel yield strength"},
-        {"name": "As", "type": "float", "unit": "mm²", "required": true, "description": "Steel area"},
-        {"name": "h", "type": "float", "unit": "mm", "required": true, "description": "Effective wall height"},
-        {"name": "r", "type": "float", "unit": "mm", "required": true, "description": "Radius of gyration"}
+        {
+          "name": "fm",
+          "type": "float",
+          "unit": "MPa",
+          "required": true,
+          "description": "Masonry compressive strength f'm"
+        },
+        {
+          "name": "An",
+          "type": "float",
+          "unit": "mm^2",
+          "required": true,
+          "description": "Net area"
+        },
+        {
+          "name": "As",
+          "type": "float",
+          "unit": "mm^2",
+          "required": true,
+          "description": "Vertical steel area",
+          "default": 0.0
+        },
+        {
+          "name": "Fs",
+          "type": "float",
+          "unit": "MPa",
+          "required": true,
+          "description": "Allowable steel stress",
+          "default": 0.0
+        },
+        {
+          "name": "h",
+          "type": "float",
+          "unit": "mm",
+          "required": true,
+          "description": "Wall height"
+        },
+        {
+          "name": "thickness",
+          "type": "float",
+          "unit": "mm",
+          "required": true,
+          "description": "Wall thickness"
+        }
       ],
-      "outputs": [{"name": "result", "type": "float", "unit": "kN"}],
-      "references": ["TMS 402/602", "ACI 530"],
-      "tags": ["masonry", "cmu", "wall", "capacity", "slenderness"]
+      "outputs": [
+        {
+          "name": "result",
+          "type": "float",
+          "unit": "kN"
+        }
+      ],
+      "references": [
+        "TMS 402 §8.2/§8.3"
+      ],
+      "tags": [
+        "masonry",
+        "cmu",
+        "wall",
+        "capacity",
+        "slenderness"
+      ]
     },
     {
       "id": "excavation_volume",
@@ -431,13 +1216,40 @@
       "description": "Volume of soil to be excavated",
       "formula_expression": "length * width * depth",
       "inputs": [
-        {"name": "length", "type": "float", "unit": "m", "required": true},
-        {"name": "width", "type": "float", "unit": "m", "required": true},
-        {"name": "depth", "type": "float", "unit": "m", "required": true}
+        {
+          "name": "length",
+          "type": "float",
+          "unit": "m",
+          "required": true
+        },
+        {
+          "name": "width",
+          "type": "float",
+          "unit": "m",
+          "required": true
+        },
+        {
+          "name": "depth",
+          "type": "float",
+          "unit": "m",
+          "required": true
+        }
       ],
-      "outputs": [{"name": "result", "type": "float", "unit": "m³"}],
-      "references": ["Earthwork Estimating"],
-      "tags": ["excavation", "earthwork", "volume"]
+      "outputs": [
+        {
+          "name": "result",
+          "type": "float",
+          "unit": "m³"
+        }
+      ],
+      "references": [
+        "Earthwork Estimating"
+      ],
+      "tags": [
+        "excavation",
+        "earthwork",
+        "volume"
+      ]
     },
     {
       "id": "backfill_volume",
@@ -446,12 +1258,35 @@
       "description": "Compacted backfill volume accounting for shrinkage",
       "formula_expression": "loose_volume / (1 + shrinkage_factor)",
       "inputs": [
-        {"name": "loose_volume", "type": "float", "unit": "m³", "required": true},
-        {"name": "shrinkage_factor", "type": "float", "unit": "", "required": true, "default": 0.15}
+        {
+          "name": "loose_volume",
+          "type": "float",
+          "unit": "m³",
+          "required": true
+        },
+        {
+          "name": "shrinkage_factor",
+          "type": "float",
+          "unit": "",
+          "required": true,
+          "default": 0.15
+        }
       ],
-      "outputs": [{"name": "result", "type": "float", "unit": "m³"}],
-      "references": ["Earthwork Estimating"],
-      "tags": ["backfill", "earthwork", "compaction"]
+      "outputs": [
+        {
+          "name": "result",
+          "type": "float",
+          "unit": "m³"
+        }
+      ],
+      "references": [
+        "Earthwork Estimating"
+      ],
+      "tags": [
+        "backfill",
+        "earthwork",
+        "compaction"
+      ]
     },
     {
       "id": "concrete_curing_time",
@@ -460,12 +1295,37 @@
       "description": "Minimum curing time based on temperature",
       "formula_expression": "(f_prime_c_target / f_prime_c_7day) ** 2 * 7",
       "inputs": [
-        {"name": "f_prime_c_target", "type": "float", "unit": "MPa", "required": true, "description": "Target strength"},
-        {"name": "f_prime_c_7day", "type": "float", "unit": "MPa", "required": true, "description": "7-day strength"}
+        {
+          "name": "f_prime_c_target",
+          "type": "float",
+          "unit": "MPa",
+          "required": true,
+          "description": "Target strength"
+        },
+        {
+          "name": "f_prime_c_7day",
+          "type": "float",
+          "unit": "MPa",
+          "required": true,
+          "description": "7-day strength"
+        }
       ],
-      "outputs": [{"name": "result", "type": "float", "unit": "days"}],
-      "references": ["ACI 308", "ACI 318"],
-      "tags": ["concrete", "curing", "time"]
+      "outputs": [
+        {
+          "name": "result",
+          "type": "float",
+          "unit": "days"
+        }
+      ],
+      "references": [
+        "ACI 308",
+        "ACI 318"
+      ],
+      "tags": [
+        "concrete",
+        "curing",
+        "time"
+      ]
     },
     {
       "id": "crane_lift_capacity",
@@ -474,14 +1334,49 @@
       "description": "Available crane capacity after deductions",
       "formula_expression": "rated_capacity - (load_weight + rigging + hook_block)",
       "inputs": [
-        {"name": "rated_capacity", "type": "float", "unit": "kN", "required": true},
-        {"name": "load_weight", "type": "float", "unit": "kN", "required": true},
-        {"name": "rigging", "type": "float", "unit": "kN", "required": true, "default": 5},
-        {"name": "hook_block", "type": "float", "unit": "kN", "required": true, "default": 10}
+        {
+          "name": "rated_capacity",
+          "type": "float",
+          "unit": "kN",
+          "required": true
+        },
+        {
+          "name": "load_weight",
+          "type": "float",
+          "unit": "kN",
+          "required": true
+        },
+        {
+          "name": "rigging",
+          "type": "float",
+          "unit": "kN",
+          "required": true,
+          "default": 5
+        },
+        {
+          "name": "hook_block",
+          "type": "float",
+          "unit": "kN",
+          "required": true,
+          "default": 10
+        }
       ],
-      "outputs": [{"name": "result", "type": "float", "unit": "kN"}],
-      "references": ["OSHA 1926", "CPCS"],
-      "tags": ["crane", "lift", "safety"]
+      "outputs": [
+        {
+          "name": "result",
+          "type": "float",
+          "unit": "kN"
+        }
+      ],
+      "references": [
+        "OSHA 1926",
+        "CPCS"
+      ],
+      "tags": [
+        "crane",
+        "lift",
+        "safety"
+      ]
     },
     {
       "id": "scaffold_load_capacity",
@@ -490,26 +1385,75 @@
       "description": "Maximum allowable scaffold loading",
       "formula_expression": "duty_rating * platform_area",
       "inputs": [
-        {"name": "duty_rating", "type": "float", "unit": "kPa", "required": true, "description": "Light=1.2, Medium=2.4, Heavy=3.6, Special=7.2"},
-        {"name": "platform_area", "type": "float", "unit": "m²", "required": true}
+        {
+          "name": "duty_rating",
+          "type": "float",
+          "unit": "kPa",
+          "required": true,
+          "description": "Light=1.2, Medium=2.4, Heavy=3.6, Special=7.2"
+        },
+        {
+          "name": "platform_area",
+          "type": "float",
+          "unit": "m²",
+          "required": true
+        }
       ],
-      "outputs": [{"name": "result", "type": "float", "unit": "kN"}],
-      "references": ["OSHA 1926.451", "ANSI A10.8"],
-      "tags": ["scaffold", "safety", "load"]
+      "outputs": [
+        {
+          "name": "result",
+          "type": "float",
+          "unit": "kN"
+        }
+      ],
+      "references": [
+        "OSHA 1926.451",
+        "ANSI A10.8"
+      ],
+      "tags": [
+        "scaffold",
+        "safety",
+        "load"
+      ]
     },
     {
       "id": "fall_arrest_force",
       "name": "Fall Arrest Impact Force",
       "domain": "safety",
-      "description": "Maximum arrest force on worker in fall (compare to MAF ≤ 8 kN)",
-      "formula_expression": "mass * 9.81 * fall_factor / 1000.0",
+      "description": "Peak arrest force estimate (N→kN); compare to MAF limit 8 kN (ANSI/OSHA)",
+      "formula_expression": "mass * 9.81 * fall_factor / 1000",
       "inputs": [
-        {"name": "mass", "type": "float", "unit": "kg", "required": true, "description": "Worker mass with tools"},
-        {"name": "fall_factor", "type": "float", "unit": "", "required": true, "default": 2.0}
+        {
+          "name": "mass",
+          "type": "float",
+          "unit": "kg",
+          "required": true,
+          "description": "Worker mass with tools"
+        },
+        {
+          "name": "fall_factor",
+          "type": "float",
+          "unit": "",
+          "required": true,
+          "default": 2.0
+        }
       ],
-      "outputs": [{"name": "result", "type": "float", "unit": "kN"}],
-      "references": ["OSHA 1926.502", "ANSI Z359"],
-      "tags": ["fall protection", "safety", "force"]
+      "outputs": [
+        {
+          "name": "result",
+          "type": "float",
+          "unit": "kN"
+        }
+      ],
+      "references": [
+        "OSHA 1926.502",
+        "ANSI Z359"
+      ],
+      "tags": [
+        "fall protection",
+        "safety",
+        "force"
+      ]
     },
     {
       "id": "bim_clash_tolerance",
@@ -519,27 +1463,79 @@
       "description": "Project/BEP clash tolerance check (lookup rule, not a code derivation). Caveat: tolerance is project-specific.",
       "formula_expression": "distance <= tolerance",
       "inputs": [
-        {"name": "distance", "type": "float", "unit": "mm", "required": true},
-        {"name": "tolerance", "type": "float", "unit": "mm", "required": true, "default": 25}
+        {
+          "name": "distance",
+          "type": "float",
+          "unit": "mm",
+          "required": true
+        },
+        {
+          "name": "tolerance",
+          "type": "float",
+          "unit": "mm",
+          "required": true,
+          "default": 25
+        }
       ],
-      "outputs": [{"name": "result", "type": "bool", "unit": ""}],
-      "references": ["BIM Execution Plan", "ISO 19650"],
-      "tags": ["bim", "clash detection", "tolerance", "reference_table"]
+      "outputs": [
+        {
+          "name": "result",
+          "type": "bool",
+          "unit": ""
+        }
+      ],
+      "references": [
+        "BIM Execution Plan",
+        "ISO 19650"
+      ],
+      "tags": [
+        "bim",
+        "clash detection",
+        "tolerance",
+        "reference_table"
+      ],
+      "note": "Project BIM Execution Plan / vendor clash tolerance — lookup check, not a code derivation"
     },
     {
       "id": "laser_scan_accuracy",
       "name": "Laser Scan Point Spacing",
       "domain": "vdc",
       "kind": "reference_table",
-      "description": "Expected point spacing from vendor angular resolution (lookup estimate). Caveat: scanner-specific.",
-      "formula_expression": "distance * angular_resolution * 1000.0",
+      "description": "Point spacing at range (m * rad → mm)",
+      "formula_expression": "distance * angular_resolution * 1000",
       "inputs": [
-        {"name": "distance", "type": "float", "unit": "m", "required": true},
-        {"name": "angular_resolution", "type": "float", "unit": "rad", "required": true, "default": 0.0003}
+        {
+          "name": "distance",
+          "type": "float",
+          "unit": "m",
+          "required": true
+        },
+        {
+          "name": "angular_resolution",
+          "type": "float",
+          "unit": "rad",
+          "required": true,
+          "default": 0.0003
+        }
       ],
-      "outputs": [{"name": "result", "type": "float", "unit": "mm"}],
-      "references": ["ASPRS", "3D Imaging"],
-      "tags": ["laser scan", "bim", "accuracy", "reference_table"]
+      "outputs": [
+        {
+          "name": "result",
+          "type": "float",
+          "unit": "mm"
+        }
+      ],
+      "references": [
+        "ASPRS",
+        "3D Imaging"
+      ],
+      "tags": [
+        "laser scan",
+        "bim",
+        "accuracy",
+        "reference_table"
+      ],
+      "note": "Scanner datasheet angular resolution — vendor lookup, not a code derivation"
     },
     {
       "id": "prefab_module_weight",
@@ -548,12 +1544,36 @@
       "description": "Estimated weight of prefab module for logistics",
       "formula_expression": "volume * density",
       "inputs": [
-        {"name": "volume", "type": "float", "unit": "m³", "required": true},
-        {"name": "density", "type": "float", "unit": "kg/m³", "required": true, "default": 2500, "description": "Concrete=2400, Steel=7850, Wood=600"}
+        {
+          "name": "volume",
+          "type": "float",
+          "unit": "m³",
+          "required": true
+        },
+        {
+          "name": "density",
+          "type": "float",
+          "unit": "kg/m³",
+          "required": true,
+          "default": 2500,
+          "description": "Concrete=2400, Steel=7850, Wood=600"
+        }
       ],
-      "outputs": [{"name": "result", "type": "float", "unit": "kg"}],
-      "references": ["Modular Construction Guide"],
-      "tags": ["prefab", "module", "logistics"]
+      "outputs": [
+        {
+          "name": "result",
+          "type": "float",
+          "unit": "kg"
+        }
+      ],
+      "references": [
+        "Modular Construction Guide"
+      ],
+      "tags": [
+        "prefab",
+        "module",
+        "logistics"
+      ]
     },
     {
       "id": "carbon_footprint_concrete",
@@ -563,13 +1583,46 @@
       "description": "CO2 estimate from cement content × emission factor (EPD/lookup). Caveat: factors are vendor/region specific.",
       "formula_expression": "volume * cement_content * emission_factor",
       "inputs": [
-        {"name": "volume", "type": "float", "unit": "m³", "required": true},
-        {"name": "cement_content", "type": "float", "unit": "kg/m³", "required": true, "default": 350},
-        {"name": "emission_factor", "type": "float", "unit": "kgCO2/kg cement", "required": true, "default": 0.9}
+        {
+          "name": "volume",
+          "type": "float",
+          "unit": "m³",
+          "required": true
+        },
+        {
+          "name": "cement_content",
+          "type": "float",
+          "unit": "kg/m³",
+          "required": true,
+          "default": 350
+        },
+        {
+          "name": "emission_factor",
+          "type": "float",
+          "unit": "kgCO2/kg cement",
+          "required": true,
+          "default": 0.9
+        }
       ],
-      "outputs": [{"name": "result", "type": "float", "unit": "kgCO2"}],
-      "references": ["EPD", "ISO 14040", "NRMCA"],
-      "tags": ["carbon", "concrete", "sustainability", "reference_table"]
+      "outputs": [
+        {
+          "name": "result",
+          "type": "float",
+          "unit": "kgCO2"
+        }
+      ],
+      "references": [
+        "EPD",
+        "ISO 14040",
+        "NRMCA"
+      ],
+      "tags": [
+        "carbon",
+        "concrete",
+        "sustainability",
+        "reference_table"
+      ],
+      "note": "EPD / regional cement emission factor — cited lookup, not a code derivation"
     },
     {
       "id": "leed_points_estimate",
@@ -579,16 +1632,66 @@
       "description": "Quick sum of category points (planning estimate, not a certification oracle). Caveat: project-specific.",
       "formula_expression": "ss_points + we_points + ea_points + mr_points + iq_points + ip_points",
       "inputs": [
-        {"name": "ss_points", "type": "float", "unit": "", "required": false, "default": 8},
-        {"name": "we_points", "type": "float", "unit": "", "required": false, "default": 6},
-        {"name": "ea_points", "type": "float", "unit": "", "required": false, "default": 12},
-        {"name": "mr_points", "type": "float", "unit": "", "required": false, "default": 6},
-        {"name": "iq_points", "type": "float", "unit": "", "required": false, "default": 8},
-        {"name": "ip_points", "type": "float", "unit": "", "required": false, "default": 4}
+        {
+          "name": "ss_points",
+          "type": "float",
+          "unit": "",
+          "required": false,
+          "default": 8
+        },
+        {
+          "name": "we_points",
+          "type": "float",
+          "unit": "",
+          "required": false,
+          "default": 6
+        },
+        {
+          "name": "ea_points",
+          "type": "float",
+          "unit": "",
+          "required": false,
+          "default": 12
+        },
+        {
+          "name": "mr_points",
+          "type": "float",
+          "unit": "",
+          "required": false,
+          "default": 6
+        },
+        {
+          "name": "iq_points",
+          "type": "float",
+          "unit": "",
+          "required": false,
+          "default": 8
+        },
+        {
+          "name": "ip_points",
+          "type": "float",
+          "unit": "",
+          "required": false,
+          "default": 4
+        }
       ],
-      "outputs": [{"name": "result", "type": "float", "unit": "points"}],
-      "references": ["LEED v4.1 BD+C"],
-      "tags": ["leed", "sustainability", "certification", "reference_table"]
+      "outputs": [
+        {
+          "name": "result",
+          "type": "float",
+          "unit": "points"
+        }
+      ],
+      "references": [
+        "LEED v4.1 BD+C"
+      ],
+      "tags": [
+        "leed",
+        "sustainability",
+        "certification",
+        "reference_table"
+      ],
+      "note": "LEED v4.1 BD+C category point budget estimate — checklist lookup, not a certified score"
     }
   ]
 }

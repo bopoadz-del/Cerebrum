@@ -316,9 +316,44 @@ def require_permission(permission: Permission) -> Callable[[F], F]:
     return rbac.require_permission(permission)
 
 
-def require_role(*roles: Role) -> Callable[[F], F]:
-    """Require role decorator convenience function."""
-    return rbac.require_role(*roles)
+def require_role(*roles: Role):
+    """FastAPI dependency factory for ``Depends(require_role(...))``.
+
+    The RBACManager method remains a decorator; this module-level helper is what
+    admin endpoints actually use with Depends. Missing Bearer credentials yield
+    403 (HTTPBearer), which CI security-tests accept alongside 401.
+    """
+    from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
+    from app.db.session import get_db_session as _get_db
+
+    bearer = HTTPBearer(auto_error=True)
+    allowed = {Role(r) if not isinstance(r, Role) else r for r in roles}
+
+    async def _dependency(
+        credentials: HTTPAuthorizationCredentials = Depends(bearer),
+        db: AsyncSession = Depends(_get_db),
+    ):
+        from app.api.v1.endpoints.auth import get_current_user
+
+        user = await get_current_user(credentials, db)
+        try:
+            user_role = Role(getattr(user, "role", None))
+        except (TypeError, ValueError):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient permissions",
+            )
+        if user_role in allowed:
+            return user
+        if user_role == Role.SUPERADMIN and Role.ADMIN in allowed:
+            return user
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions",
+        )
+
+    return _dependency
 
 
 def check_permission(user_role: str, permission: Permission) -> bool:

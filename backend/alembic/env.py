@@ -23,10 +23,8 @@ from app.db.base_class import Base
 # this is the Alembic Config object
 config = context.config
 
-# Force Alembic to use DATABASE_URL so migrations and app hit the same DB
-_db_url = os.getenv("DATABASE_URL")
-if _db_url:
-    config.set_main_option("sqlalchemy.url", _db_url)
+# Alembic runs synchronously; use the psycopg2-compatible URL from settings.
+config.set_main_option("sqlalchemy.url", settings.sync_database_url)
 
 
 # Interpret the config file for Python logging
@@ -46,8 +44,7 @@ target_metadata = Base.metadata
 
 # Get database URL from settings
 def get_url():
-    # Use the async driver URL so Alembic can run via asyncpg in production
-    return settings.async_database_url
+    return settings.sync_database_url
 
 
 def run_migrations_offline() -> None:
@@ -89,7 +86,7 @@ def do_run_migrations(connection: Connection) -> None:
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode using a SYNC engine (psycopg2)."""
     configuration = config.get_section(config.config_ini_section) or {}
-    configuration["sqlalchemy.url"] = os.getenv("DATABASE_URL") or get_url()
+    configuration["sqlalchemy.url"] = get_url()
 
     connectable = engine_from_config(
         configuration,
